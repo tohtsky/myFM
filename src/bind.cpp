@@ -64,7 +64,12 @@ PYBIND11_MODULE(_myfm, m) {
       .def_readwrite("w", &FM::w)
       .def_readwrite("w0", &FM::w0);
 
-  py::class_<Hyper>(m, "FMHyperParameters");
+  py::class_<Hyper>(m, "FMHyperParameters")
+    .def_readonly("alpha", &Hyper::alpha)
+    .def_readonly("mu_w", &Hyper::mu_w)
+    .def_readonly("lambda_w", &Hyper::lambda_w)
+    .def_readonly("mu_V", &Hyper::mu_V)
+    .def_readonly("lambda_V", &Hyper::lambda_V);
 
   py::class_<FMTrainer>(m, "FMTrainer")
       .def(py::init<const SparseMatrix &, const Vector &, int,
