@@ -6,13 +6,15 @@ from ._myfm import (
     FMTrainer, FM, create_train_fm
 )
 
+
 def elem_wise_square(X):
     X_2 = X.copy()
     if sps.issparse(X_2):
         X_2.data[:] = X_2.data ** 2
     else:
         X_2 = X_2 ** 2
-    return X_2 
+    return X_2
+
 
 class MyFMRegressor(object):
     def __init__(self, rank, init_stdev=0.1, random_seed=42, **learning_configs):
@@ -55,9 +57,10 @@ class MyFMRegressor(object):
         X_2 = elem_wise_square(X)
         predictions = 0
         for fm_sample, hyper_sample in zip(self.fms_, self.hypers_):
-            predictions += self._predict_score_point(fm_sample, hyper_sample, X, X_2)
+            predictions += self._predict_score_point(
+                fm_sample, hyper_sample, X, X_2)
         return predictions / len(self.fms_)
-    
+
     def predict(self, X):
         return self._predict_score_mean(X)
 
@@ -116,7 +119,8 @@ class MyFMRegressor(object):
                 log_str += "w0 = {:.2f} ".format(fm.w0)
 
                 if do_test:
-                    pred_this = self._predict_score_point(fm, hyper, X_test, X_test_2)
+                    pred_this = self._predict_score_point(
+                        fm, hyper, X_test, X_test_2)
                     val_results = self.measure_score(pred_this, y_test)
                     for key, metric in val_results.items():
                         log_str += " {}_this: {:.2f}".format(key, metric)
@@ -155,7 +159,7 @@ class MyFMClassifier(MyFMRegressor):
         return {'ll': ll / prediction.shape[0]}
 
     def predict(self, X):
-        return ( self._predict_score_mean(X) ) > 0.5
+        return (self._predict_score_mean(X)) > 0.5
 
     def predict_proba(self, X):
         return self._predict_score_mean(X)
