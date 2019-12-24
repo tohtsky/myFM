@@ -4,6 +4,7 @@
 #include <cmath>
 #include <memory>
 #include <set>
+#include <tuple>
 #include <string>
 
 #include "FM.hpp"
@@ -67,30 +68,33 @@ template <typename Real> struct FMTrainer {
     return FMHyperParameters<Real>{rank, learning_config.get_n_groups()};
   }
   
-  inline vector<FMType> learn(FMType &fm, HyperType &hyper) {
+  inline pair<vector<FMType>, vector<HyperType>> learn(FMType &fm, HyperType &hyper) {
     return learn_with_callback(fm, hyper, [](int i, const FMType & fm, const HyperType & hyper){
       cout << "iteration = " << i << endl;
       return false; 
     });
   }
 
-  inline vector<FMType> learn_with_callback(FMType &fm, HyperType &hyper, std::function<bool(int, const FMType&, const HyperType&)> cb) {
+  inline pair<vector<FMType>, vector<HyperType>>
+  learn_with_callback(FMType &fm, HyperType &hyper, std::function<bool(int, const FMType&, const HyperType&)> cb) {
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
-    vector<FMType> result;
+    vector<FMType> result_fm;
+    vector<HyperType> result_hyper;
     for (int mcmc_iteration = 0; mcmc_iteration < learning_config.n_iter;
          mcmc_iteration++) {
       mcmc_step(fm, hyper);
       if (learning_config.n_iter <=
           (mcmc_iteration + learning_config.n_kept_samples)) {
-        result.emplace_back(fm);
+        result_fm.emplace_back(fm);
+        result_hyper.emplace_back(hyper);
       }
       bool should_stop = cb(mcmc_iteration, fm, hyper);
       if (should_stop){
         break;
       }
     }
-    return result;
+    return {result_fm, result_hyper};
   }
 
   inline void initialize_hyper(FMType &fm, HyperType &hyper) {

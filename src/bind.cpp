@@ -1,5 +1,6 @@
 #include <random>
 #include <vector>
+#include <tuple>
 
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
@@ -26,7 +27,7 @@ using FMLearningConfig = typename myFM::FMLearningConfig<Real>;
 using Vector = typename FM::Vector;
 using ConfigBuilder = FMLearningConfig::Builder;
 
-std::vector<FM>
+std::pair<std::vector<FM>, std::vector<Hyper>>
 create_train_fm(size_t n_factor, Real init_std, const SparseMatrix &X,
                 const Vector &y, int random_seed, FMLearningConfig &config,
                 std::function<bool(int, const FM &, const Hyper &)> cb) {
