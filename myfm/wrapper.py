@@ -61,7 +61,7 @@ class MyFMRegressor(object):
         return {'rmse': rmse}
 
     def fit(self, X, y, X_test=None, y_test=None, n_iter=100, n_kept_samples=10, group_index=None, callback=None):
-        
+        pbar = None 
         if (X_test is None and y_test is None):
             do_test = False
         elif (X_test is not None and y_test is not None):
@@ -76,6 +76,13 @@ class MyFMRegressor(object):
             self.config_builder.set_indentical_groups(X.shape[1])
 
         self.config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
+
+        X = sps.csr_matrix(X) 
+        if X.dtype != np.float64:
+            X.data = X.data.astype(np.float64)
+        y = self.process_y(y)
+        config = self.config_builder.build()
+
         if callback is None:
             pbar = tqdm(total=n_iter)
             if do_test:
@@ -98,13 +105,12 @@ class MyFMRegressor(object):
                 pbar.set_description(log_str)
                 return False 
 
-        X = sps.csr_matrix(X) 
-        if X.dtype != np.float64:
-            X.data = X.data.astype(np.float64)
-        y = self.process_y(y)
-        config = self.config_builder.build()
-        self.fms_ = create_train_fm(self.rank, self.init_stdev, X, y, self.random_seed, config, callback)
-        return self
+        try:
+            self.fms_ = create_train_fm(self.rank, self.init_stdev, X, y, self.random_seed, config, callback)
+            return self
+        finally:
+            if pbar is not None:
+                pbar.close()
 
 
 class MyFMClassifier(MyFMRegressor):
