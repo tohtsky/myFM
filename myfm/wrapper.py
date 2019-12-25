@@ -1,11 +1,8 @@
 import numpy as np
 from scipy import (special, sparse as sps)
 from tqdm import tqdm
-from ._myfm import (
-    TaskType, FMLearningConfig, ConfigBuilder,
-    FMTrainer, FM, create_train_fm
-)
 
+from . import _myfm as core
 
 def elem_wise_square(X):
     X_2 = X.copy()
@@ -23,7 +20,6 @@ class MyFMRegressor(object):
         self, rank,
         init_stdev=0.1, random_seed=42,
         alpha_0=1.0, beta_0=1.0, gamma_0=1.0, mu_0=0.0, reg_0=1.0,
-        group_index=None
     ):
         self.rank = rank
 
@@ -37,7 +33,6 @@ class MyFMRegressor(object):
 
         self.reg_0 = reg_0
 
-        self.group_index = group_index
         self.fms_ = []
         self.hypers_ = []
 
@@ -50,15 +45,16 @@ class MyFMRegressor(object):
             reg_0=self.reg_0
         )
 
-    def fit(self, X, y, X_test=None, y_test=None, n_iter=100, n_kept_samples=10, group_index=None, callback=None):
-        config_builder = ConfigBuilder()
+    def fit(self, X, y, X_test=None, y_test=None, n_iter=100, n_kept_samples=10, grouping=None, callback=None):
+        config_builder = core.ConfigBuilder()
         for key in ['alpha_0', 'beta_0', 'gamma_0', 'mu_0', 'reg_0']:
             value = getattr(self, key)
             getattr(config_builder, "set_{}".format(key))(value)
-        if self.group_index is None:
+        if grouping is None:
             config_builder.set_indentical_groups(X.shape[1])
         else:
-            config_builder.set_group_index(self.group_index)
+            assert X.shape[1] == len(grouping)
+            config_builder.set_group_index(grouping)
 
         pbar = None
         if (X_test is None and y_test is None):
@@ -66,7 +62,7 @@ class MyFMRegressor(object):
         elif (X_test is not None and y_test is not None):
             do_test = True
         else:
-            raise RuntimeError("Must specify X_test and y_test.")
+            raise RuntimeError("Must specify both X_test and y_test.")
 
         config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
 
@@ -107,7 +103,7 @@ class MyFMRegressor(object):
 
         try:
             self.fms_, self.hypers_ = \
-                create_train_fm(self.rank, self.init_stdev, X,
+                core.create_train_fm(self.rank, self.init_stdev, X,
                                 y, self.random_seed, config, callback)
             return self
         finally:
@@ -116,7 +112,7 @@ class MyFMRegressor(object):
 
     @classmethod
     def set_tasktype(cls, config_builder):
-        config_builder.set_task_type(TaskType.REGRESSION)
+        config_builder.set_task_type(core.TaskType.REGRESSION)
 
     @classmethod
     def _predict_score_point(cls, fm, hyper, X, X_2):
@@ -158,7 +154,7 @@ class MyFMClassifier(MyFMRegressor):
     name = "MyFMClassifier"
     @classmethod
     def set_tasktype(cls, config_builder):
-        config_builder.set_task_type(TaskType.CLASSIFICATION)
+        config_builder.set_task_type(core.TaskType.CLASSIFICATION)
 
     @classmethod
     def process_score(cls, score, hyper):

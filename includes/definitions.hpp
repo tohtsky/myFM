@@ -12,7 +12,6 @@ namespace myFM {
 
 using namespace std;
 
-enum class TASKTYPE { REGRESSION, CLASSIFICATION };
 
 } // namespace myFM
 

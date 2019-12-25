@@ -8,6 +8,10 @@
 
 namespace myFM{
 template <typename Real> struct FMLearningConfig {
+
+  enum class TASKTYPE { REGRESSION, CLASSIFICATION };
+  
+
   inline FMLearningConfig(Real alpha_0, Real beta_0, Real gamma_0, Real mu_0, Real reg_0, TASKTYPE task_type,
                           const vector<size_t> &group_index, int n_iter, int n_kept_samples)
       : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0), reg_0(reg_0), task_type(task_type),

@@ -65,6 +65,18 @@ ext_modules = [
         ],
         language='c++'
     ),
+    Extension(
+        'myfm._myfm_float',
+        ['src/bind_float.cpp'],
+        include_dirs=[
+            # Path to pybind11 headers
+            get_pybind_include(),
+            get_pybind_include(user=True),
+            get_eigen_include(),
+            "includes"
+        ],
+        language='c++'
+    ),
 ]
 
 

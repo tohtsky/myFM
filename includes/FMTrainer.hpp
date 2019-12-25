@@ -22,6 +22,7 @@ template <typename Real> struct FMTrainer {
   typedef typename FMType::SparseMatrix SparseMatrix;
 
   typedef FMLearningConfig<Real> Config;
+  typedef typename Config::TASKTYPE TASKTYPE;
 
   SparseMatrix X;
   SparseMatrix X_t; // transposed
@@ -159,7 +160,7 @@ private:
         Real gt = y(train_case_index);
         Real pred = e_train(train_case_index);
         Real n;
-        Real std = 1 / sqrt(hyper.alpha);
+        Real std = 1;// / sqrt(hyper.alpha);
         Real zero = static_cast<Real>(0);
         if (gt > 0) {
           n = sample_truncated_normal_left(gen_, pred, std, zero);
