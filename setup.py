@@ -5,12 +5,14 @@ import setuptools
 from distutils.command.clean import clean as Clean
 import os
 
-__version__ = '0.1.3'
+__version__ = '0.0.4'
+
 install_requires = ['pybind11>=2.4', 'numpy>=1.11', 'scipy>=1.0', 'tqdm>=4']
 
 eigen_include_dir = os.environ.get('EIGEN3_INCLUDE_DIR', None)
 if eigen_include_dir is None:
     install_requires.append('requests')
+
 
 class get_eigen_include(object):
     EIGEN3_URL = 'http://bitbucket.org/eigen/eigen/get/3.3.7.zip'
@@ -23,7 +25,7 @@ class get_eigen_include(object):
         basedir = os.path.dirname(__file__)
         target_dir = os.path.join(basedir, self.EIGEN3_DIRNAME)
         if os.path.exists(target_dir):
-            return target_dir 
+            return target_dir
 
         download_target_dir = os.path.join(basedir, 'eigen3.zip')
         import requests
@@ -37,6 +39,7 @@ class get_eigen_include(object):
             ifs.extractall()
 
         return target_dir
+
 
 class get_pybind_include(object):
     """Helper class to determine the pybind11 include path
@@ -103,7 +106,8 @@ def cpp_flag(compiler):
     flags = ['-std=c++11']
 
     for flag in flags:
-        if has_flag(compiler, flag): return flag
+        if has_flag(compiler, flag):
+            return flag
 
     raise RuntimeError('Unsupported compiler -- at least C++11 support '
                        'is needed!')
@@ -130,16 +134,19 @@ class BuildExt(build_ext):
         opts = self.c_opts.get(ct, [])
         link_opts = self.l_opts.get(ct, [])
         if ct == 'unix':
-            opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
+            opts.append('-DVERSION_INFO="%s"' %
+                        self.distribution.get_version())
             opts.append(cpp_flag(self.compiler))
             if has_flag(self.compiler, '-fvisibility=hidden'):
                 opts.append('-fvisibility=hidden')
         elif ct == 'msvc':
-            opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
+            opts.append('/DVERSION_INFO=\\"%s\\"' %
+                        self.distribution.get_version())
         for ext in self.extensions:
             ext.extra_compile_args = opts
             ext.extra_link_args = link_opts
         build_ext.build_extensions(self)
+
 
 setup(
     name='myfm',

@@ -14,13 +14,48 @@ def elem_wise_square(X):
 
 
 class MyFMRegressor(object):
-    name = "MyFMRegressor"
 
     def __init__(
         self, rank,
         init_stdev=0.1, random_seed=42,
         alpha_0=1.0, beta_0=1.0, gamma_0=1.0, mu_0=0.0, reg_0=1.0,
     ):
+        """Factorization machine with Gibbs sampling.
+
+        Parameters
+        ----------
+        rank : int
+            The number of factors.
+
+        init_stdev : float, optional (defalult = 0.1)
+            The standard deviation for initialization.
+            The factorization machine weights are randomely sampled from
+            `Normal(0, init_stdev)`.
+        
+        random_seed : integer, optional (default = 0.1)
+            The random seed used inside the whole learning process.
+
+        alpha_0 : float, optional (default = 1.0)
+            The half of alpha parameter for the gamma-distribution
+            prior for alpha, lambda_w and lambda_V.
+            Together with beta_0, the priors for these parameters are
+            alpha, lambda_w, lambda_v ~ Gamma(alpha_0 / 2, beta_0 / 2)
+        
+        beta_0 : float, optioal (default = 1.0)
+            See the explanation for alpha_0 .
+
+        gamma_0: float optional (default = 1.0) 
+            Inverse variance of the prior for mu_w, mu_v.
+            Together with mu_0, the priors for these parameters are 
+            mu_w, mu_v ~ Normal(mu_0, 1 / gamma_0)
+        
+        mu_0:
+            See the explanation for gamma_0.
+        
+        reg_0: 
+            Inverse variance of tthe prior for w0.
+            w0 ~ Normal(0, 1 / reg_0)
+        """
         self.rank = rank
 
         self.init_stdev = init_stdev
@@ -38,7 +73,7 @@ class MyFMRegressor(object):
 
     def __str__(self):
         return "{class_name}(init_stdev={init_stdev}, alpha_0={alpha_0}, beta_0={beta_0}, gamma_0={gamma_0}, mu_0={mu_0}, reg_0={reg_0})".format(
-            class_name=self.name,
+            class_name=self.__class__.__name__,
             init_stdev=self.init_stdev,
             alpha_0=self.alpha_0, beta_0=self.beta_0,
             gamma_0=self.gamma_0, mu_0=self.mu_0,
@@ -93,7 +128,7 @@ class MyFMRegressor(object):
 
                 if do_test:
                     pred_this = self._predict_score_point(
-                        fm, hyper, X_test, X_test_2)
+                        fm, X_test, X_test_2)
                     val_results = self.measure_score(pred_this, y_test)
                     for key, metric in val_results.items():
                         log_str += " {}_this: {:.2f}".format(key, metric)
@@ -115,12 +150,12 @@ class MyFMRegressor(object):
         config_builder.set_task_type(core.TaskType.REGRESSION)
 
     @classmethod
-    def _predict_score_point(cls, fm, hyper, X, X_2):
+    def _predict_score_point(cls, fm, X, X_2):
         sqt = (fm.V ** 2).sum(axis=1)
         pred = ((X.dot(fm.V) ** 2).sum(axis=1) - X_2.dot(sqt)) / 2
         pred += X.dot(fm.w)
         pred += fm.w0
-        return cls.process_score(pred, hyper)
+        return cls.process_score(pred)
 
     def _predict_score_mean(self, X):
         if not self.fms_:
@@ -128,16 +163,15 @@ class MyFMRegressor(object):
         X = sps.csr_matrix(X)
         X_2 = elem_wise_square(X)
         predictions = 0
-        for fm_sample, hyper_sample in zip(self.fms_, self.hypers_):
-            predictions += self._predict_score_point(
-                fm_sample, hyper_sample, X, X_2)
+        for fm_sample in self.fms_:
+            predictions += self._predict_score_point(fm_sample, X, X_2)
         return predictions / len(self.fms_)
 
     def predict(self, X):
         return self._predict_score_mean(X)
 
     @classmethod
-    def process_score(cls, y, hyper):
+    def process_score(cls, y):
         return y
 
     @classmethod
@@ -151,14 +185,13 @@ class MyFMRegressor(object):
 
 
 class MyFMClassifier(MyFMRegressor):
-    name = "MyFMClassifier"
     @classmethod
     def set_tasktype(cls, config_builder):
         config_builder.set_task_type(core.TaskType.CLASSIFICATION)
 
     @classmethod
-    def process_score(cls, score, hyper):
-        return (1 + special.erf(score * np.sqrt(hyper.alpha / 2))) / 2
+    def process_score(cls, score):
+        return (1 + special.erf(score * np.sqrt(.5))) / 2
 
     @classmethod
     def process_y(cls, y):

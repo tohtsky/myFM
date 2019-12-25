@@ -113,8 +113,6 @@ template <typename Real> struct FMTrainer {
     e_train -= y;
   }
 
-  //    sample_second_order(fm, hyper);
-
   inline void mcmc_step(FMType &fm, HyperType &hyper) {
     sample_alpha(fm, hyper);
 
@@ -133,14 +131,6 @@ template <typename Real> struct FMTrainer {
     sample_e(fm, hyper);
   }
 
-  inline void sample_alpha(FMType &fm, HyperType &hyper) {
-    Real e_all = e_train.array().square().sum();
-    Real variance = (learning_config.alpha_0 + e_all) / 2;
-    Real exponent = (learning_config.gamma_0 + X.rows()) / 2;
-    Real new_alpha = gamma_distribution<Real>(exponent, 1 / variance)(gen_);
-    hyper.alpha = new_alpha;
-  }
-
 private:
   // sample from quad x ^2 - 2 * first x + ... = quad (x - first / quad) ^2
   inline Real sample_normal(const Real &quad, const Real &first) {
@@ -148,31 +138,90 @@ private:
            normal_distribution<Real>(0, 1)(gen_) / std::sqrt(quad);
   }
 
-  inline void sample_e(FMType &fm, HyperType &hyper) {
-    e_train = fm.predict_score(X);
+  inline void sample_alpha(FMType &fm, HyperType &hyper) {
+    // If the task is classification, take alpha = 1.
+    if (learning_config.task_type == TASKTYPE::CLASSIFICATION) {
+      hyper.alpha = static_cast<Real>(1); 
+      return;
+    }
+    Real e_all = e_train.array().square().sum();
+    Real exponent = (learning_config.alpha_0 + X.rows()) / 2;
+    Real variance = (learning_config.beta_0 + e_all) / 2; 
+    Real new_alpha = gamma_distribution<Real>(exponent, 1 / variance)(gen_);
+    hyper.alpha = new_alpha;
+  }
 
-    if (learning_config.task_type == TASKTYPE::REGRESSION) {
-      e_train -= y;
-    } else if (learning_config.task_type == TASKTYPE::CLASSIFICATION) {
+  /*
+   The sampling method for both $\lambda _g ^{(w)}$ and $\lambda _{g,r} ^{(v)}$.
+   */
+  inline void sample_lambda_generic(const Vector &mu, Eigen::Ref<Vector> lambda,
+                                    const Vector &weight) {
+    const vector<vector<size_t>> &group_vs_feature_index =
+        learning_config.group_vs_feature_index();
+    size_t group_index = 0;
+    for (const auto &group_feature_indices : group_vs_feature_index) {
+      Real mean = mu(group_index);
+      Real alpha = learning_config.alpha_0 + group_feature_indices.size();
+      Real beta = learning_config.beta_0;
 
-      for (int train_case_index = 0; train_case_index < X.rows();
-           train_case_index++) {
-        Real gt = y(train_case_index);
-        Real pred = e_train(train_case_index);
-        Real n;
-        Real std = 1;// / sqrt(hyper.alpha);
-        Real zero = static_cast<Real>(0);
-        if (gt > 0) {
-          n = sample_truncated_normal_left(gen_, pred, std, zero);
-        } else {
-          n = sample_truncated_normal_right(gen_, pred, std, zero);
-        }
-        // cout << "(" << n << ", " << gt << "),  ";
-        e_train(train_case_index) -= n;
+      for (auto feature_index : group_feature_indices) {
+        auto dev = weight(feature_index) - mean;
+        beta += dev * dev;
       }
-      // cout << endl;
+      Real new_lambda =
+          gamma_distribution<Real>(alpha / 2, 2 / beta)(gen_);
+      lambda(group_index) = new_lambda;
+      group_index++;
     }
   }
+
+  /*
+   The sampling method for both $\mu _g ^{(w)}$ and $\mu _{g,r} ^{(v)}$.
+   */ 
+  inline void sample_mu_generic(Eigen::Ref<Vector> mu, const Vector &lambda,
+                              const Vector &weight) {
+    const vector<vector<size_t>> &group_vs_feature_index =
+        learning_config.group_vs_feature_index();
+    size_t group_index = 0;
+    for (const auto &group_feature_indices : group_vs_feature_index) {
+      size_t n_feature_in_groups = group_feature_indices.size();
+      Real square =
+          lambda(group_index) * (learning_config.gamma_0 + n_feature_in_groups);
+      Real linear = learning_config.gamma_0 * learning_config.mu_0;
+      for (auto &f : group_feature_indices) {
+        linear += weight(f);
+      }
+      linear *= lambda(group_index);
+      Real new_mu = sample_normal(square, linear);
+      mu(group_index) = new_mu;
+      group_index++;
+    }
+  }
+
+  inline void sample_lambda_w(FMType &fm, HyperType &hyper) {
+    sample_lambda_generic(hyper.mu_w, hyper.lambda_w, fm.w);
+  }
+
+  inline void sample_mu_w(FMType &fm, HyperType &hyper) {
+    sample_mu_generic(hyper.mu_w, hyper.lambda_w, fm.w);
+  }
+
+  inline void sample_lambda_V(FMType &fm, HyperType &hyper) {
+    for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
+      sample_lambda_generic(hyper.mu_V.col(factor_index),
+                          hyper.lambda_V.col(factor_index),
+                          fm.V.col(factor_index));
+    }
+  }
+
+  inline void sample_mu_V(FMType &fm, HyperType &hyper) {
+    for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
+      sample_mu_generic(hyper.mu_V.col(factor_index),
+                      hyper.lambda_V.col(factor_index), fm.V.col(factor_index));
+    }
+  }
+
+
 
   inline void sample_w0(FMType &fm, HyperType &hyper) {
     Real w0_lin_term = hyper.alpha * (fm.w0 - e_train.array()).sum();
@@ -197,8 +246,6 @@ private:
       e_train.array() += X_t.row(feature_index) * w_new;
       fm.w(feature_index) = w_new;
     }
-    // cout << "w_after : " << fm.w << endl;
-    // cout << "w: " << endl << fm.w << endl;
   }
 
   inline void sample_V(FMType &fm, HyperType &hyper) {
@@ -242,93 +289,28 @@ private:
     }
   }
 
-  inline void draw_lambda_generic(const Vector &mu, Eigen::Ref<Vector> lambda,
-                                  const Vector &weight) {
-    const vector<vector<size_t>> &group_vs_feature_index =
-        learning_config.group_vs_feature_index();
-    size_t group_index = 0;
-    for (const auto &group_feature_indices : group_vs_feature_index) {
-      Real variance = learning_config.gamma_0;
-      Real mean = mu(group_index);
-      Real exponent = learning_config.alpha_0 + group_feature_indices.size();
-      for (auto feature_index : group_feature_indices) {
-        auto dev = weight(feature_index) - mean;
-        variance += dev * dev;
+  inline void sample_e(FMType &fm, HyperType &hyper) {
+    e_train = fm.predict_score(X);
+
+    if (learning_config.task_type == TASKTYPE::REGRESSION) {
+      e_train -= y;
+    } else if (learning_config.task_type == TASKTYPE::CLASSIFICATION) {
+
+      for (int train_case_index = 0; train_case_index < X.rows();
+           train_case_index++) {
+        Real gt = y(train_case_index);
+        Real pred = e_train(train_case_index);
+        Real n;
+        Real std = 1; // 1/ sqrt(hyper.alpha);
+        Real zero = static_cast<Real>(0);
+        if (gt > 0) {
+          n = sample_truncated_normal_left(gen_, pred, std, zero);
+        } else {
+          n = sample_truncated_normal_right(gen_, pred, std, zero);
+        }
+        e_train(train_case_index) -= n;
       }
-      variance /= 2;
-      Real new_gamma =
-          gamma_distribution<Real>(exponent / 2, 1 / variance)(gen_);
-      lambda(group_index) = new_gamma;
-      // cout  << " variance: " << variance << " exponent: " <<  exponent << "
-      // gamma: " << new_gamma <<endl;
-
-      group_index++;
     }
-  }
-
-  inline void draw_mu_generic(Eigen::Ref<Vector> mu, const Vector &lambda,
-                              const Vector &weight) {
-    // cout << "generic version for mu" << mu << endl;
-    const vector<vector<size_t>> &group_vs_feature_index =
-        learning_config.group_vs_feature_index();
-    size_t group_index = 0;
-    for (const auto &group_feature_indices : group_vs_feature_index) {
-      size_t n_feature_in_groups = group_feature_indices.size();
-      Real square =
-          lambda(group_index) * (learning_config.beta_0 + n_feature_in_groups);
-      Real linear = learning_config.beta_0 * learning_config.mu_0;
-      for (auto &f : group_feature_indices) {
-        linear += weight(f);
-      }
-      linear *= lambda(group_index);
-      Real new_mu = sample_normal(square, linear);
-      mu(group_index) = new_mu;
-      group_index++;
-    }
-  }
-
-  inline void sample_lambda_w(FMType &fm, HyperType &hyper) {
-    draw_lambda_generic(hyper.mu_w, hyper.lambda_w, fm.w);
-  }
-
-  inline void sample_mu_w(FMType &fm, HyperType &hyper) {
-    draw_mu_generic(hyper.mu_w, hyper.lambda_w, fm.w);
-  }
-
-  inline void sample_lambda_V(FMType &fm, HyperType &hyper) {
-    for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
-      draw_lambda_generic(hyper.mu_V.col(factor_index),
-                          hyper.lambda_V.col(factor_index),
-                          fm.V.col(factor_index));
-    }
-    // cout << "generic lambda :" << endl << hyper.lambda_V << endl;
-  }
-
-  inline void sample_mu_V(FMType &fm, HyperType &hyper) {
-    for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
-      draw_mu_generic(hyper.mu_V.col(factor_index),
-                      hyper.lambda_V.col(factor_index), fm.V.col(factor_index));
-    }
-    // cout << "generic mu :" << endl << hyper.mu_V << endl;
-  }
-
-  inline void sample_V_feature(FMType &fm, HyperType &hyper) {
-
-    for (int feature_index = 0; feature_index < fm.w.rows(); feature_index++) {
-      int group = learning_config.group_index()[feature_index];
-      const Real w_old = fm.w(feature_index);
-      e_train.array() -= X_t.row(feature_index) * w_old;
-      Real lambda = hyper.lambda_w(group);
-      Real mu = hyper.mu_w(group);
-      Real square_term =
-          lambda + hyper.alpha * X_t.row(feature_index).cwiseAbs2().sum();
-      Real linear_term =
-          hyper.alpha * X_t.row(feature_index) * e_train + lambda * mu;
-      Real w_new = sample_normal(square_term, linear_term);
-      e_train.array() += X_t.row(feature_index) * w_new;
-      fm.w(feature_index) = w_new;
-    }
-    // cout << "w_after : " << fm.w << endl;
   }
 
   const int random_seed;
