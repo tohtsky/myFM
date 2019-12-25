@@ -1,6 +1,6 @@
 #include <random>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
@@ -25,6 +25,7 @@ using Hyper = myFM::FMHyperParameters<Real>;
 using SparseMatrix = typename FM::SparseMatrix;
 using FMLearningConfig = typename myFM::FMLearningConfig<Real>;
 using Vector = typename FM::Vector;
+using DenseMatrix = typename FM::DenseMatrix;
 using ConfigBuilder = FMLearningConfig::Builder;
 
 std::pair<std::vector<FM>, std::vector<Hyper>>
@@ -61,16 +62,47 @@ PYBIND11_MODULE(_myfm, m) {
       .def("build", &ConfigBuilder::build);
 
   py::class_<FM>(m, "FM")
-      .def_readwrite("V", &FM::V)
+      .def_readwrite("w0", &FM::w0)
       .def_readwrite("w", &FM::w)
-      .def_readwrite("w0", &FM::w0);
+      .def_readwrite("V", &FM::V)
+      .def("__getstate__",
+           [](const FM &fm) {
+             Real w0 = fm.w0;
+             Vector w(fm.w);
+             DenseMatrix V(fm.V);
+             return py::make_tuple(w0, w, V);
+           })
+      .def("__setstate__", [](FM &fm, py::tuple t) {
+        if (t.size() != 3)
+          throw std::runtime_error("invalid state for FM.");
+        // placement new
+        new (&fm) FM(t[0].cast<Real>(), t[1].cast<Vector>(),
+                     t[2].cast<DenseMatrix>());
+      });
 
   py::class_<Hyper>(m, "FMHyperParameters")
-    .def_readonly("alpha", &Hyper::alpha)
-    .def_readonly("mu_w", &Hyper::mu_w)
-    .def_readonly("lambda_w", &Hyper::lambda_w)
-    .def_readonly("mu_V", &Hyper::mu_V)
-    .def_readonly("lambda_V", &Hyper::lambda_V);
+      .def_readonly("alpha", &Hyper::alpha)
+      .def_readonly("mu_w", &Hyper::mu_w)
+      .def_readonly("lambda_w", &Hyper::lambda_w)
+      .def_readonly("mu_V", &Hyper::mu_V)
+      .def_readonly("lambda_V", &Hyper::lambda_V)
+      .def("__getstate__",
+           [](const Hyper &hyper) {
+             Real alpha = hyper.alpha;
+             Vector mu_w(hyper.mu_w);
+             Vector lambda_w(hyper.lambda_V);
+             DenseMatrix mu_V(hyper.mu_w);
+             DenseMatrix lambda_V(hyper.lambda_V);
+             return py::make_tuple(alpha, mu_w, lambda_w, mu_V, lambda_V);
+           })
+      .def("__setstate__", [](Hyper &hyper, py::tuple t) {
+        if (t.size() != 5)
+          throw std::runtime_error("invalid state for FMHyperParameters.");
+        // placement new
+        new (&hyper)
+            Hyper(t[0].cast<Real>(), t[1].cast<Vector>(), t[2].cast<Vector>(),
+                  t[3].cast<DenseMatrix>(), t[4].cast<DenseMatrix>());
+      });
 
   py::class_<FMTrainer>(m, "FMTrainer")
       .def(py::init<const SparseMatrix &, const Vector &, int,

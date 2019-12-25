@@ -17,67 +17,49 @@ def elem_wise_square(X):
 
 
 class MyFMRegressor(object):
-    def __init__(self, rank, init_stdev=0.1, random_seed=42, **learning_configs):
+    name = "MyFMRegressor"
+
+    def __init__(
+        self, rank,
+        init_stdev=0.1, random_seed=42,
+        alpha_0=1.0, beta_0=1.0, gamma_0=1.0, mu_0=0.0, reg_0=1.0,
+        group_index=None
+    ):
         self.rank = rank
+
         self.init_stdev = init_stdev
         self.random_seed = random_seed
-        config_builder = ConfigBuilder()
 
-        self.group_index = None
-        for key, value in learning_configs.items():
-            if key in ['alpha_0', 'beta_0', 'gamma_0', 'mu_0', 'reg_0']:
-                value = learning_configs[key]
-                getattr(config_builder, "set_{}".format(key))(value)
-            elif key == "group_index":
-                self.group_index = learning_configs[key]
-            else:
-                raise RuntimeError(
-                    "Got unknown keyword argument {}.".format(key))
+        self.alpha_0 = alpha_0
+        self.beta_0 = beta_0
+        self.gamma_0 = gamma_0
+        self.mu_0 = mu_0
 
-        self.config_builder = config_builder
-        self.set_tasktype()
+        self.reg_0 = reg_0
+
+        self.group_index = group_index
         self.fms_ = []
         self.hypers_ = []
 
-    def set_tasktype(self):
-        self.config_builder.set_task_type(TaskType.REGRESSION)
-
-    @classmethod
-    def _predict_score_point(cls, fm, hyper, X, X_2):
-        sqt = (fm.V ** 2).sum(axis=1)
-        pred = ((X.dot(fm.V) ** 2).sum(axis=1) - X_2.dot(sqt)) / 2
-        pred += X.dot(fm.w)
-        pred += fm.w0
-        return cls.process_score(pred, hyper)
-
-    def _predict_score_mean(self, X):
-        if not self.fms_:
-            raise RuntimeError("No available sample.")
-        X = sps.csr_matrix(X)
-        X_2 = elem_wise_square(X)
-        predictions = 0
-        for fm_sample, hyper_sample in zip(self.fms_, self.hypers_):
-            predictions += self._predict_score_point(
-                fm_sample, hyper_sample, X, X_2)
-        return predictions / len(self.fms_)
-
-    def predict(self, X):
-        return self._predict_score_mean(X)
-
-    @classmethod
-    def process_score(cls, y, hyper):
-        return y
-
-    @classmethod
-    def process_y(cls, y):
-        return y
-
-    @classmethod
-    def measure_score(cls, prediction, y):
-        rmse = ((y - prediction) ** 2).mean() ** 0.5
-        return {'rmse': rmse}
+    def __str__(self):
+        return "{class_name}(init_stdev={init_stdev}, alpha_0={alpha_0}, beta_0={beta_0}, gamma_0={gamma_0}, mu_0={mu_0}, reg_0={reg_0})".format(
+            class_name=self.name,
+            init_stdev=self.init_stdev,
+            alpha_0=self.alpha_0, beta_0=self.beta_0,
+            gamma_0=self.gamma_0, mu_0=self.mu_0,
+            reg_0=self.reg_0
+        )
 
     def fit(self, X, y, X_test=None, y_test=None, n_iter=100, n_kept_samples=10, group_index=None, callback=None):
+        config_builder = ConfigBuilder()
+        for key in ['alpha_0', 'beta_0', 'gamma_0', 'mu_0', 'reg_0']:
+            value = getattr(self, key)
+            getattr(config_builder, "set_{}".format(key))(value)
+        if self.group_index is None:
+            config_builder.set_indentical_groups(X.shape[1])
+        else:
+            config_builder.set_group_index(self.group_index)
+
         pbar = None
         if (X_test is None and y_test is None):
             do_test = False
@@ -86,20 +68,15 @@ class MyFMRegressor(object):
         else:
             raise RuntimeError("Must specify X_test and y_test.")
 
-        if self.group_index is not None:
-            assert X.shape[1] == len(self.group_index)
-            self.config_builder.set_group_index(self.group_index)
-        else:
-            self.config_builder.set_indentical_groups(X.shape[1])
-
-        self.config_builder.set_n_iter(
-            n_iter).set_n_kept_samples(n_kept_samples)
+        config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
 
         X = sps.csr_matrix(X)
         if X.dtype != np.float64:
             X.data = X.data.astype(np.float64)
         y = self.process_y(y)
-        config = self.config_builder.build()
+        self.set_tasktype(config_builder)
+
+        config = config_builder.build()
 
         if callback is None:
             pbar = tqdm(total=n_iter)
@@ -137,10 +114,51 @@ class MyFMRegressor(object):
             if pbar is not None:
                 pbar.close()
 
+    @classmethod
+    def set_tasktype(cls, config_builder):
+        config_builder.set_task_type(TaskType.REGRESSION)
+
+    @classmethod
+    def _predict_score_point(cls, fm, hyper, X, X_2):
+        sqt = (fm.V ** 2).sum(axis=1)
+        pred = ((X.dot(fm.V) ** 2).sum(axis=1) - X_2.dot(sqt)) / 2
+        pred += X.dot(fm.w)
+        pred += fm.w0
+        return cls.process_score(pred, hyper)
+
+    def _predict_score_mean(self, X):
+        if not self.fms_:
+            raise RuntimeError("No available sample.")
+        X = sps.csr_matrix(X)
+        X_2 = elem_wise_square(X)
+        predictions = 0
+        for fm_sample, hyper_sample in zip(self.fms_, self.hypers_):
+            predictions += self._predict_score_point(
+                fm_sample, hyper_sample, X, X_2)
+        return predictions / len(self.fms_)
+
+    def predict(self, X):
+        return self._predict_score_mean(X)
+
+    @classmethod
+    def process_score(cls, y, hyper):
+        return y
+
+    @classmethod
+    def process_y(cls, y):
+        return y
+
+    @classmethod
+    def measure_score(cls, prediction, y):
+        rmse = ((y - prediction) ** 2).mean() ** 0.5
+        return {'rmse': rmse}
+
 
 class MyFMClassifier(MyFMRegressor):
-    def set_tasktype(self):
-        self.config_builder.set_task_type(TaskType.CLASSIFICATION)
+    name = "MyFMClassifier"
+    @classmethod
+    def set_tasktype(cls, config_builder):
+        config_builder.set_task_type(TaskType.CLASSIFICATION)
 
     @classmethod
     def process_score(cls, score, hyper):

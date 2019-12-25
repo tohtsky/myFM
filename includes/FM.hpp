@@ -22,12 +22,18 @@ template <typename Real> struct FM {
   inline FM(int n_factors) : FM(n_factors, 1) {}
 
   inline FM(const FM &other)
-      : n_factors(other.n_factors), V(other.V), w(other.w), w0(other.w0), initialized(other.initialized) {}
+      : n_factors(other.n_factors), w0(other.w0), w(other.w), V(other.V),
+        initialized(other.initialized) {}
+
+  inline FM(Real w0, const Vector &w, const DenseMatrix &V)
+      : n_factors(V.cols()), w0(w0), w(w), V(V), initialized(true) {}
 
   inline void initialize_weight(int n_features, Real init_std, mt19937 &gen) {
     initialized = false;
-    auto get_rand = [&gen, init_std, this](Real dummy) {
-      return this->nd(gen) * init_std;
+    normal_distribution<Real> nd;
+
+    auto get_rand = [&gen, &nd, init_std, this](Real dummy) {
+      return nd(gen) * init_std;
     };
     V = DenseMatrix{n_features, n_factors}.unaryExpr(get_rand);
     w = Vector{n_features}.unaryExpr(get_rand);
@@ -53,10 +59,9 @@ template <typename Real> struct FM {
   }
 
   const int n_factors;
-  DenseMatrix V; // (n_feature, n_factor) - matrix
-  Vector w;
   Real w0;
-  normal_distribution<Real> nd;
+  Vector w;
+  DenseMatrix V; // (n_feature, n_factor) - matrix
 
 private:
   bool initialized;
