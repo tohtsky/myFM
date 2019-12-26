@@ -4,4 +4,3 @@ PYBIND11_MODULE(_myfm, m) {
   declare_functional<double>(m); 
 }
 
-
