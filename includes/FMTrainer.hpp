@@ -68,7 +68,7 @@ template <typename Real> struct FMTrainer {
   inline FMHyperParameters<Real> create_Hyper(size_t rank) {
     return FMHyperParameters<Real>{rank, learning_config.get_n_groups()};
   }
-  
+
   inline pair<vector<FMType>, vector<HyperType>> learn(FMType &fm, HyperType &hyper) {
     return learn_with_callback(fm, hyper, [](int i, const FMType & fm, const HyperType & hyper){
       cout << "iteration = " << i << endl;
@@ -76,6 +76,9 @@ template <typename Real> struct FMTrainer {
     });
   }
 
+  /**
+   *  Main routine for Gibbs sampling.
+   */
   inline pair<vector<FMType>, vector<HyperType>>
   learn_with_callback(FMType &fm, HyperType &hyper, std::function<bool(int, const FMType&, const HyperType&)> cb) {
     initialize_hyper(fm, hyper);
@@ -88,8 +91,10 @@ template <typename Real> struct FMTrainer {
       if (learning_config.n_iter <=
           (mcmc_iteration + learning_config.n_kept_samples)) {
         result_fm.emplace_back(fm);
-        result_hyper.emplace_back(hyper);
       }
+      // for tracing
+      result_hyper.emplace_back(hyper);
+
       bool should_stop = cb(mcmc_iteration, fm, hyper);
       if (should_stop){
         break;

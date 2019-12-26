@@ -31,7 +31,7 @@ class MyFMRegressor(object):
             The standard deviation for initialization.
             The factorization machine weights are randomely sampled from
             `Normal(0, init_stdev)`.
-        
+
         random_seed : integer, optional (default = 0.1)
             The random seed used inside the whole learning process.
 
@@ -40,19 +40,19 @@ class MyFMRegressor(object):
             prior for alpha, lambda_w and lambda_V.
             Together with beta_0, the priors for these parameters are
             alpha, lambda_w, lambda_v ~ Gamma(alpha_0 / 2, beta_0 / 2)
-        
+
         beta_0 : float, optioal (default = 1.0)
             See the explanation for alpha_0 .
 
-        gamma_0: float optional (default = 1.0) 
+        gamma_0: float optional (default = 1.0)
             Inverse variance of the prior for mu_w, mu_v.
-            Together with mu_0, the priors for these parameters are 
+            Together with mu_0, the priors for these parameters are
             mu_w, mu_v ~ Normal(mu_0, 1 / gamma_0)
-        
+
         mu_0:
             See the explanation for gamma_0.
-        
-        reg_0: 
+
+        reg_0:
             Inverse variance of tthe prior for w0.
             w0 ~ Normal(0, 1 / reg_0)
         """
@@ -71,6 +71,8 @@ class MyFMRegressor(object):
         self.fms_ = []
         self.hypers_ = []
 
+        self.n_groups_ = None
+
     def __str__(self):
         return "{class_name}(init_stdev={init_stdev}, alpha_0={alpha_0}, beta_0={beta_0}, gamma_0={gamma_0}, mu_0={mu_0}, reg_0={reg_0})".format(
             class_name=self.__class__.__name__,
@@ -80,21 +82,60 @@ class MyFMRegressor(object):
             reg_0=self.reg_0
         )
 
-    def fit(self, X, y, X_test=None, y_test=None, n_iter=100, n_kept_samples=10, grouping=None, callback=None):
+    def fit(self, X, y, X_test=None, y_test=None,
+            n_iter=100, n_kept_samples=None, grouping=None, callback=None):
+        """Performs Gibbs sampling to fit the data.
+        Parameters
+        ----------
+        X : 2D array-like.
+            Explanation variable.
+
+        y : 1D array-like.
+            Target variable.
+
+        n_iter : int, optional (defalult = 100)
+            Iterations to perform.
+
+        n_kept_samples: int, optional (default = None)
+            The number of samples to store.
+            If `None`, the value is set to `n_iter` - 5.
+
+        grouping: Integer array, optional (default = None)
+            If not `None`, this specifies which column of X belongs to which group.
+            That is, if grouping[i] is g, then, w_i and V_{i, r}
+            will be distributed according to
+            Normal(mu_w[g], lambda_w[g]) and Normal(mu_V[g, r], lambda_V[g,r]),
+            respectively.
+            If `None`, all the columns of X are assumed to belong to a single group 0.
+
+        callback: function(int, fm, hyper) -> bool, optional(default = None)
+            Called at the every end of each iteration.
+        """
+
+        assert X.shape[0] == y.shape[0]
+        if n_kept_samples is None:
+            n_kept_samples = n_iter - 10
+        else:
+            assert n_iter >= n_kept_samples
+
         config_builder = core.ConfigBuilder()
+
         for key in ['alpha_0', 'beta_0', 'gamma_0', 'mu_0', 'reg_0']:
             value = getattr(self, key)
             getattr(config_builder, "set_{}".format(key))(value)
         if grouping is None:
+            self.n_groups_ = 1
             config_builder.set_indentical_groups(X.shape[1])
         else:
             assert X.shape[1] == len(grouping)
+            self.n_groups_ = np.unique(grouping).shape[0]
             config_builder.set_group_index(grouping)
 
         pbar = None
         if (X_test is None and y_test is None):
             do_test = False
         elif (X_test is not None and y_test is not None):
+            assert X_test.shape[0] == y_test.shape[0]
             do_test = True
         else:
             raise RuntimeError("Must specify both X_test and y_test.")
@@ -139,7 +180,7 @@ class MyFMRegressor(object):
         try:
             self.fms_, self.hypers_ = \
                 core.create_train_fm(self.rank, self.init_stdev, X,
-                                y, self.random_seed, config, callback)
+                                     y, self.random_seed, config, callback)
             return self
         finally:
             if pbar is not None:
@@ -182,6 +223,34 @@ class MyFMRegressor(object):
     def measure_score(cls, prediction, y):
         rmse = ((y - prediction) ** 2).mean() ** 0.5
         return {'rmse': rmse}
+
+    def get_hyper_trace(self, dataframe=True):
+        if dataframe:
+            import pandas as pd
+        columns = (
+                [ 'alpha' ] +
+                [ 'mu_w[{}]'.format(g) for g in range(self.n_groups_) ] +
+                [ 'lambda_w[{}]'.format(g) for g in range(self.n_groups_) ] +
+                [ 'mu_V[{},{}]'.format(g, r) for g in range(self.n_groups_) for r in range(self.rank)] +
+                [ 'lambda_V[{},{}]'.format(g,r) for g in range(self.n_groups_) for r in range(self.rank)]
+        )
+
+        res = []
+        for hyper in self.hypers_:
+            res.append(np.concatenate([
+                [hyper.alpha], hyper.mu_w, hyper.lambda_w,
+                hyper.mu_V.ravel(), hyper.lambda_V.ravel()
+            ]))
+        res = np.vstack(res)
+        if dataframe:
+            res = pd.DataFrame(res)
+            res.columns = columns
+            return res
+        else:
+            return [
+                {key: sample[i] for i, key in enumerate(columns) }
+                for sample in res
+            ]
 
 
 class MyFMClassifier(MyFMRegressor):

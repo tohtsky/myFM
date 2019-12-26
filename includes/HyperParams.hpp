@@ -34,7 +34,7 @@ template <typename Real> struct FMHyperParameters {
 
   inline FMHyperParameters(const FMHyperParameters &other)
       : alpha(other.alpha), mu_w(other.mu_w), lambda_w(other.lambda_w),
-        mu_V(other.mu_w), lambda_V(other.lambda_V) {}
+        mu_V(other.mu_V), lambda_V(other.lambda_V) {}
 };
 
 } // namespace myFM
