@@ -27,13 +27,13 @@ EIGEN3_INCLUDE_DIR=/path/to/eigen pip install git+https://github.com/tohtsky/myF
   - faster (at least in my environment)
   - availability from Python
 - cons:
-  - lacks some functionality, especially relational data (TODO)
+  - lacks some functionality, especially relational data (important TODO)
   - lacks other algorithms like SGD
 
 ## with [fastFM](https://github.com/ibayer/fastFM) : 
 - pros:
   - faster (I'm not sure if I have configured the build for fastFM in an optimal way, though)
-  - support grouping (i.e., assume different std or mean for subsets of features)
+  - support grouping of weights (i.e., assume different std or mean for subsets of features)
 - cons:
   - lacks other algorithms like SGD
 
@@ -70,7 +70,7 @@ This example will require `pandas` and `scikit-learn`.
 
 `movielens100k_loader` is defined in `examples/movielens100k_loader.py`.
 
-See `examples/ml-100k.ipynb` for detailed version.
+See `examples/ml-100k.ipynb` for the detailed version.
 ```Python
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
