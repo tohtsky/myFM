@@ -286,7 +286,7 @@ private:
         fm.V(feature_index, factor_index) = v_new;
         for (itertype it(X_t, feature_index); it; ++it) {
           auto train_data_index = it.col();
-          auto h = it.value() * (cache(train_data_index) - v_old);
+          auto h = it.value() * (cache(train_data_index) - it.value() * v_old);
           cache(train_data_index) += it.value() * (v_new - v_old);
           e_train(train_data_index) += h * (v_new - v_old);
         }
