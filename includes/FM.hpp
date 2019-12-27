@@ -17,6 +17,8 @@ template <typename Real> struct FM {
 
   using SparseVector = Eigen::SparseVector<Real>;
 
+  typedef relational::RelationBlock<Real> RelationBlock;
+
   inline FM(int n_factors, size_t n_groups)
       : n_factors(n_factors), initialized(false) {}
   inline FM(int n_factors) : FM(n_factors, 1) {}
@@ -49,6 +51,7 @@ template <typename Real> struct FM {
     if (!initialized) {
       throw std::runtime_error("get_score called before initialization");
     }
+
     // Vector result = Vector::Constant(X.rows(), w0_);
     Vector result = w0 + (X * w).array();
     result.array() += (X * V).array().square().rowwise().sum() * 0.5;
@@ -57,6 +60,37 @@ template <typename Real> struct FM {
 
     return result;
   }
+
+  inline Vector predict_score(
+    const SparseMatrix &X, const vector<RelationBlock> & relations
+  ) const {
+    // cout << __LINE__ << " X_cols = " <<  X.cols() << endl;
+    // cout << __LINE__ << " w_rows = " <<  w.rows() << endl;
+
+    if (!initialized) {
+      throw std::runtime_error("get_score called before initialization");
+    }
+    // Vector result = Vector::Constant(X.rows(), w0_);
+    Vector result = w0 + (X * w.head(X.cols())).array();
+    size_t offset = X.cols();
+    for (auto iter=relations.begin(); iter != relations.end(); iter++) { 
+      Vector w0_cache = (iter->X) * w.segment(offset, iter->feature_size);
+      size_t j = 0;
+      for (auto i : (iter->original_to_block)) {
+        result(j++) += w0_cache(i);
+      }
+      offset += iter->feature_size;
+    }
+    // cout << __LINE__ << ": result.size() = " << result.size() << endl;
+    return result;
+
+    result.array() += (X * V).array().square().rowwise().sum() * 0.5;
+    result -=
+        (X.cwiseAbs2()) * ((0.5 * V.array().square().rowwise().sum()).matrix());
+
+    return result;
+  }
+
 
   const int n_factors;
   Real w0;

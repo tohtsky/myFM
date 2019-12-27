@@ -4,6 +4,7 @@ from tqdm import tqdm
 
 from . import _myfm as core
 
+
 def elem_wise_square(X):
     X_2 = X.copy()
     if sps.issparse(X_2):
@@ -12,6 +13,7 @@ def elem_wise_square(X):
         X_2 = X_2 ** 2
     return X_2
 
+REAL = np.float64 
 
 class MyFMRegressor(object):
 
@@ -82,7 +84,7 @@ class MyFMRegressor(object):
             reg_0=self.reg_0
         )
 
-    def fit(self, X, y, X_test=None, y_test=None,
+    def fit(self, X, y, X_test=None, X_rel=[], y_test=None,
             n_iter=100, n_kept_samples=None, grouping=None, callback=None):
         """Performs Gibbs sampling to fit the data.
         Parameters
@@ -111,8 +113,29 @@ class MyFMRegressor(object):
         callback: function(int, fm, hyper) -> bool, optional(default = None)
             Called at the every end of each iteration.
         """
+        if X_rel:
+            shape_rel_all = {
+                rel.mapper_size for rel in X_rel
+            }
+            if len(shape_rel_all) > 1:
+                raise RuntimeError('At lease X or X_rel must be provided.')
+            X_rel_shape = list(shape_rel_all)[0]
+        else:
+            X_rel_shape = None
+            
+        if X is None:
+            if not X_rel:
+                raise RuntimeError('At lease X or X_rel must be provided.')
+            X = sps.csr_matrix((X_rel_shape, 0), dtype=REAL)
+        else:
+            if X_rel_shape is not None:
+                if X.shape[0] != X_rel_shape:
+                    raise RuntimeError('X and X_rel have different shape.')
+            
 
         assert X.shape[0] == y.shape[0]
+        dim_all = X.shape[1] + sum([rel.feature_size for rel in X_rel])
+
         if n_kept_samples is None:
             n_kept_samples = n_iter - 10
         else:
@@ -125,7 +148,7 @@ class MyFMRegressor(object):
             getattr(config_builder, "set_{}".format(key))(value)
         if grouping is None:
             self.n_groups_ = 1
-            config_builder.set_indentical_groups(X.shape[1])
+            config_builder.set_indentical_groups(dim_all)
         else:
             assert X.shape[1] == len(grouping)
             self.n_groups_ = np.unique(grouping).shape[0]
@@ -179,7 +202,7 @@ class MyFMRegressor(object):
 
         try:
             self.fms_, self.hypers_ = \
-                core.create_train_fm(self.rank, self.init_stdev, X,
+                core.create_train_fm(self.rank, self.init_stdev, X, X_rel,
                                      y, self.random_seed, config, callback)
             return self
         finally:
@@ -228,11 +251,12 @@ class MyFMRegressor(object):
         if dataframe:
             import pandas as pd
         columns = (
-                [ 'alpha' ] +
-                [ 'mu_w[{}]'.format(g) for g in range(self.n_groups_) ] +
-                [ 'lambda_w[{}]'.format(g) for g in range(self.n_groups_) ] +
-                [ 'mu_V[{},{}]'.format(g, r) for g in range(self.n_groups_) for r in range(self.rank)] +
-                [ 'lambda_V[{},{}]'.format(g,r) for g in range(self.n_groups_) for r in range(self.rank)]
+            ['alpha'] +
+            ['mu_w[{}]'.format(g) for g in range(self.n_groups_)] +
+            ['lambda_w[{}]'.format(g) for g in range(self.n_groups_)] +
+            ['mu_V[{},{}]'.format(g, r) for g in range(self.n_groups_) for r in range(self.rank)] +
+            ['lambda_V[{},{}]'.format(g, r) for g in range(
+                self.n_groups_) for r in range(self.rank)]
         )
 
         res = []
@@ -248,7 +272,7 @@ class MyFMRegressor(object):
             return res
         else:
             return [
-                {key: sample[i] for i, key in enumerate(columns) }
+                {key: sample[i] for i, key in enumerate(columns)}
                 for sample in res
             ]
 

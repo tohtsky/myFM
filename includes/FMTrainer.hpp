@@ -4,14 +4,16 @@
 #include <cmath>
 #include <memory>
 #include <set>
-#include <tuple>
 #include <string>
+#include <tuple>
 
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
 #include "HyperParams.hpp"
+#include "definitions.hpp"
 #include "util.hpp"
 namespace myFM {
+
 
 template <typename Real> struct FMTrainer {
 
@@ -21,11 +23,17 @@ template <typename Real> struct FMTrainer {
   typedef typename FMType::DenseMatrix DenseMatrix;
   typedef typename FMType::SparseMatrix SparseMatrix;
 
+  typedef relational::RelationBlock<Real> RelationBlock;
+  typedef relational::RelationWiseCache<Real> RelationWiseCache;
+
   typedef FMLearningConfig<Real> Config;
   typedef typename Config::TASKTYPE TASKTYPE;
 
   SparseMatrix X;
+  vector<RelationBlock> relations;
   SparseMatrix X_t; // transposed
+
+  size_t dim_all;
 
   const Vector y;
 
@@ -34,19 +42,25 @@ template <typename Real> struct FMTrainer {
   Vector e_train;
   Vector q_train;
 
+  vector<RelationWiseCache> relation_caches;
+
   const Config learning_config;
 
   size_t n_nan_occured = 0;
 
-  inline FMTrainer(const SparseMatrix &X, const Vector &y, int random_seed)
-      : FMTrainer(X, y, random_seed,
-                  Config::Builder::get_default_config(X.cols())) {}
 
-  inline FMTrainer(const SparseMatrix &X, const Vector &y, int random_seed,
-                   Config learning_config)
-      : X(X), X_t(X.transpose()), y(y), n_train(X.rows()), e_train(X.rows()),
-        q_train(X.rows()), learning_config(learning_config),
+  inline FMTrainer(const SparseMatrix &X, const vector<RelationBlock> & relations,
+                   const Vector &y, int random_seed, Config learning_config)
+      : X(X), relations(relations), X_t(X.transpose()), dim_all(X.cols()),
+        y(y), n_train(X.rows()),
+        e_train(X.rows()), q_train(X.rows()), relation_caches(), learning_config(learning_config),
         random_seed(random_seed), gen_(random_seed) {
+    for (auto it = relations.begin(); it != relations.end(); it++) {
+      dim_all += it->X.cols();
+      //cout << "dim_all " << dim_all << endl;
+      relation_caches.emplace_back(*it);
+    }
+    //cout << " dim_all = " << dim_all << endl; 
     if (X.rows() != y.rows()) {
       throw std::runtime_error(StringBuilder{}
                                    .add("Shape mismatch: X has size")
@@ -61,7 +75,10 @@ template <typename Real> struct FMTrainer {
 
   inline FMType create_FM(int rank, Real init_std) {
     FMType fm(rank);
-    fm.initialize_weight(X.cols(), init_std, gen_);
+    fm.initialize_weight(dim_all, init_std, gen_);
+
+    cout << " initialized fm with dim_all = " << dim_all << endl; 
+
     return fm;
   }
 
@@ -69,24 +86,32 @@ template <typename Real> struct FMTrainer {
     return FMHyperParameters<Real>{rank, learning_config.get_n_groups()};
   }
 
-  inline pair<vector<FMType>, vector<HyperType>> learn(FMType &fm, HyperType &hyper) {
-    return learn_with_callback(fm, hyper, [](int i, const FMType & fm, const HyperType & hyper){
-      cout << "iteration = " << i << endl;
-      return false; 
-    });
+  inline pair<vector<FMType>, vector<HyperType>> learn(FMType &fm,
+                                                       HyperType &hyper) {
+    return learn_with_callback(
+        fm, hyper, [](int i, const FMType &fm, const HyperType &hyper) {
+          cout << "iteration = " << i << endl;
+          return false;
+        });
   }
 
   /**
    *  Main routine for Gibbs sampling.
    */
-  inline pair<vector<FMType>, vector<HyperType>>
-  learn_with_callback(FMType &fm, HyperType &hyper, std::function<bool(int, const FMType&, const HyperType&)> cb) {
+  inline pair<vector<FMType>, vector<HyperType>> learn_with_callback(
+      FMType &fm, HyperType &hyper,
+      std::function<bool(int, const FMType &, const HyperType &)> cb) {
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
+    cout << e_train.array().square().sum() << endl; 
+    cout << "initialize_e done." << endl;
+    // cout << __LINE__ << " group size is " << learning_config.group_index().size() << endl;
+
     vector<FMType> result_fm;
     vector<HyperType> result_hyper;
     for (int mcmc_iteration = 0; mcmc_iteration < learning_config.n_iter;
          mcmc_iteration++) {
+      // cout << __LINE__ << ": mcmc step = " << mcmc_iteration << endl;
       mcmc_step(fm, hyper);
       if (learning_config.n_iter <=
           (mcmc_iteration + learning_config.n_kept_samples)) {
@@ -96,7 +121,7 @@ template <typename Real> struct FMTrainer {
       result_hyper.emplace_back(hyper);
 
       bool should_stop = cb(mcmc_iteration, fm, hyper);
-      if (should_stop){
+      if (should_stop) {
         break;
       }
     }
@@ -114,19 +139,26 @@ template <typename Real> struct FMTrainer {
   }
 
   inline void initialize_e(const FMType &fm, const HyperType &h) {
-    e_train = fm.predict_score(X);
+    e_train = fm.predict_score(X, relations);
     e_train -= y;
   }
 
   inline void mcmc_step(FMType &fm, HyperType &hyper) {
     sample_alpha(fm, hyper);
+    // cout << __LINE__ << ": sample_alpha done."  << endl;
 
     sample_w0(fm, hyper);
 
+    // cout << __LINE__ << ": sample_w0 done."  << endl;
+
     sample_lambda_w(fm, hyper);
+    // cout << __LINE__ << ": sample_lambda_w done."  << endl;
+
     sample_mu_w(fm, hyper);
+    //cout << __LINE__ << ": sample_mu_w done."  << endl;
 
     sample_w(fm, hyper);
+    // cout << __LINE__ << ": sample_w done."  << endl;
 
     sample_lambda_V(fm, hyper);
     sample_mu_V(fm, hyper);
@@ -146,12 +178,12 @@ private:
   inline void sample_alpha(FMType &fm, HyperType &hyper) {
     // If the task is classification, take alpha = 1.
     if (learning_config.task_type == TASKTYPE::CLASSIFICATION) {
-      hyper.alpha = static_cast<Real>(1); 
+      hyper.alpha = static_cast<Real>(1);
       return;
     }
     Real e_all = e_train.array().square().sum();
     Real exponent = (learning_config.alpha_0 + X.rows()) / 2;
-    Real variance = (learning_config.beta_0 + e_all) / 2; 
+    Real variance = (learning_config.beta_0 + e_all) / 2;
     Real new_alpha = gamma_distribution<Real>(exponent, 1 / variance)(gen_);
     hyper.alpha = new_alpha;
   }
@@ -173,8 +205,7 @@ private:
         auto dev = weight(feature_index) - mean;
         beta += dev * dev;
       }
-      Real new_lambda =
-          gamma_distribution<Real>(alpha / 2, 2 / beta)(gen_);
+      Real new_lambda = gamma_distribution<Real>(alpha / 2, 2 / beta)(gen_);
       lambda(group_index) = new_lambda;
       group_index++;
     }
@@ -182,9 +213,9 @@ private:
 
   /*
    The sampling method for both $\mu _g ^{(w)}$ and $\mu _{g,r} ^{(v)}$.
-   */ 
+   */
   inline void sample_mu_generic(Eigen::Ref<Vector> mu, const Vector &lambda,
-                              const Vector &weight) {
+                                const Vector &weight) {
     const vector<vector<size_t>> &group_vs_feature_index =
         learning_config.group_vs_feature_index();
     size_t group_index = 0;
@@ -214,19 +245,18 @@ private:
   inline void sample_lambda_V(FMType &fm, HyperType &hyper) {
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
       sample_lambda_generic(hyper.mu_V.col(factor_index),
-                          hyper.lambda_V.col(factor_index),
-                          fm.V.col(factor_index));
+                            hyper.lambda_V.col(factor_index),
+                            fm.V.col(factor_index));
     }
   }
 
   inline void sample_mu_V(FMType &fm, HyperType &hyper) {
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
       sample_mu_generic(hyper.mu_V.col(factor_index),
-                      hyper.lambda_V.col(factor_index), fm.V.col(factor_index));
+                        hyper.lambda_V.col(factor_index),
+                        fm.V.col(factor_index));
     }
   }
-
-
 
   inline void sample_w0(FMType &fm, HyperType &hyper) {
     Real w0_lin_term = hyper.alpha * (fm.w0 - e_train.array()).sum();
@@ -237,8 +267,12 @@ private:
   }
 
   inline void sample_w(FMType &fm, HyperType &hyper) {
-    for (int feature_index = 0; feature_index < fm.w.rows(); feature_index++) {
+    // main table
+     //cout << __LINE__ << ": relations.size()" << relations.size() <<endl; 
+    for (int feature_index = 0; feature_index < X.cols(); feature_index++) {
+//      cout << __LINE__ << ": feature_index = " << feature_index <<endl;
       int group = learning_config.group_index()[feature_index];
+
       const Real w_old = fm.w(feature_index);
       e_train.array() -= X_t.row(feature_index) * w_old;
       Real lambda = hyper.lambda_w(group);
@@ -247,9 +281,52 @@ private:
           lambda + hyper.alpha * X_t.row(feature_index).cwiseAbs2().sum();
       Real linear_term =
           -hyper.alpha * X_t.row(feature_index) * e_train + lambda * mu;
+
       Real w_new = sample_normal(square_term, linear_term);
       e_train.array() += X_t.row(feature_index) * w_new;
       fm.w(feature_index) = w_new;
+    }
+
+    // relational blocks
+    size_t offset = X.cols();
+    for(size_t relation_index = 0; relation_index < relations.size(); relation_index++){
+      RelationBlock & relation_data = relations[relation_index];
+      RelationWiseCache & relation_cache = relation_caches[relation_index]; 
+      relation_cache.e.array() = 0;
+      relation_data.q.array() = 0;
+      // cout << __LINE__ << ": e.rows() = "  << relation_cache.e.rows() << " q.rows()" << relation_data.q.rows() << endl;
+
+      size_t train_case_index = 0;
+      relation_data.q = relation_data.X * fm.w.segment(offset, relation_data.feature_size);
+      for(auto i : relation_data.original_to_block){ 
+        relation_cache.e(i) += e_train(train_case_index); 
+        e_train(train_case_index++) -= relation_data.q(i); // unsync
+      }
+      for(size_t inner_feature_index = 0; inner_feature_index < relation_data.feature_size; inner_feature_index++){
+        int group = learning_config.group_index()[offset + inner_feature_index]; 
+        const Real w_old = fm.w(offset+inner_feature_index);
+        Real lambda = hyper.lambda_w(group);
+        Real mu = hyper.mu_w(group);
+
+        Real square_term = relation_cache.X_t.row(inner_feature_index).cwiseAbs2() * relation_cache.cardinarity;
+        Real linear_term = - relation_cache.X_t.row(inner_feature_index) * relation_cache.e;
+
+        linear_term += square_term * w_old; 
+
+        square_term = lambda + hyper.alpha * square_term;
+        linear_term = hyper.alpha * linear_term + lambda * mu;
+
+        Real w_new = sample_normal(square_term, linear_term);
+        fm.w(offset+inner_feature_index) = w_new;
+        relation_cache.e += relation_cache.X_t.row(inner_feature_index).transpose().cwiseProduct(relation_cache.cardinarity) * (w_new - w_old);
+      }
+
+      relation_data.q = relation_data.X * fm.w.segment(offset, relation_data.feature_size);
+      train_case_index = 0;
+      for(auto i : relation_data.original_to_block){ 
+        e_train(train_case_index++) += relation_data.q(i); // unsync
+      }
+      offset += relation_data.feature_size;
     }
   }
 
@@ -295,7 +372,7 @@ private:
   }
 
   inline void sample_e(FMType &fm, HyperType &hyper) {
-    e_train = fm.predict_score(X);
+    e_train = fm.predict_score(X, relations);
 
     if (learning_config.task_type == TASKTYPE::REGRESSION) {
       e_train -= y;

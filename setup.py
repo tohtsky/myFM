@@ -1,3 +1,7 @@
+# Taken from
+# https://github.com/wichert/pybind11-example/blob/master/setup.py  
+# and modified.
+
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
@@ -30,10 +34,12 @@ class get_eigen_include(object):
         download_target_dir = os.path.join(basedir, 'eigen3.zip')
         import requests
         import zipfile
+        print('Start downloading Eigen library from {}.'.format(self.EIGEN3_DIRNAME))
         response = requests.get(self.EIGEN3_URL, stream=True)
         with open(download_target_dir, 'wb') as ofs:
             for chunk in response.iter_content(chunk_size=1024):
                 ofs.write(chunk)
+        print('Downloaded Eigen into {}.'.format(download_target_dir))
 
         with zipfile.ZipFile(download_target_dir) as ifs:
             ifs.extractall()

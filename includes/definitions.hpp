@@ -15,48 +15,60 @@ using namespace std;
 
 namespace relational {
 
-template<typename Real>
+template <typename Real>
+struct RelationBlock {
+  typedef Eigen::SparseMatrix<Real, Eigen::RowMajor> SparseMatrix;
+  typedef Eigen::Matrix<Real, -1, 1> Vector;
 
-
-  struct RelationBlock {
-    typedef SparseMatrix<Real, Eigen::RowMajor> SparseMatrix;
-
-    inline RelationBlock(vector<size_t> original_to_block, const SparseMatrix & X)
-      : original_to_block(original_to_block), X(X)
-    {
-      for (auto c : original_to_block) {
-        if ( c >= X.rows() )
-          throw runtime_error("index mapping points to non-existing row.");
-      }
+  inline RelationBlock(vector<size_t> original_to_block, const SparseMatrix &X)
+      : original_to_block(original_to_block),
+        mapper_size(original_to_block.size()), X(X), block_size(X.rows()),
+        feature_size(X.cols()), q(X.rows()) {
+    for (auto c : original_to_block) {
+      if (c >= block_size)
+        throw runtime_error("index mapping points to non-existing row.");
     }
+  }
 
-    inline vector<size_t> cardinarity() const {
-      vector<size_t> result(X.rows(), static_cast<Real>(0));
-      for (auto v : original_to_block ) {
-        result[v]++;
-      } 
-      result;
-    }
+  inline RelationBlock(const RelationBlock & other):
+    RelationBlock(other.original_to_block, other.X) {}
 
 
-    const vector<size_t> original_to_block;
-    const SparseMatrix X;
+  const vector<size_t> original_to_block;
+  const size_t mapper_size;
+  const SparseMatrix X;
+  const size_t block_size;
+  const size_t feature_size;
+  Vector q; // should be always present.
 
-    const vector<size_t> indptr;
-    const vector<size_t> indices;
-  };
-
-
-template<typename Real>
-struct RelationWiseCache {
-  const RelationBlock<Real> & target;
-  vector<size_t> cardinarity; // for each
-  vector<size_t> indptr;
-  vector<size_t> indices;
-  Vector<Real> q_b_i_f;
-  Vector<Real> q_s_b_i_f;
 };
 
+template <typename Real> struct RelationWiseCache {
+  typedef typename RelationBlock<Real>::Vector Vector;
+  typedef typename RelationBlock<Real>::SparseMatrix SparseMatrix;
+
+  inline RelationWiseCache(const RelationBlock<Real> &source)
+      : target(source), X_t(source.X.transpose()), cardinarity(source.X.rows()),
+        q_S_f(source.X.rows()), c_f(source.X.rows()), c_S_f(source.X.rows()),
+        e(source.X.rows()), e_q_f(source.X.rows()) {
+    X_t.makeCompressed();
+    cardinarity.array() = static_cast<Real>(0);
+    for (auto v : source.original_to_block) {
+      cardinarity(v)++;
+    }
+  }
+
+  const RelationBlock<Real> &target;
+  SparseMatrix X_t;
+  Vector cardinarity; // for each
+  Vector q_S_f;
+
+  Vector c_f;
+  Vector c_S_f;
+
+  Vector e;
+  Vector e_q_f;
+};
 }
 
 

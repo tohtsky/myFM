@@ -20,14 +20,20 @@
 using namespace std;
 
 namespace py = pybind11;
-template<typename Real>
-std::pair<std::vector<myFM::FM<Real>>, std::vector<myFM::FMHyperParameters<Real>>>
-create_train_fm(size_t n_factor, Real init_std, const typename myFM::FM<Real>::SparseMatrix &X,
-                const typename myFM::FM<Real>::Vector &y, int random_seed, myFM::FMLearningConfig<Real> &config,
-                std::function<bool(int, const myFM::FM<Real> &, const myFM::FMHyperParameters<Real> &)> cb) {
-  myFM::FMTrainer<Real> fm_trainer(X, y, random_seed, config);
+template <typename Real>
+std::pair<std::vector<myFM::FM<Real>>,
+          std::vector<myFM::FMHyperParameters<Real>>>
+create_train_fm(size_t n_factor, Real init_std,
+                const typename myFM::FM<Real>::SparseMatrix &X,
+                const vector<myFM::relational::RelationBlock<Real>> & relations,
+                const typename myFM::FM<Real>::Vector &y, int random_seed,
+                myFM::FMLearningConfig<Real> &config,
+                std::function<bool(int, const myFM::FM<Real> &,
+                                   const myFM::FMHyperParameters<Real> &)>
+                    cb) {
+  myFM::FMTrainer<Real> fm_trainer(X, relations, y, random_seed, config);
   auto fm = fm_trainer.create_FM(n_factor, init_std);
-  auto hyper_param = fm_trainer.create_Hyper(fm.n_factors);
+  auto hyper_param = fm_trainer.create_Hyper(fm.n_factors); 
   return fm_trainer.learn_with_callback(fm, hyper_param, cb);
 }
 
@@ -41,7 +47,7 @@ void declare_functional(py::module & m) {
   using Vector = typename FM::Vector;
   using DenseMatrix = typename FM::DenseMatrix;
   using ConfigBuilder = typename FMLearningConfig::Builder;
-
+  using RelationBlock = myFM::relational::RelationBlock<Real>;
 
   m.doc() = "Backend C++ inplementation for myfm.";
 
@@ -50,6 +56,12 @@ void declare_functional(py::module & m) {
     .value("CLASSIFICATION", FMTrainer::TASKTYPE::CLASSIFICATION);
 
   py::class_<FMLearningConfig>(m, "FMLearningConfig");
+
+  py::class_<RelationBlock>(m, "RelationBlock")
+      .def(py::init<vector<size_t>, const SparseMatrix &>())
+      .def_readonly("mapper_size", &RelationBlock::mapper_size) 
+      .def_readonly("block_size", &RelationBlock::block_size)
+      .def_readonly("feature_size", &RelationBlock::feature_size);
 
   py::class_<ConfigBuilder>(m, "ConfigBuilder")
     .def(py::init<>())
@@ -109,7 +121,7 @@ void declare_functional(py::module & m) {
       });
 
   py::class_<FMTrainer>(m, "FMTrainer")
-    .def(py::init<const SparseMatrix &, const Vector &, int,
+    .def(py::init<const SparseMatrix &, const vector<RelationBlock> &, const Vector &, int,
         FMLearningConfig>())
     .def("create_FM", &FMTrainer::create_FM)
     .def("create_Hyper", &FMTrainer::create_Hyper)
