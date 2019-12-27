@@ -293,14 +293,14 @@ private:
       RelationBlock & relation_data = relations[relation_index];
       RelationWiseCache & relation_cache = relation_caches[relation_index]; 
       relation_cache.e.array() = 0;
-      relation_data.q.array() = 0;
+      relation_cache.q.array() = 0;
       // cout << __LINE__ << ": e.rows() = "  << relation_cache.e.rows() << " q.rows()" << relation_data.q.rows() << endl;
 
-      size_t train_case_index = 0;
-      relation_data.q = relation_data.X * fm.w.segment(offset, relation_data.feature_size);
+      size_t train_data_index = 0;
+      relation_cache.q = relation_data.X * fm.w.segment(offset, relation_data.feature_size);
       for(auto i : relation_data.original_to_block){ 
-        relation_cache.e(i) += e_train(train_case_index); 
-        e_train(train_case_index++) -= relation_data.q(i); // unsync
+        relation_cache.e(i) += e_train(train_data_index); 
+        e_train(train_data_index++) -= relation_cache.q(i); // unsync
       }
       for(size_t inner_feature_index = 0; inner_feature_index < relation_data.feature_size; inner_feature_index++){
         int group = learning_config.group_index()[offset + inner_feature_index]; 
@@ -321,23 +321,36 @@ private:
         relation_cache.e += relation_cache.X_t.row(inner_feature_index).transpose().cwiseProduct(relation_cache.cardinarity) * (w_new - w_old);
       }
 
-      relation_data.q = relation_data.X * fm.w.segment(offset, relation_data.feature_size);
-      train_case_index = 0;
+      relation_cache.q = relation_data.X * fm.w.segment(offset, relation_data.feature_size);
+      train_data_index = 0;
       for(auto i : relation_data.original_to_block){ 
-        e_train(train_case_index++) += relation_data.q(i); // unsync
+        e_train(train_data_index++) += relation_cache.q(i); // unsync
       }
       offset += relation_data.feature_size;
     }
   }
 
   inline void sample_V(FMType &fm, HyperType &hyper) {
-    Vector cache(X.rows());
-    Vector coeffCache(X.rows());
     using itertype = typename SparseMatrix::InnerIterator;
 
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
-      cache = X * fm.V.col(factor_index);
+      q_train = X * fm.V.col(factor_index).head(X.cols());
+      {
+        // initialize block q caches
+        size_t offset = X.cols();
+        for (size_t relation_index = 0; relation_index < relations.size(); relation_index++) {
+          const RelationBlock & relation_data = relations[relation_index];
+          RelationWiseCache & relation_cache = relation_caches[relation_index];
+          relation_cache.q = relation_data.X * (fm.V.col(factor_index).segment(offset, relation_data.feature_size)); 
+          size_t train_data_index = 0;
+          for(auto i: relation_data.original_to_block) {
+            q_train(train_data_index++) += relation_cache.q(i);
+          }
+          offset+= relation_data.feature_size;
+        }
+      } 
 
+      // main table
       for (int feature_index = 0; feature_index < X_t.rows(); feature_index++) {
         auto g = learning_config.group_index()[feature_index];
         Real v_old = fm.V(feature_index, factor_index);
@@ -347,10 +360,11 @@ private:
 
         for (itertype it(X_t, feature_index); it; ++it) {
           auto train_data_index = it.col();
-          auto h = it.value() * (cache(train_data_index) - it.value() * v_old);
+          auto h = it.value() * (q_train(train_data_index) - it.value() * v_old);
           square_coeff += h * h;
-          linear_coeff += (-e_train(train_data_index) + v_old * h) * h;
+          linear_coeff += (-e_train(train_data_index) ) * h;
         }
+        linear_coeff += square_coeff * v_old;
 
         square_coeff *= hyper.alpha;
         linear_coeff *= hyper.alpha;
@@ -363,8 +377,8 @@ private:
         fm.V(feature_index, factor_index) = v_new;
         for (itertype it(X_t, feature_index); it; ++it) {
           auto train_data_index = it.col();
-          auto h = it.value() * (cache(train_data_index) - v_old);
-          cache(train_data_index) += it.value() * (v_new - v_old);
+          auto h = it.value() * (q_train(train_data_index) - v_old);
+          q_train(train_data_index) += it.value() * (v_new - v_old);
           e_train(train_data_index) += h * (v_new - v_old);
         }
       }
@@ -378,10 +392,10 @@ private:
       e_train -= y;
     } else if (learning_config.task_type == TASKTYPE::CLASSIFICATION) {
 
-      for (int train_case_index = 0; train_case_index < X.rows();
-           train_case_index++) {
-        Real gt = y(train_case_index);
-        Real pred = e_train(train_case_index);
+      for (int train_data_index = 0; train_data_index < X.rows();
+           train_data_index++) {
+        Real gt = y(train_data_index);
+        Real pred = e_train(train_data_index);
         Real n;
         Real std = 1; // 1/ sqrt(hyper.alpha);
         Real zero = static_cast<Real>(0);
@@ -390,7 +404,7 @@ private:
         } else {
           n = sample_truncated_normal_right(gen_, pred, std, zero);
         }
-        e_train(train_case_index) -= n;
+        e_train(train_data_index) -= n;
       }
     }
   }

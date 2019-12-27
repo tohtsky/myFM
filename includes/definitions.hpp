@@ -23,7 +23,7 @@ struct RelationBlock {
   inline RelationBlock(vector<size_t> original_to_block, const SparseMatrix &X)
       : original_to_block(original_to_block),
         mapper_size(original_to_block.size()), X(X), block_size(X.rows()),
-        feature_size(X.cols()), q(X.rows()) {
+        feature_size(X.cols()){
     for (auto c : original_to_block) {
       if (c >= block_size)
         throw runtime_error("index mapping points to non-existing row.");
@@ -39,7 +39,6 @@ struct RelationBlock {
   const SparseMatrix X;
   const size_t block_size;
   const size_t feature_size;
-  Vector q; // should be always present.
 
 };
 
@@ -49,7 +48,7 @@ template <typename Real> struct RelationWiseCache {
 
   inline RelationWiseCache(const RelationBlock<Real> &source)
       : target(source), X_t(source.X.transpose()), cardinarity(source.X.rows()),
-        q_S_f(source.X.rows()), c_f(source.X.rows()), c_S_f(source.X.rows()),
+        q(source.X.rows()), q_S_f(source.X.rows()), c_f(source.X.rows()), c_S_f(source.X.rows()),
         e(source.X.rows()), e_q_f(source.X.rows()) {
     X_t.makeCompressed();
     cardinarity.array() = static_cast<Real>(0);
@@ -61,6 +60,7 @@ template <typename Real> struct RelationWiseCache {
   const RelationBlock<Real> &target;
   SparseMatrix X_t;
   Vector cardinarity; // for each
+  Vector q; // should be always present. 
   Vector q_S_f;
 
   Vector c_f;

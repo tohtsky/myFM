@@ -64,13 +64,10 @@ template <typename Real> struct FM {
   inline Vector predict_score(
     const SparseMatrix &X, const vector<RelationBlock> & relations
   ) const {
-    // cout << __LINE__ << " X_cols = " <<  X.cols() << endl;
-    // cout << __LINE__ << " w_rows = " <<  w.rows() << endl;
 
     if (!initialized) {
       throw std::runtime_error("get_score called before initialization");
     }
-    // Vector result = Vector::Constant(X.rows(), w0_);
     Vector result = w0 + (X * w.head(X.cols())).array();
     size_t offset = X.cols();
     for (auto iter=relations.begin(); iter != relations.end(); iter++) { 
@@ -81,13 +78,44 @@ template <typename Real> struct FM {
       }
       offset += iter->feature_size;
     }
-    // cout << __LINE__ << ": result.size() = " << result.size() << endl;
-    return result;
 
-    result.array() += (X * V).array().square().rowwise().sum() * 0.5;
-    result -=
-        (X.cwiseAbs2()) * ((0.5 * V.array().square().rowwise().sum()).matrix());
+    Vector q_cache(result.rows());
+    vector<Vector> block_q_caches;
+    for(auto & relation: relations) { 
+      block_q_caches.emplace_back(relation.feature_size);
+    }
 
+    for (int factor_index=0; factor_index < this->n_factors; factor_index++){
+      q_cache = X * V.col(factor_index).head(X.cols());
+      size_t offset = X.cols();
+      size_t relation_index = 0;
+      for (auto iter = relations.begin(); iter != relations.end(); iter++, relation_index++) {
+        Eigen::Ref<Vector> block_cache = block_q_caches[relation_index];
+        block_cache = iter->X * V.col(factor_index).segment(offset, iter->feature_size);
+        offset += iter->feature_size;
+        size_t train_case_index = 0;
+        for (auto i: iter->original_to_block){ 
+          q_cache(train_case_index++) += block_cache(i);
+        }
+      }
+      result.array() += q_cache.array().square() * static_cast<Real>(0.5);
+
+      offset = X.cols();
+      relation_index = 0;
+      q_cache = X.cwiseAbs2() * ( V.col(factor_index).head(X.cols()).array().square().matrix());
+      for (auto iter = relations.begin(); iter != relations.end(); iter++, relation_index++) {
+        Eigen::Ref<Vector> block_cache = block_q_caches[relation_index];
+        block_cache = ( iter->X.cwiseAbs2() ) * (
+          V.col(factor_index).segment(offset, iter->feature_size).array().square().matrix()
+        );
+        offset += iter->feature_size;
+        size_t train_case_index = 0;
+        for (auto i: iter->original_to_block){
+          q_cache(train_case_index++) += block_cache(i);
+        }
+      }
+      result -= q_cache * static_cast<Real>(0.5);
+    }
     return result;
   }
 
