@@ -47,9 +47,10 @@ template <typename Real> struct RelationWiseCache {
   typedef typename RelationBlock<Real>::SparseMatrix SparseMatrix;
 
   inline RelationWiseCache(const RelationBlock<Real> &source)
-      : target(source), X_t(source.X.transpose()), cardinarity(source.X.rows()),
-        q(source.X.rows()), q_S_f(source.X.rows()), c_f(source.X.rows()), c_S_f(source.X.rows()),
-        e(source.X.rows()), e_q_f(source.X.rows()) {
+      : target(source), X_t(source.X.transpose()),
+       cardinarity(source.X.rows()), y(source.X.rows()),
+        q(source.X.rows()), q_S(source.X.rows()), c(source.X.rows()), c_S(source.X.rows()),
+        e(source.X.rows()), e_q(source.X.rows()) {
     X_t.makeCompressed();
     cardinarity.array() = static_cast<Real>(0);
     for (auto v : source.original_to_block) {
@@ -60,14 +61,17 @@ template <typename Real> struct RelationWiseCache {
   const RelationBlock<Real> &target;
   SparseMatrix X_t;
   Vector cardinarity; // for each
-  Vector q; // should be always present. 
-  Vector q_S_f;
 
-  Vector c_f;
-  Vector c_S_f;
+  Vector y;
+
+  Vector q; 
+  Vector q_S;
+
+  Vector c;
+  Vector c_S;
 
   Vector e;
-  Vector e_q_f;
+  Vector e_q;
 };
 }
 

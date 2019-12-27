@@ -281,7 +281,7 @@ private:
           lambda + hyper.alpha * X_t.row(feature_index).cwiseAbs2().sum();
       Real linear_term =
           -hyper.alpha * X_t.row(feature_index) * e_train + lambda * mu;
-
+      
       Real w_new = sample_normal(square_term, linear_term);
       e_train.array() += X_t.row(feature_index) * w_new;
       fm.w(feature_index) = w_new;
@@ -331,10 +331,14 @@ private:
   }
 
   inline void sample_V(FMType &fm, HyperType &hyper) {
+    int _ = 0; //debug
+
     using itertype = typename SparseMatrix::InnerIterator;
 
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
       q_train = X * fm.V.col(factor_index).head(X.cols());
+
+      // compute contribution of blocks
       {
         // initialize block q caches
         size_t offset = X.cols();
@@ -373,16 +377,132 @@ private:
         linear_coeff +=
             hyper.lambda_V(g, factor_index) * hyper.mu_V(g, factor_index);
 
+        if ( _++ % 300 == 1) {
+          cout << __LINE__ << ",  iter " << _ << ":, square_coeff = " << square_coeff
+          << ", linear_term = " << linear_coeff << endl;
+        }
+
         Real v_new = sample_normal(square_coeff, linear_coeff);
         fm.V(feature_index, factor_index) = v_new;
         for (itertype it(X_t, feature_index); it; ++it) {
           auto train_data_index = it.col();
-          auto h = it.value() * (q_train(train_data_index) - v_old);
+          auto h = it.value() * (q_train(train_data_index) - it.value() * v_old);
           q_train(train_data_index) += it.value() * (v_new - v_old);
           e_train(train_data_index) += h * (v_new - v_old);
         }
       }
+
+      // draw v for relations
+      size_t offset = X.cols();
+      // initialize caches
+      for (size_t relation_index = 0; relation_index < relations.size();
+           relation_index++) {
+        const RelationBlock &relation_data = relations[relation_index];
+        RelationWiseCache &relation_cache = relation_caches[relation_index];
+
+        // initialize block caches.
+        relation_cache.q_S = relation_data.X.cwiseAbs2() *
+                             (fm.V.col(factor_index)
+                                  .segment(offset, relation_data.feature_size)
+                                  .array()
+                                  .square()
+                                  .matrix());
+        size_t train_data_index = 0;
+
+        relation_cache.c.array() = 0;
+        relation_cache.c_S.array() = 0;
+        relation_cache.e.array() = 0;
+        relation_cache.e_q.array() = 0;
+
+        for (auto i : relation_data.original_to_block) {
+          Real temp = (q_train(train_data_index) - relation_cache.q(i));
+          relation_cache.c(i) += temp;
+          relation_cache.c_S(i) += temp * temp;
+          relation_cache.e(i) += e_train(train_data_index);
+          relation_cache.e_q(i) += e_train(train_data_index) * temp;
+          // unsynchronization of q and e
+          q_train(train_data_index) -= relation_cache.q(i);
+          // q_B
+          e_train(train_data_index) -=
+              (q_train(train_data_index) * relation_cache.q(i) +
+               relation_cache.q(i) * relation_cache.q(i) * 0.5 -
+               relation_cache.q_S(i) * 0.5);
+          train_data_index++;
+        }
+        // Initlaized block-wise caches.
+        for (size_t inner_feature_index = 0;
+             inner_feature_index < relation_data.feature_size;
+             inner_feature_index++) {
+          auto g = learning_config.group_index()[offset + inner_feature_index];
+          Real v_old = fm.V(inner_feature_index, factor_index);
+          Real square_coeff = 0;
+          Real linear_coeff = 0;
+
+          Real x_il;
+          for (itertype it(relation_cache.X_t, inner_feature_index); it; ++it) {
+            auto block_data_index = it.col();
+            x_il = it.value();
+            auto h_B =
+                (relation_cache.q(block_data_index) - it.value() * v_old);
+            auto h_squared =
+                h_B * h_B * relation_cache.cardinarity(block_data_index) +
+                2 * relation_cache.c(block_data_index) * h_B +
+                relation_cache.c_S(block_data_index);
+            h_squared = x_il * x_il * h_squared;
+            square_coeff += h_squared;
+            linear_coeff += (-relation_cache.e(block_data_index) * h_B -
+                             relation_cache.e_q(block_data_index)) *
+                            x_il;
+          }
+          linear_coeff += square_coeff * v_old;
+          square_coeff *= hyper.alpha;
+          linear_coeff *= hyper.alpha;
+          square_coeff += hyper.lambda_V(g, factor_index);
+          linear_coeff +=
+              hyper.lambda_V(g, factor_index) * hyper.mu_V(g, factor_index);
+          if (_++ % 300 == 1) {
+            cout << __LINE__ << ",  iter " << _ << ", x_il = " << x_il
+                 << ":, square_coeff = " << square_coeff
+                 << ", linear_term = " << linear_coeff << endl;
+          }
+
+          Real v_new = sample_normal(square_coeff, linear_coeff);
+          Real delta = v_new - v_old;
+          fm.V(inner_feature_index, factor_index) = v_new;
+          for (itertype it(relation_cache.X_t, inner_feature_index); it; ++it) {
+            auto block_data_index = it.col();
+            const Real x_il = it.value();
+            auto h_B = relation_cache.q(block_data_index) - x_il * v_old;
+            relation_cache.q(block_data_index) += delta * x_il;
+            relation_cache.q_S(block_data_index) +=
+                delta * (v_new + v_old) * x_il * x_il;
+
+            relation_cache.e(block_data_index) +=
+                x_il * delta *
+                (h_B * relation_cache.cardinarity(block_data_index) +
+                 relation_cache.c(block_data_index));
+            relation_cache.e_q(block_data_index) +=
+                x_il * delta *
+                (h_B * relation_cache.c(block_data_index) +
+                 relation_cache.c_S(block_data_index));
+          }
+        }
+        // resync
+        train_data_index = 0;
+        for (auto i : relation_data.original_to_block) {
+          e_train(train_data_index) +=
+              (q_train(train_data_index) /*q_other*/ *
+                   relation_cache.q(i) /*q_B*/
+               + relation_cache.q(i) * relation_cache.q(i) * 0.5 -
+               relation_cache.q_S(i) * 0.5);
+          q_train(train_data_index) += relation_cache.q(i);
+          train_data_index++;
+        }
+        offset += relation_data.feature_size;
+      }
     }
+
+    // relations
   }
 
   inline void sample_e(FMType &fm, HyperType &hyper) {
