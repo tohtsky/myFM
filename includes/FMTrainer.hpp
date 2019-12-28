@@ -6,14 +6,17 @@
 #include <set>
 #include <string>
 #include <tuple>
+#include <fstream>
 
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
 #include "HyperParams.hpp"
 #include "definitions.hpp"
 #include "util.hpp"
-namespace myFM {
+#include "predictor.hpp"
 
+constexpr size_t checkIndex = 79999;
+namespace myFM {
 
 template <typename Real> struct FMTrainer {
 
@@ -48,19 +51,17 @@ template <typename Real> struct FMTrainer {
 
   size_t n_nan_occured = 0;
 
-
-  inline FMTrainer(const SparseMatrix &X, const vector<RelationBlock> & relations,
-                   const Vector &y, int random_seed, Config learning_config)
-      : X(X), relations(relations), X_t(X.transpose()), dim_all(X.cols()),
-        y(y), n_train(X.rows()),
-        e_train(X.rows()), q_train(X.rows()), relation_caches(), learning_config(learning_config),
+  inline FMTrainer(const SparseMatrix &X,
+                   const vector<RelationBlock> &relations, const Vector &y,
+                   int random_seed, Config learning_config)
+      : X(X), relations(relations), X_t(X.transpose()), dim_all(X.cols()), y(y),
+        n_train(X.rows()), e_train(X.rows()), q_train(X.rows()),
+        relation_caches(), learning_config(learning_config),
         random_seed(random_seed), gen_(random_seed) {
     for (auto it = relations.begin(); it != relations.end(); it++) {
       dim_all += it->X.cols();
-      //cout << "dim_all " << dim_all << endl;
       relation_caches.emplace_back(*it);
     }
-    //cout << " dim_all = " << dim_all << endl; 
     if (X.rows() != y.rows()) {
       throw std::runtime_error(StringBuilder{}
                                    .add("Shape mismatch: X has size")
@@ -76,9 +77,6 @@ template <typename Real> struct FMTrainer {
   inline FMType create_FM(int rank, Real init_std) {
     FMType fm(rank);
     fm.initialize_weight(dim_all, init_std, gen_);
-
-    cout << " initialized fm with dim_all = " << dim_all << endl; 
-
     return fm;
   }
 
@@ -86,46 +84,38 @@ template <typename Real> struct FMTrainer {
     return FMHyperParameters<Real>{rank, learning_config.get_n_groups()};
   }
 
-  inline pair<vector<FMType>, vector<HyperType>> learn(FMType &fm,
-                                                       HyperType &hyper) {
+  inline pair<Predictor<Real>, vector<HyperType>> learn(FMType &fm,
+                                                        HyperType &hyper) {
     return learn_with_callback(
-        fm, hyper, [](int i, const FMType &fm, const HyperType &hyper) {
-          cout << "iteration = " << i << endl;
-          return false;
-        });
+        fm, hyper,
+        [](int i, const FMType &fm, const HyperType &hyper) { return false; });
   }
 
   /**
    *  Main routine for Gibbs sampling.
    */
-  inline pair<vector<FMType>, vector<HyperType>> learn_with_callback(
+  inline pair<Predictor<Real>, vector<HyperType>> learn_with_callback(
       FMType &fm, HyperType &hyper,
       std::function<bool(int, const FMType &, const HyperType &)> cb) {
+    pair<Predictor<Real>, vector<HyperType>> result {learning_config.task_type, {}};
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
-    cout << e_train.array().square().sum() << endl; 
-    cout << "initialize_e done." << endl;
-    // cout << __LINE__ << " group size is " << learning_config.group_index().size() << endl;
-
-    vector<FMType> result_fm;
-    vector<HyperType> result_hyper;
     for (int mcmc_iteration = 0; mcmc_iteration < learning_config.n_iter;
          mcmc_iteration++) {
-      // cout << __LINE__ << ": mcmc step = " << mcmc_iteration << endl;
       mcmc_step(fm, hyper);
       if (learning_config.n_iter <=
           (mcmc_iteration + learning_config.n_kept_samples)) {
-        result_fm.emplace_back(fm);
+        result.first.samples.emplace_back(fm);
       }
       // for tracing
-      result_hyper.emplace_back(hyper);
+      result.second.emplace_back(hyper);
 
       bool should_stop = cb(mcmc_iteration, fm, hyper);
       if (should_stop) {
         break;
       }
     }
-    return {result_fm, result_hyper};
+    return result;
   }
 
   inline void initialize_hyper(FMType &fm, HyperType &hyper) {
@@ -145,20 +135,15 @@ template <typename Real> struct FMTrainer {
 
   inline void mcmc_step(FMType &fm, HyperType &hyper) {
     sample_alpha(fm, hyper);
-    // cout << __LINE__ << ": sample_alpha done."  << endl;
 
     sample_w0(fm, hyper);
 
-    // cout << __LINE__ << ": sample_w0 done."  << endl;
 
     sample_lambda_w(fm, hyper);
-    // cout << __LINE__ << ": sample_lambda_w done."  << endl;
 
     sample_mu_w(fm, hyper);
-    //cout << __LINE__ << ": sample_mu_w done."  << endl;
 
     sample_w(fm, hyper);
-    // cout << __LINE__ << ": sample_w done."  << endl;
 
     sample_lambda_V(fm, hyper);
     sample_mu_V(fm, hyper);
@@ -268,9 +253,7 @@ private:
 
   inline void sample_w(FMType &fm, HyperType &hyper) {
     // main table
-     //cout << __LINE__ << ": relations.size()" << relations.size() <<endl; 
     for (int feature_index = 0; feature_index < X.cols(); feature_index++) {
-//      cout << __LINE__ << ": feature_index = " << feature_index <<endl;
       int group = learning_config.group_index()[feature_index];
 
       const Real w_old = fm.w(feature_index);
@@ -281,7 +264,7 @@ private:
           lambda + hyper.alpha * X_t.row(feature_index).cwiseAbs2().sum();
       Real linear_term =
           -hyper.alpha * X_t.row(feature_index) * e_train + lambda * mu;
-      
+
       Real w_new = sample_normal(square_term, linear_term);
       e_train.array() += X_t.row(feature_index) * w_new;
       fm.w(feature_index) = w_new;
@@ -289,41 +272,51 @@ private:
 
     // relational blocks
     size_t offset = X.cols();
-    for(size_t relation_index = 0; relation_index < relations.size(); relation_index++){
-      RelationBlock & relation_data = relations[relation_index];
-      RelationWiseCache & relation_cache = relation_caches[relation_index]; 
+    for (size_t relation_index = 0; relation_index < relations.size();
+         relation_index++) {
+      RelationBlock &relation_data = relations[relation_index];
+      RelationWiseCache &relation_cache = relation_caches[relation_index];
       relation_cache.e.array() = 0;
       relation_cache.q.array() = 0;
-      // cout << __LINE__ << ": e.rows() = "  << relation_cache.e.rows() << " q.rows()" << relation_data.q.rows() << endl;
 
       size_t train_data_index = 0;
-      relation_cache.q = relation_data.X * fm.w.segment(offset, relation_data.feature_size);
-      for(auto i : relation_data.original_to_block){ 
-        relation_cache.e(i) += e_train(train_data_index); 
+      relation_cache.q =
+          relation_data.X * fm.w.segment(offset, relation_data.feature_size);
+      for (auto i : relation_data.original_to_block) {
+        relation_cache.e(i) += e_train(train_data_index);
         e_train(train_data_index++) -= relation_cache.q(i); // unsync
       }
-      for(size_t inner_feature_index = 0; inner_feature_index < relation_data.feature_size; inner_feature_index++){
-        int group = learning_config.group_index()[offset + inner_feature_index]; 
-        const Real w_old = fm.w(offset+inner_feature_index);
+      for (size_t inner_feature_index = 0;
+           inner_feature_index < relation_data.feature_size;
+           inner_feature_index++) {
+        int group = learning_config.group_index()[offset + inner_feature_index];
+        const Real w_old = fm.w(offset + inner_feature_index);
         Real lambda = hyper.lambda_w(group);
         Real mu = hyper.mu_w(group);
 
-        Real square_term = relation_cache.X_t.row(inner_feature_index).cwiseAbs2() * relation_cache.cardinarity;
-        Real linear_term = - relation_cache.X_t.row(inner_feature_index) * relation_cache.e;
+        Real square_term =
+            relation_cache.X_t.row(inner_feature_index).cwiseAbs2() *
+            relation_cache.cardinarity;
+        Real linear_term =
+            -relation_cache.X_t.row(inner_feature_index) * relation_cache.e;
 
-        linear_term += square_term * w_old; 
+        linear_term += square_term * w_old;
 
         square_term = lambda + hyper.alpha * square_term;
         linear_term = hyper.alpha * linear_term + lambda * mu;
 
         Real w_new = sample_normal(square_term, linear_term);
-        fm.w(offset+inner_feature_index) = w_new;
-        relation_cache.e += relation_cache.X_t.row(inner_feature_index).transpose().cwiseProduct(relation_cache.cardinarity) * (w_new - w_old);
+        fm.w(offset + inner_feature_index) = w_new;
+        relation_cache.e += relation_cache.X_t.row(inner_feature_index)
+                                .transpose()
+                                .cwiseProduct(relation_cache.cardinarity) *
+                            (w_new - w_old);
       }
 
-      relation_cache.q = relation_data.X * fm.w.segment(offset, relation_data.feature_size);
+      relation_cache.q =
+          relation_data.X * fm.w.segment(offset, relation_data.feature_size);
       train_data_index = 0;
-      for(auto i : relation_data.original_to_block){ 
+      for (auto i : relation_data.original_to_block) {
         e_train(train_data_index++) += relation_cache.q(i); // unsync
       }
       offset += relation_data.feature_size;
@@ -331,8 +324,6 @@ private:
   }
 
   inline void sample_V(FMType &fm, HyperType &hyper) {
-    int _ = 0; //debug
-
     using itertype = typename SparseMatrix::InnerIterator;
 
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
@@ -342,17 +333,20 @@ private:
       {
         // initialize block q caches
         size_t offset = X.cols();
-        for (size_t relation_index = 0; relation_index < relations.size(); relation_index++) {
-          const RelationBlock & relation_data = relations[relation_index];
-          RelationWiseCache & relation_cache = relation_caches[relation_index];
-          relation_cache.q = relation_data.X * (fm.V.col(factor_index).segment(offset, relation_data.feature_size)); 
+        for (size_t relation_index = 0; relation_index < relations.size();
+             relation_index++) {
+          const RelationBlock &relation_data = relations[relation_index];
+          RelationWiseCache &relation_cache = relation_caches[relation_index];
+          relation_cache.q = relation_data.X *
+                             (fm.V.col(factor_index)
+                                  .segment(offset, relation_data.feature_size));
           size_t train_data_index = 0;
-          for(auto i: relation_data.original_to_block) {
+          for (auto i : relation_data.original_to_block) {
             q_train(train_data_index++) += relation_cache.q(i);
           }
-          offset+= relation_data.feature_size;
+          offset += relation_data.feature_size;
         }
-      } 
+      }
 
       // main table
       for (int feature_index = 0; feature_index < X_t.rows(); feature_index++) {
@@ -364,9 +358,10 @@ private:
 
         for (itertype it(X_t, feature_index); it; ++it) {
           auto train_data_index = it.col();
-          auto h = it.value() * (q_train(train_data_index) - it.value() * v_old);
+          auto h =
+              it.value() * (q_train(train_data_index) - it.value() * v_old);
           square_coeff += h * h;
-          linear_coeff += (-e_train(train_data_index) ) * h;
+          linear_coeff += (-e_train(train_data_index)) * h;
         }
         linear_coeff += square_coeff * v_old;
 
@@ -376,17 +371,13 @@ private:
         square_coeff += hyper.lambda_V(g, factor_index);
         linear_coeff +=
             hyper.lambda_V(g, factor_index) * hyper.mu_V(g, factor_index);
-
-        if ( _++ % 300 == 1) {
-          cout << __LINE__ << ",  iter " << _ << ":, square_coeff = " << square_coeff
-          << ", linear_term = " << linear_coeff << endl;
-        }
-
+ 
         Real v_new = sample_normal(square_coeff, linear_coeff);
         fm.V(feature_index, factor_index) = v_new;
         for (itertype it(X_t, feature_index); it; ++it) {
           auto train_data_index = it.col();
-          auto h = it.value() * (q_train(train_data_index) - it.value() * v_old);
+          auto h =
+              it.value() * (q_train(train_data_index) - it.value() * v_old);
           q_train(train_data_index) += it.value() * (v_new - v_old);
           e_train(train_data_index) += h * (v_new - v_old);
         }
@@ -423,10 +414,12 @@ private:
           // unsynchronization of q and e
           q_train(train_data_index) -= relation_cache.q(i);
           // q_B
+          // 1/ 2 ( (q_B + q_other) **2 - (q_B_S + other) )
+          // q_B * q_other + 0.5 q_B **2 - 0.5 * q_B_S
           e_train(train_data_index) -=
               (q_train(train_data_index) * relation_cache.q(i) +
-               relation_cache.q(i) * relation_cache.q(i) * 0.5 -
-               relation_cache.q_S(i) * 0.5);
+               0.5 * relation_cache.q(i) * relation_cache.q(i) -
+               0.5 * relation_cache.q_S(i));
           train_data_index++;
         }
         // Initlaized block-wise caches.
@@ -434,7 +427,7 @@ private:
              inner_feature_index < relation_data.feature_size;
              inner_feature_index++) {
           auto g = learning_config.group_index()[offset + inner_feature_index];
-          Real v_old = fm.V(inner_feature_index, factor_index);
+          Real v_old = fm.V(offset + inner_feature_index, factor_index);
           Real square_coeff = 0;
           Real linear_coeff = 0;
 
@@ -460,15 +453,10 @@ private:
           square_coeff += hyper.lambda_V(g, factor_index);
           linear_coeff +=
               hyper.lambda_V(g, factor_index) * hyper.mu_V(g, factor_index);
-          if (_++ % 300 == 1) {
-            cout << __LINE__ << ",  iter " << _ << ", x_il = " << x_il
-                 << ":, square_coeff = " << square_coeff
-                 << ", linear_term = " << linear_coeff << endl;
-          }
 
           Real v_new = sample_normal(square_coeff, linear_coeff);
           Real delta = v_new - v_old;
-          fm.V(inner_feature_index, factor_index) = v_new;
+          fm.V(offset + inner_feature_index, factor_index) = v_new;
           for (itertype it(relation_cache.X_t, inner_feature_index); it; ++it) {
             auto block_data_index = it.col();
             const Real x_il = it.value();
@@ -491,10 +479,9 @@ private:
         train_data_index = 0;
         for (auto i : relation_data.original_to_block) {
           e_train(train_data_index) +=
-              (q_train(train_data_index) /*q_other*/ *
-                   relation_cache.q(i) /*q_B*/
-               + relation_cache.q(i) * relation_cache.q(i) * 0.5 -
-               relation_cache.q_S(i) * 0.5);
+              (q_train(train_data_index) * relation_cache.q(i) +
+               0.5 * relation_cache.q(i) * relation_cache.q(i) -
+               0.5 * relation_cache.q_S(i));
           q_train(train_data_index) += relation_cache.q(i);
           train_data_index++;
         }

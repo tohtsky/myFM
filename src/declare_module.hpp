@@ -21,7 +21,7 @@ using namespace std;
 
 namespace py = pybind11;
 template <typename Real>
-std::pair<std::vector<myFM::FM<Real>>,
+std::pair<myFM::Predictor<Real>,
           std::vector<myFM::FMHyperParameters<Real>>>
 create_train_fm(size_t n_factor, Real init_std,
                 const typename myFM::FM<Real>::SparseMatrix &X,
@@ -48,6 +48,8 @@ void declare_functional(py::module & m) {
   using DenseMatrix = typename FM::DenseMatrix;
   using ConfigBuilder = typename FMLearningConfig::Builder;
   using RelationBlock = myFM::relational::RelationBlock<Real>;
+  using Predictor = myFM::Predictor<Real>;
+  using TASKTYPE = typename myFM::FMLearningConfig<Real>::TASKTYPE;
 
   m.doc() = "Backend C++ inplementation for myfm.";
 
@@ -119,6 +121,23 @@ void declare_functional(py::module & m) {
       Hyper(t[0].cast<Real>(), t[1].cast<Vector>(), t[2].cast<Vector>(),
           t[3].cast<DenseMatrix>(), t[4].cast<DenseMatrix>());
       });
+
+  py::class_<Predictor>(m, "Predictor")
+    .def_readonly("samples", &Predictor::samples)
+    .def("predict", &Predictor::predict)
+    .def("__getstate__",
+        [](const Predictor &predictor) {
+        return py::make_tuple(static_cast<int>(predictor.type), predictor.samples);
+        })
+  .def("__setstate__", [](Predictor &predictor, py::tuple t) {
+      if (t.size() != 2)
+      throw std::runtime_error("invalid state for FMHyperParameters.");
+      // placement new
+      new (&predictor)
+      Predictor(static_cast<TASKTYPE>(t[0].cast<int>()));
+      predictor.set_samples(std::move(t[1].cast<vector<FM>>()));
+      });
+
 
   py::class_<FMTrainer>(m, "FMTrainer")
     .def(py::init<const SparseMatrix &, const vector<RelationBlock> &, const Vector &, int,

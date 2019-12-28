@@ -70,7 +70,7 @@ class MyFMRegressor(object):
 
         self.reg_0 = reg_0
 
-        self.fms_ = []
+        self.fms_ = None
         self.hypers_ = []
 
         self.n_groups_ = None
@@ -213,26 +213,8 @@ class MyFMRegressor(object):
     def set_tasktype(cls, config_builder):
         config_builder.set_task_type(core.TaskType.REGRESSION)
 
-    @classmethod
-    def _predict_score_point(cls, fm, X, X_2):
-        sqt = (fm.V ** 2).sum(axis=1)
-        pred = ((X.dot(fm.V) ** 2).sum(axis=1) - X_2.dot(sqt)) / 2
-        pred += X.dot(fm.w)
-        pred += fm.w0
-        return cls.process_score(pred)
-
-    def _predict_score_mean(self, X):
-        if not self.fms_:
-            raise RuntimeError("No available sample.")
-        X = sps.csr_matrix(X)
-        X_2 = elem_wise_square(X)
-        predictions = 0
-        for fm_sample in self.fms_:
-            predictions += self._predict_score_point(fm_sample, X, X_2)
-        return predictions / len(self.fms_)
-
-    def predict(self, X):
-        return self._predict_score_mean(X)
+    def predict(self, X, relations=[]):
+        return self.fms_.predict(X, relations)
 
     @classmethod
     def process_score(cls, y):

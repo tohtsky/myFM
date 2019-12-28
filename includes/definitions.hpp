@@ -5,6 +5,7 @@
 #include <vector>
 #include <iostream>
 #include <memory>
+#include <unsupported/Eigen/SpecialFunctions> 
 
 #include <Eigen/Core>
 #include <Eigen/Sparse>
