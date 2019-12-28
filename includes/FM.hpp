@@ -43,34 +43,28 @@ template <typename Real> struct FM {
     initialized = true;
   }
 
-  inline Vector add_q(const SparseMatrix &X, Eigen::Ref<Vector> q) {
-    q += X * V;
-  }
-
-  inline Vector predict_score(const SparseMatrix &X) const {
-    if (!initialized) {
-      throw std::runtime_error("get_score called before initialization");
+  inline Vector predict_score(const SparseMatrix &X,
+                              const vector<RelationBlock> &relations) const {
+    // check input consistency
+    size_t case_size = X.rows();
+    size_t feature_size_all = X.cols();
+    for (auto const &rel : relations) {
+      if (case_size != rel.original_to_block.size()) {
+        throw std::invalid_argument(
+            "Relation blocks have inconsistent mapper size with case_size");
+      }
+      feature_size_all += rel.feature_size;
     }
-
-    // Vector result = Vector::Constant(X.rows(), w0_);
-    Vector result = w0 + (X * w).array();
-    result.array() += (X * V).array().square().rowwise().sum() * 0.5;
-    result -=
-        (X.cwiseAbs2()) * ((0.5 * V.array().square().rowwise().sum()).matrix());
-
-    return result;
-  }
-
-  inline Vector predict_score(
-    const SparseMatrix &X, const vector<RelationBlock> & relations
-  ) const {
+    if (feature_size_all != static_cast<size_t>(this->w.rows())){
+      throw std::invalid_argument("Total feature size mismatch.");
+    }
 
     if (!initialized) {
       throw std::runtime_error("get_score called before initialization");
     }
     Vector result = w0 + (X * w.head(X.cols())).array();
     size_t offset = X.cols();
-    for (auto iter=relations.begin(); iter != relations.end(); iter++) { 
+    for (auto iter = relations.begin(); iter != relations.end(); iter++) {
       Vector w0_cache = (iter->X) * w.segment(offset, iter->feature_size);
       size_t j = 0;
       for (auto i : (iter->original_to_block)) {
@@ -80,21 +74,26 @@ template <typename Real> struct FM {
     }
 
     Vector q_cache(result.rows());
+    size_t buffer_size = 1;
+    vector<Real> buffer_cache(1);
     vector<Vector> block_q_caches;
-    for(auto & relation: relations) { 
-      block_q_caches.emplace_back(relation.feature_size);
+    for (auto &relation : relations) {
+      buffer_size = std::max(buffer_size, relation.feature_size);
     }
+    buffer_cache.resize(buffer_size);
 
-    for (int factor_index=0; factor_index < this->n_factors; factor_index++){
+    for (int factor_index = 0; factor_index < this->n_factors; factor_index++) {
       q_cache = X * V.col(factor_index).head(X.cols());
       size_t offset = X.cols();
       size_t relation_index = 0;
-      for (auto iter = relations.begin(); iter != relations.end(); iter++, relation_index++) {
-        Eigen::Ref<Vector> block_cache = block_q_caches[relation_index];
-        block_cache = iter->X * V.col(factor_index).segment(offset, iter->feature_size);
+      for (auto iter = relations.begin(); iter != relations.end();
+           iter++, relation_index++) {
+        Eigen::Map<Vector> block_cache (buffer_cache.data(), iter->feature_size);
+        block_cache =
+            iter->X * V.col(factor_index).segment(offset, iter->feature_size);
         offset += iter->feature_size;
         size_t train_case_index = 0;
-        for (auto i: iter->original_to_block){ 
+        for (auto i : iter->original_to_block) {
           q_cache(train_case_index++) += block_cache(i);
         }
       }
@@ -102,15 +101,20 @@ template <typename Real> struct FM {
 
       offset = X.cols();
       relation_index = 0;
-      q_cache = X.cwiseAbs2() * ( V.col(factor_index).head(X.cols()).array().square().matrix());
-      for (auto iter = relations.begin(); iter != relations.end(); iter++, relation_index++) {
-        Eigen::Ref<Vector> block_cache = block_q_caches[relation_index];
-        block_cache = ( iter->X.cwiseAbs2() ) * (
-          V.col(factor_index).segment(offset, iter->feature_size).array().square().matrix()
-        );
+      q_cache = X.cwiseAbs2() *
+                (V.col(factor_index).head(X.cols()).array().square().matrix());
+      for (auto iter = relations.begin(); iter != relations.end();
+           iter++, relation_index++) {
+        Eigen::Map<Vector> block_cache (buffer_cache.data(), iter->feature_size);
+        block_cache =
+            (iter->X.cwiseAbs2()) * (V.col(factor_index)
+                                         .segment(offset, iter->feature_size)
+                                         .array()
+                                         .square()
+                                         .matrix());
         offset += iter->feature_size;
         size_t train_case_index = 0;
-        for (auto i: iter->original_to_block){
+        for (auto i : iter->original_to_block) {
           q_cache(train_case_index++) += block_cache(i);
         }
       }
@@ -118,7 +122,6 @@ template <typename Real> struct FM {
     }
     return result;
   }
-
 
   const int n_factors;
   Real w0;

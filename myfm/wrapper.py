@@ -13,6 +13,26 @@ def elem_wise_square(X):
         X_2 = X_2 ** 2
     return X_2
 
+def check_data_consistency(X, X_rel):
+    shape = None
+    if X_rel:
+        shape_rel_all = {
+            rel.mapper_size for rel in X_rel
+        }
+        if len(shape_rel_all) > 1:
+            raise ValueError('Inconsistent case size for X_rel.')
+        shape = list(shape_rel_all)[0]
+        
+    if X is None:
+        if not X_rel:
+            raise ValueError('At lease X or X_rel must be provided.')
+    else:
+        if shape is not None:
+            if X.shape[0] != shape:
+                raise ValueError('X and X_rel have different shape.')
+        shape = X.shape[0]
+    return shape
+ 
 REAL = np.float64 
 
 class MyFMRegressor(object):
@@ -70,7 +90,7 @@ class MyFMRegressor(object):
 
         self.reg_0 = reg_0
 
-        self.fms_ = None
+        self.predictor_ = None
         self.hypers_ = []
 
         self.n_groups_ = None
@@ -84,7 +104,8 @@ class MyFMRegressor(object):
             reg_0=self.reg_0
         )
 
-    def fit(self, X, y, X_test=None, X_rel=[], y_test=None,
+    def fit(self, X, y, X_rel=[], 
+            X_test=None, y_test=None, X_rel_test=None,
             n_iter=100, n_kept_samples=None, grouping=None, callback=None):
         """Performs Gibbs sampling to fit the data.
         Parameters
@@ -113,25 +134,9 @@ class MyFMRegressor(object):
         callback: function(int, fm, hyper) -> bool, optional(default = None)
             Called at the every end of each iteration.
         """
-        if X_rel:
-            shape_rel_all = {
-                rel.mapper_size for rel in X_rel
-            }
-            if len(shape_rel_all) > 1:
-                raise RuntimeError('At lease X or X_rel must be provided.')
-            X_rel_shape = list(shape_rel_all)[0]
-        else:
-            X_rel_shape = None
-            
+        train_size = check_data_consistency(X, X_rel)
         if X is None:
-            if not X_rel:
-                raise RuntimeError('At lease X or X_rel must be provided.')
-            X = sps.csr_matrix((X_rel_shape, 0), dtype=REAL)
-        else:
-            if X_rel_shape is not None:
-                if X.shape[0] != X_rel_shape:
-                    raise RuntimeError('X and X_rel have different shape.')
-            
+            X = sps.csr_matrix((train_size, 0), dtype=np.float64)
 
         assert X.shape[0] == y.shape[0]
         dim_all = X.shape[1] + sum([rel.feature_size for rel in X_rel])
@@ -150,7 +155,7 @@ class MyFMRegressor(object):
             self.n_groups_ = 1
             config_builder.set_indentical_groups(dim_all)
         else:
-            assert X.shape[1] == len(grouping)
+            assert dim_all == len(grouping)
             self.n_groups_ = np.unique(grouping).shape[0]
             config_builder.set_group_index(grouping)
 
@@ -201,7 +206,7 @@ class MyFMRegressor(object):
                 return False
 
         try:
-            self.fms_, self.hypers_ = \
+            self.predictor_, self.hypers_ = \
                 core.create_train_fm(self.rank, self.init_stdev, X, X_rel,
                                      y, self.random_seed, config, callback)
             return self
@@ -213,8 +218,11 @@ class MyFMRegressor(object):
     def set_tasktype(cls, config_builder):
         config_builder.set_task_type(core.TaskType.REGRESSION)
 
-    def predict(self, X, relations=[]):
-        return self.fms_.predict(X, relations)
+    def predict(self, X, X_rel=[], copy=True):
+        shape = check_data_consistency(X, X_rel)
+        if X is None:
+            X = sps.csr_matrix((shape, 0), dtype=np.float64)
+        return self.predictor_.predict(X, X_rel)
 
     @classmethod
     def process_score(cls, y):
@@ -281,7 +289,7 @@ class MyFMClassifier(MyFMRegressor):
         return {'ll': ll / prediction.shape[0]}
 
     def predict(self, X):
-        return (self._predict_score_mean(X)) > 0.5
+        return (self.predict_proba(X)) > 0.5
 
-    def predict_proba(self, X):
-        return self._predict_score_mean(X)
+    def predict_proba(self, *args, **kwargs):
+        return super().predict(*args, **kwargs)

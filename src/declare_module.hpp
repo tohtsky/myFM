@@ -9,6 +9,7 @@
 #include "FMLearningConfig.hpp"
 #include "FMTrainer.hpp"
 #include "definitions.hpp"
+#include "util.hpp"
 #include <functional>
 #include <iostream>
 
@@ -61,9 +62,18 @@ void declare_functional(py::module & m) {
 
   py::class_<RelationBlock>(m, "RelationBlock")
       .def(py::init<vector<size_t>, const SparseMatrix &>())
+      .def_readonly("original_to_block", &RelationBlock::original_to_block)
+      .def_readonly("data", &RelationBlock::X)
       .def_readonly("mapper_size", &RelationBlock::mapper_size) 
       .def_readonly("block_size", &RelationBlock::block_size)
-      .def_readonly("feature_size", &RelationBlock::feature_size);
+      .def_readonly("feature_size", &RelationBlock::feature_size)
+      .def("__repr__", [](const RelationBlock & block){ 
+        return (myFM::StringBuilder{})
+        ("<RelationBlock with mapper size = ")(block.mapper_size)
+        (", block data size = ")(block.block_size)
+        (", feature size = ")(block.feature_size)
+        (">").build();
+      });
 
   py::class_<ConfigBuilder>(m, "ConfigBuilder")
     .def(py::init<>())

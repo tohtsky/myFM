@@ -78,13 +78,9 @@ from sklearn import metrics
 
 import myfm
 
-# read movielens 100k data into pandas DataFrame.
-from movielens100k_loader import load_dataset
-
-df_train, df_test = load_dataset(
-    zippath='/home/tomoki/ml-100k.zip',
-    id_only=True, fold=3
-) # folding dependence
+from movielens100k_data import MovieLens100kDataManager
+data_manager = MovieLens100kDataManager()
+df_train, df_test = data_manager.load_ranking(fold=3) # Note the dependence on the fold
 
 def test_myfm(df_train, df_test, rank=8, grouping=None, n_iter=100, samples=95):
     explanation_columns = ['user_id', 'movie_id']
@@ -109,9 +105,9 @@ def test_myfm(df_train, df_test, rank=8, grouping=None, n_iter=100, samples=95):
 
 # basic regression
 test_myfm(df_train, df_test, rank=8);
-# rmse=0.9032126256432311, mae=0.7116432524241615
+# rmse=0.90321, mae=0.71164
 
 # with grouping
 fm = test_myfm(df_train, df_test, rank=8, grouping=True)
-# rmse=0.8959382764109612, mae=0.7048050699780434
+# rmse=0.89594, mae=0.70481
 ```
