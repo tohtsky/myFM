@@ -1,9 +1,12 @@
 from zipfile import ZipFile
 from io import BytesIO
-import pandas as pd
 import os
-from sklearn.model_selection import train_test_split
 import urllib.request
+
+import pandas as pd
+from scipy import sparse as sps
+from sklearn.model_selection import train_test_split
+
 
 class MovieLens100kDataManager:
     DOWNLOAD_URL = 'http://files.grouplens.org/datasets/movielens/ml-100k.zip'
@@ -49,3 +52,18 @@ class MovieLens100kDataManager:
         user_info_bytes = self.zf.read('ml-100k/u.user')
         with BytesIO(user_info_bytes) as ifs:
             return pd.read_csv(ifs, sep='|', header=None, names=['user_id', 'age', 'gender', 'occupation', 'zipcode'])
+    
+    def load_movieinfo(self):
+        MOVIE_COLUMNS = ['movie_id', 'title', 'release_date', 'unk', 'url']
+        with BytesIO(self.zf.read('ml-100k/u.genre')) as ifs:
+            genres = pd.read_csv(ifs, sep='|', header=None)[0]
+        with BytesIO(self.zf.read('ml-100k/u.item')) as ifs:
+            df_mov = pd.read_csv(
+                ifs, sep='|', encoding='latin-1',
+                header=None,
+            )
+            df_mov.columns = (
+                MOVIE_COLUMNS + list(genres) 
+            )
+        df_mov['release_date'] = pd.to_datetime(df_mov.release_date)
+        return df_mov, list(genres)

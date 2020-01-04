@@ -52,7 +52,7 @@ template <typename Real> struct Predictor {
     for (auto & worker:workers) {
       worker.join();
     }
-    result.array() /= n_samples;
+    result.array() /= static_cast<Real>(n_samples);
     return result;
   }
 
@@ -72,7 +72,7 @@ template <typename Real> struct Predictor {
           ) / static_cast<Real>(2);
         }
       }
-      result.array() /= samples.size();
+      result.array() /= static_cast<Real>(samples.size());
       return result;
   }
 
