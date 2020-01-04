@@ -1,17 +1,8 @@
+from collections import OrderedDict
 import numpy as np
 from scipy import (special, sparse as sps)
 from tqdm import tqdm
-
 from . import _myfm as core
-
-
-def elem_wise_square(X):
-    X_2 = X.copy()
-    if sps.issparse(X_2):
-        X_2.data[:] = X_2.data ** 2
-    else:
-        X_2 = X_2 ** 2
-    return X_2
 
 def check_data_consistency(X, X_rel):
     shape = None
@@ -111,10 +102,13 @@ class MyFMRegressor(object):
         Parameters
         ----------
         X : 2D array-like.
-            Explanation variable.
+            Input variable.
 
         y : 1D array-like.
             Target variable.
+        
+        X_rel: list of RelationBlock, optional (defalult=[])
+               Relation blocks which supplement X.
 
         n_iter : int, optional (defalult = 100)
             Iterations to perform.
@@ -160,13 +154,18 @@ class MyFMRegressor(object):
             config_builder.set_group_index(grouping)
 
         pbar = None
-        if (X_test is None and y_test is None):
-            do_test = False
-        elif (X_test is not None and y_test is not None):
-            assert X_test.shape[0] == y_test.shape[0]
+        if (X_test is not None or X_rel_test):
+            if y_test is None:
+                raise RuntimeError("Must specify both (X_test or X_rel_test) and y_test.")
+            test_size = check_data_consistency(X_test, X_rel_test)
+            assert test_size == y_test.shape[0] 
+            if X_test is None:
+                X_test = sps.csr_matrix((test_size, 0), dtype=np.float64)
             do_test = True
+        elif y_test is not None:
+            raise RuntimeError("Must specify both (X_test or X_rel_test) and y_test.")
         else:
-            raise RuntimeError("Must specify both X_test and y_test.")
+            do_test = False
 
         config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
 
@@ -180,24 +179,15 @@ class MyFMRegressor(object):
 
         if callback is None:
             pbar = tqdm(total=n_iter)
-            if do_test:
-                X_test = sps.csr_matrix(X_test)
-                X_test.data = X_test.data.astype(np.float64)
-                y_test = self.process_y(y_test)
-                X_test_2 = elem_wise_square(X_test)
-            else:
-                X_test_2 = None
-
             def callback(i, fm, hyper):
                 pbar.update(1)
                 if i % 5:
                     return False
-                log_str = "alpha = {:.2f} ".format(hyper.alpha)
-                log_str += "w0 = {:.2f} ".format(fm.w0)
+                
+                log_str = self.status_report(fm, hyper)
 
                 if do_test:
-                    pred_this = self._predict_score_point(
-                        fm, X_test, X_test_2)
+                    pred_this = self.process_score(fm.predict_score(X_test, X_rel_test))
                     val_results = self.measure_score(pred_this, y_test)
                     for key, metric in val_results.items():
                         log_str += " {}_this: {:.2f}".format(key, metric)
@@ -218,11 +208,20 @@ class MyFMRegressor(object):
     def set_tasktype(cls, config_builder):
         config_builder.set_task_type(core.TaskType.REGRESSION)
 
-    def predict(self, X, X_rel=[], copy=True):
+    def predict(self, X, X_rel=[], n_workers=None):
         shape = check_data_consistency(X, X_rel)
         if X is None:
             X = sps.csr_matrix((shape, 0), dtype=np.float64)
-        return self.predictor_.predict(X, X_rel)
+        if n_workers is not None:
+            return self.predictor_.predict_parallel(X, X_rel, n_workers)
+        else:
+            return self.predictor_.predict(X, X_rel) 
+
+    @classmethod
+    def status_report(cls, fm, hyper):
+        log_str = "alpha = {:.2f} ".format(hyper.alpha)
+        log_str += "w0 = {:.2f} ".format(fm.w0)
+        return log_str
 
     @classmethod
     def process_score(cls, y):
@@ -234,8 +233,10 @@ class MyFMRegressor(object):
 
     @classmethod
     def measure_score(cls, prediction, y):
-        rmse = ((y - prediction) ** 2).mean() ** 0.5
-        return {'rmse': rmse}
+        result = OrderedDict()
+        result['rmse'] = ((y - prediction) ** 2).mean() ** 0.5
+        result['mae'] = np.abs(y - prediction).mean()
+        return result
 
     def get_hyper_trace(self, dataframe=True):
         if dataframe:
@@ -282,14 +283,21 @@ class MyFMClassifier(MyFMRegressor):
 
     @classmethod
     def measure_score(cls, prediction, y):
+        result = OrderedDict()
         lp = np.log(prediction + 1e-15)
         l1mp = np.log(1 - prediction + 1e-15)
         gt = y > 0
-        ll = - lp.dot(gt) - l1mp.dot(~gt)
-        return {'ll': ll / prediction.shape[0]}
+        result['ll'] = - lp.dot(gt) - l1mp.dot(~gt)
+        result['accuracy'] = np.mean( (prediction >= 0.5) == gt )
+        return result
 
-    def predict(self, X):
-        return (self.predict_proba(X)) > 0.5
+    @classmethod
+    def status_report(cls, fm, hyper):
+        log_str = "w0 = {:.2f} ".format(fm.w0)
+        return log_str
+
+    def predict(self, *args, **kwargs):
+        return (self.predict_proba(*args, **kwargs)) > 0.5
 
     def predict_proba(self, *args, **kwargs):
         return super().predict(*args, **kwargs)

@@ -129,7 +129,7 @@ template <typename Real> struct FMTrainer {
   }
 
   inline void initialize_e(const FMType &fm, const HyperType &h) {
-    e_train = fm.predict_score(X, relations);
+    fm.predict_score_write_target(e_train, X, relations);
     e_train -= y;
   }
 
@@ -493,7 +493,7 @@ private:
   }
 
   inline void sample_e(FMType &fm, HyperType &hyper) {
-    e_train = fm.predict_score(X, relations);
+    fm.predict_score_write_target(e_train, X, relations);
 
     if (learning_config.task_type == TASKTYPE::REGRESSION) {
       e_train -= y;

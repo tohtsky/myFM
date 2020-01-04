@@ -43,7 +43,13 @@ template <typename Real> struct FM {
     initialized = true;
   }
 
-  inline Vector predict_score(const SparseMatrix &X,
+  inline Vector predict_score(const SparseMatrix &X, const vector<RelationBlock> &relations) const { 
+    Vector result(X.rows());
+    predict_score_write_target(result, X, relations);
+    return result;
+  }
+
+  inline void predict_score_write_target(Eigen::Ref<Vector> target, const SparseMatrix &X,
                               const vector<RelationBlock> &relations) const {
     // check input consistency
     size_t case_size = X.rows();
@@ -62,18 +68,18 @@ template <typename Real> struct FM {
     if (!initialized) {
       throw std::runtime_error("get_score called before initialization");
     }
-    Vector result = w0 + (X * w.head(X.cols())).array();
+    target = w0 + (X * w.head(X.cols())).array();
     size_t offset = X.cols();
     for (auto iter = relations.begin(); iter != relations.end(); iter++) {
       Vector w0_cache = (iter->X) * w.segment(offset, iter->feature_size);
       size_t j = 0;
       for (auto i : (iter->original_to_block)) {
-        result(j++) += w0_cache(i);
+        target(j++) += w0_cache(i);
       }
       offset += iter->feature_size;
     }
 
-    Vector q_cache(result.rows());
+    Vector q_cache(target.rows());
     size_t buffer_size = 1;
     vector<Real> buffer_cache(1);
     vector<Vector> block_q_caches;
@@ -97,7 +103,7 @@ template <typename Real> struct FM {
           q_cache(train_case_index++) += block_cache(i);
         }
       }
-      result.array() += q_cache.array().square() * static_cast<Real>(0.5);
+      target.array() += q_cache.array().square() * static_cast<Real>(0.5);
 
       offset = X.cols();
       relation_index = 0;
@@ -118,9 +124,8 @@ template <typename Real> struct FM {
           q_cache(train_case_index++) += block_cache(i);
         }
       }
-      result -= q_cache * static_cast<Real>(0.5);
+      target -= q_cache * static_cast<Real>(0.5);
     }
-    return result;
   }
 
   const int n_factors;

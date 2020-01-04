@@ -90,22 +90,30 @@ void declare_functional(py::module & m) {
     .def("build", &ConfigBuilder::build);
 
   py::class_<FM>(m, "FM")
-    .def_readwrite("w0", &FM::w0)
-    .def_readwrite("w", &FM::w)
-    .def_readwrite("V", &FM::V)
-    .def("__getstate__",
-        [](const FM &fm) {
-        Real w0 = fm.w0;
-        Vector w(fm.w);
-        DenseMatrix V(fm.V);
-        return py::make_tuple(w0, w, V);
-        })
-  .def("__setstate__", [](FM &fm, py::tuple t) {
-      if (t.size() != 3)
-      throw std::runtime_error("invalid state for FM.");
-      // placement new
-      new (&fm) FM(t[0].cast<Real>(), t[1].cast<Vector>(),
-          t[2].cast<DenseMatrix>());
+      .def_readwrite("w0", &FM::w0)
+      .def_readwrite("w", &FM::w)
+      .def_readwrite("V", &FM::V)
+      .def("predict_score", &FM::predict_score)
+      .def("__getstate__",
+           [](const FM &fm) {
+             Real w0 = fm.w0;
+             Vector w(fm.w);
+             DenseMatrix V(fm.V);
+             return py::make_tuple(w0, w, V);
+           })
+      .def("__repr__",
+           [](const FM &fm) {
+             return (myFM::StringBuilder{})(
+                        "<Factorization Machine sample with feature size = ")(
+                        fm.w.rows())(", rank = ")(fm.V.cols())(">")
+                 .build();
+           })
+      .def("__setstate__", [](FM &fm, py::tuple t) {
+        if (t.size() != 3)
+          throw std::runtime_error("invalid state for FM.");
+        // placement new
+        new (&fm) FM(t[0].cast<Real>(), t[1].cast<Vector>(),
+                     t[2].cast<DenseMatrix>());
       });
 
   py::class_<Hyper>(m, "FMHyperParameters")
@@ -135,6 +143,7 @@ void declare_functional(py::module & m) {
   py::class_<Predictor>(m, "Predictor")
     .def_readonly("samples", &Predictor::samples)
     .def("predict", &Predictor::predict)
+    .def("predict_parallel", &Predictor::predict_parallel)
     .def("__getstate__",
         [](const Predictor &predictor) {
         return py::make_tuple(static_cast<int>(predictor.type), predictor.samples);

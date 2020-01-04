@@ -1,5 +1,9 @@
 #ifndef MYFM_PREDICTOR_HPP
 #define MYFM_PREDICTOR_HPP
+#include <mutex>
+#include <thread>
+#include <atomic>
+
 #include "definitions.hpp"
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
@@ -13,18 +17,58 @@ template <typename Real> struct Predictor {
   typedef typename FM<Real>::RelationBlock RelationBlock;
   inline Predictor(TASKTYPE type) : samples(), type(type) {}
 
+  inline Vector predict_parallel(const SparseMatrix &X,
+                                 const vector<RelationBlock> &relations,
+                                 size_t n_workers) const {
+    if (samples.empty()) {
+      throw std::runtime_error("Empty samples!");
+    }
+    Vector result = Vector::Zero(X.rows());
+    const size_t n_samples = this->samples.size();
+
+    std::mutex mtx;
+    std::atomic<size_t> currently_done(0);
+    std::vector<std::thread> workers;
+
+    for (size_t i = 0; i < n_workers; i++) {
+      workers.emplace_back([this, i, n_samples, &result, &X, &relations, &currently_done, &mtx] {
+        Vector cache(X.rows());
+        while (true) {
+          size_t cd = currently_done++;
+          if (cd >= n_samples) break;
+          this->samples[cd].predict_score_write_target(cache, X, relations);
+          if (this->type == TASKTYPE::CLASSIFICATION) {
+            cache.array() =
+                ((cache.array() * static_cast<Real>(std::sqrt(0.5))).erf() + static_cast<Real>(1)) /
+                static_cast<Real>(2);
+          }
+          {
+            std::lock_guard<std::mutex> lock{mtx};
+            result += cache;
+          }
+        }
+      });
+    }
+    for (auto & worker:workers) {
+      worker.join();
+    }
+    result.array() /= n_samples;
+    return result;
+  }
+
   inline Vector predict(const SparseMatrix & X, const vector<RelationBlock> & relations) const{
       if (samples.empty()) {
           throw std::runtime_error("Empty samples!");
       }
       Vector result = Vector::Zero(X.rows());
+      Vector cache = Vector(X.rows());
       for (auto iter = samples.cbegin(); iter != samples.cend(); iter++) {
+        iter->predict_score_write_target(cache, X, relations);
         if (type == TASKTYPE::REGRESSION) {
-          result.array() += iter->predict_score(X, relations).array();
+          result += cache;
         } else if (type == TASKTYPE::CLASSIFICATION) {
-
           result.array() += (
-              ( iter->predict_score(X, relations).array() * static_cast<Real>(std::sqrt(0.5)) ).erf() + static_cast<Real>(1)
+              ( cache.array() * static_cast<Real>(std::sqrt(0.5)) ).erf() + static_cast<Real>(1)
           ) / static_cast<Real>(2);
         }
       }
@@ -38,7 +82,6 @@ template <typename Real> struct Predictor {
 
   vector<FM<Real>> samples;
   const TASKTYPE type;
-
 };
 };
 
