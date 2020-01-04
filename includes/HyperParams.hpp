@@ -1,5 +1,4 @@
-#ifndef MYFM_HYPER_PARAMS_HPP
-#define MYFM_HYPER_PARAMS_HPP
+#pragma once
 
 #include "FM.hpp"
 #include "definitions.hpp"
@@ -38,5 +37,3 @@ template <typename Real> struct FMHyperParameters {
 };
 
 } // namespace myFM
-
-#endif

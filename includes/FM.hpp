@@ -1,5 +1,4 @@
-#ifndef MYFM_FM_HPP
-#define MYFM_FM_HPP
+#pragma once
 #include "definitions.hpp"
 #include <cmath>
 
@@ -138,4 +137,3 @@ private:
 };
 
 } // namespace myFM
-#endif

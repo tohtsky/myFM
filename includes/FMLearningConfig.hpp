@@ -1,5 +1,4 @@
-#ifndef MYFM_LEARNING_CONFIG_HPP
-#define MYFM_LEARNING_CONFIG_HPP
+#pragma once
 
 #include <vector>
 #include <set> 
@@ -150,4 +149,3 @@ public:
 };
 
 }
-#endif

@@ -1,5 +1,4 @@
-#ifndef MYFM_DEFINITIONS_HPP
-#define MYFM_DEFINITIONS_HPP
+#pragma once
 
 #include <random>
 #include <vector>
@@ -78,5 +77,3 @@ template <typename Real> struct RelationWiseCache {
 
 
 } // namespace myFM
-
-#endif

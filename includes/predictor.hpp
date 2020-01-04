@@ -1,5 +1,5 @@
-#ifndef MYFM_PREDICTOR_HPP
-#define MYFM_PREDICTOR_HPP
+#pragma once
+
 #include <mutex>
 #include <thread>
 #include <atomic>
@@ -83,6 +83,5 @@ template <typename Real> struct Predictor {
   vector<FM<Real>> samples;
   const TASKTYPE type;
 };
-};
 
-#endif
+} // namespace myfm

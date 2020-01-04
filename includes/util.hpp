@@ -1,6 +1,4 @@
-#ifndef MYFM_UTIL_HPP
-#define MYFM_UTIL_HPP
-
+#pragma once
 #include <random>
 #include <sstream>
 
@@ -85,5 +83,3 @@ struct StringBuilder  {
 };
 
 } // namespace myFM
-
-#endif

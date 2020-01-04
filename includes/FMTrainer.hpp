@@ -1,5 +1,4 @@
-#ifndef MYFM_FM_TRAIN_HPP
-#define MYFM_FM_TRAIN_HPP
+#pragma once
 
 #include <cmath>
 #include <memory>
@@ -422,7 +421,7 @@ private:
                0.5 * relation_cache.q_S(i));
           train_data_index++;
         }
-        // Initlaized block-wise caches.
+        // Initialized block-wise caches.
         for (size_t inner_feature_index = 0;
              inner_feature_index < relation_data.feature_size;
              inner_feature_index++) {
@@ -436,7 +435,7 @@ private:
             auto block_data_index = it.col();
             x_il = it.value();
             auto h_B =
-                (relation_cache.q(block_data_index) - it.value() * v_old);
+                (relation_cache.q(block_data_index) - x_il * v_old);
             auto h_squared =
                 h_B * h_B * relation_cache.cardinarity(block_data_index) +
                 2 * relation_cache.c(block_data_index) * h_B +
@@ -498,14 +497,13 @@ private:
     if (learning_config.task_type == TASKTYPE::REGRESSION) {
       e_train -= y;
     } else if (learning_config.task_type == TASKTYPE::CLASSIFICATION) {
-
+      Real zero = static_cast<Real>(0);
+      Real std = static_cast<Real>(1); // 1/ sqrt(hyper.alpha);
       for (int train_data_index = 0; train_data_index < X.rows();
            train_data_index++) {
         Real gt = y(train_data_index);
         Real pred = e_train(train_data_index);
         Real n;
-        Real std = 1; // 1/ sqrt(hyper.alpha);
-        Real zero = static_cast<Real>(0);
         if (gt > 0) {
           n = sample_truncated_normal_left(gen_, pred, std, zero);
         } else {
@@ -520,5 +518,4 @@ private:
   mt19937 gen_;
 };
 
-} // end namespace myFM
-#endif
+} // namespace myFM
