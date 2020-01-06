@@ -1,5 +1,4 @@
-#ifndef MYFM_DECLARE_MODULE_HPP
-#define MYFM_DECLARE_MODULE_HPP
+#pragma once
 
 #include <random>
 #include <tuple>
@@ -29,8 +28,8 @@ create_train_fm(size_t n_factor, Real init_std,
                 const vector<myFM::relational::RelationBlock<Real>> & relations,
                 const typename myFM::FM<Real>::Vector &y, int random_seed,
                 myFM::FMLearningConfig<Real> &config,
-                std::function<bool(int, const myFM::FM<Real> &,
-                                   const myFM::FMHyperParameters<Real> &)>
+                std::function<bool(int, myFM::FM<Real> *,
+                                   myFM::FMHyperParameters<Real> *)>
                     cb) {
   myFM::FMTrainer<Real> fm_trainer(X, relations, y, random_seed, config);
   auto fm = fm_trainer.create_FM(n_factor, init_std);
@@ -52,7 +51,7 @@ void declare_functional(py::module & m) {
   using Predictor = myFM::Predictor<Real>;
   using TASKTYPE = typename myFM::FMLearningConfig<Real>::TASKTYPE;
 
-  m.doc() = "Backend C++ inplementation for myfm.";
+  m.doc() = "Backend C++ implementation for myfm.";
 
   py::enum_<typename FMTrainer::TASKTYPE>(m, "TaskType", py::arithmetic())
     .value("REGRESSION", FMTrainer::TASKTYPE::REGRESSION)
@@ -141,22 +140,23 @@ void declare_functional(py::module & m) {
       });
 
   py::class_<Predictor>(m, "Predictor")
-    .def_readonly("samples", &Predictor::samples)
-    .def("predict", &Predictor::predict)
-    .def("predict_parallel", &Predictor::predict_parallel)
-    .def("__getstate__",
-        [](const Predictor &predictor) {
-        return py::make_tuple(static_cast<int>(predictor.type), predictor.samples);
-        })
-  .def("__setstate__", [](Predictor &predictor, py::tuple t) {
-      if (t.size() != 2)
-      throw std::runtime_error("invalid state for FMHyperParameters.");
-      // placement new
-      new (&predictor)
-      Predictor(static_cast<TASKTYPE>(t[0].cast<int>()));
-      predictor.set_samples(std::move(t[1].cast<vector<FM>>()));
+      .def_readonly("samples", &Predictor::samples)
+      .def("predict", &Predictor::predict)
+      .def("predict_parallel", &Predictor::predict_parallel)
+      .def("__getstate__",
+           [](const Predictor &predictor) {
+             return py::make_tuple(predictor.rank, predictor.feature_size,
+                                   static_cast<int>(predictor.type),
+                                   predictor.samples);
+           })
+      .def("__setstate__", [](Predictor &predictor, py::tuple t) {
+        if (t.size() != 4)
+          throw std::runtime_error("invalid state for FMHyperParameters.");
+        // placement new
+        new (&predictor) Predictor(t[0].cast<size_t>(), t[1].cast<size_t>(),
+                                   static_cast<TASKTYPE>(t[2].cast<int>()));
+        predictor.set_samples(std::move(t[3].cast<vector<FM>>()));
       });
-
 
   py::class_<FMTrainer>(m, "FMTrainer")
     .def(py::init<const SparseMatrix &, const vector<RelationBlock> &, const Vector &, int,
@@ -165,7 +165,6 @@ void declare_functional(py::module & m) {
     .def("create_Hyper", &FMTrainer::create_Hyper)
     .def("learn", &FMTrainer::learn);
 
-  m.def("create_train_fm", &create_train_fm<Real>, "create and train fm.");
+  m.def("create_train_fm", &create_train_fm<Real>, "create and train fm.", py::return_value_policy::move);
 
 }
-#endif

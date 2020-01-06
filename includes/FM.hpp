@@ -8,15 +8,11 @@ using namespace std;
 
 template <typename Real> struct FM {
 
-  using DenseMatrix = Eigen::Matrix<Real, -1, -1, Eigen::ColMajor>;
-
-  using Vector = Eigen::Matrix<Real, -1, 1>;
-
-  using SparseMatrix = Eigen::SparseMatrix<Real, Eigen::RowMajor>;
-
-  using SparseVector = Eigen::SparseVector<Real>;
-
   typedef relational::RelationBlock<Real> RelationBlock;
+
+  typedef types::DenseMatrix<Real> DenseMatrix;
+  typedef types::SparseMatrix<Real> SparseMatrix; 
+  typedef types::Vector<Real> Vector; 
 
   inline FM(int n_factors, size_t n_groups)
       : n_factors(n_factors), initialized(false) {}

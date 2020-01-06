@@ -39,6 +39,9 @@ template <typename Real> struct FMLearningConfig {
     if (n_iter <=0){
       throw invalid_argument("n_iter must be positive.");
     }
+    if (n_iter < n_kept_samples) {
+      throw invalid_argument("n_kept_samples must not exceed n_iter.");
+    }
   }
 
   FMLearningConfig(const FMLearningConfig & other) = default;

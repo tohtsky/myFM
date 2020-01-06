@@ -1,18 +1,18 @@
 #pragma once
 
 #include <cmath>
+#include <fstream>
 #include <memory>
 #include <set>
 #include <string>
 #include <tuple>
-#include <fstream>
 
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
 #include "HyperParams.hpp"
 #include "definitions.hpp"
-#include "util.hpp"
 #include "predictor.hpp"
+#include "util.hpp"
 
 constexpr size_t checkIndex = 79999;
 namespace myFM {
@@ -35,7 +35,7 @@ template <typename Real> struct FMTrainer {
   vector<RelationBlock> relations;
   SparseMatrix X_t; // transposed
 
-  size_t dim_all;
+  const size_t dim_all;
 
   const Vector y;
 
@@ -48,17 +48,17 @@ template <typename Real> struct FMTrainer {
 
   const Config learning_config;
 
-  size_t n_nan_occured = 0;
+  size_t n_nan_occurred = 0;
 
   inline FMTrainer(const SparseMatrix &X,
                    const vector<RelationBlock> &relations, const Vector &y,
                    int random_seed, Config learning_config)
-      : X(X), relations(relations), X_t(X.transpose()), dim_all(X.cols()), y(y),
+      : X(X), relations(relations), X_t(X.transpose()),
+        dim_all(check_row_consistency_return_column(X, relations)), y(y),
         n_train(X.rows()), e_train(X.rows()), q_train(X.rows()),
         relation_caches(), learning_config(learning_config),
         random_seed(random_seed), gen_(random_seed) {
     for (auto it = relations.begin(); it != relations.end(); it++) {
-      dim_all += it->X.cols();
       relation_caches.emplace_back(*it);
     }
     if (X.rows() != y.rows()) {
@@ -86,19 +86,21 @@ template <typename Real> struct FMTrainer {
   inline pair<Predictor<Real>, vector<HyperType>> learn(FMType &fm,
                                                         HyperType &hyper) {
     return learn_with_callback(
-        fm, hyper,
-        [](int i, const FMType &fm, const HyperType &hyper) { return false; });
+        fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
   }
 
   /**
    *  Main routine for Gibbs sampling.
    */
-  inline pair<Predictor<Real>, vector<HyperType>> learn_with_callback(
-      FMType &fm, HyperType &hyper,
-      std::function<bool(int, const FMType &, const HyperType &)> cb) {
-    pair<Predictor<Real>, vector<HyperType>> result {learning_config.task_type, {}};
+  inline pair<Predictor<Real>, vector<HyperType>>
+  learn_with_callback(FMType &fm, HyperType &hyper,
+                      std::function<bool(int, FMType *, HyperType *)> cb) {
+    pair<Predictor<Real>, vector<HyperType>> result{
+        {static_cast<size_t>(fm.n_factors), dim_all, learning_config.task_type},
+        {}};
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
+    result.first.samples.reserve(learning_config.n_kept_samples);
     for (int mcmc_iteration = 0; mcmc_iteration < learning_config.n_iter;
          mcmc_iteration++) {
       mcmc_step(fm, hyper);
@@ -109,7 +111,7 @@ template <typename Real> struct FMTrainer {
       // for tracing
       result.second.emplace_back(hyper);
 
-      bool should_stop = cb(mcmc_iteration, fm, hyper);
+      bool should_stop = cb(mcmc_iteration, &fm, &hyper);
       if (should_stop) {
         break;
       }
@@ -136,7 +138,6 @@ template <typename Real> struct FMTrainer {
     sample_alpha(fm, hyper);
 
     sample_w0(fm, hyper);
-
 
     sample_lambda_w(fm, hyper);
 
@@ -283,7 +284,7 @@ private:
           relation_data.X * fm.w.segment(offset, relation_data.feature_size);
       for (auto i : relation_data.original_to_block) {
         relation_cache.e(i) += e_train(train_data_index);
-        e_train(train_data_index++) -= relation_cache.q(i); // unsync
+        e_train(train_data_index++) -= relation_cache.q(i); // un-synchronize
       }
       for (size_t inner_feature_index = 0;
            inner_feature_index < relation_data.feature_size;
@@ -295,7 +296,7 @@ private:
 
         Real square_term =
             relation_cache.X_t.row(inner_feature_index).cwiseAbs2() *
-            relation_cache.cardinarity;
+            relation_cache.cardinality;
         Real linear_term =
             -relation_cache.X_t.row(inner_feature_index) * relation_cache.e;
 
@@ -308,7 +309,7 @@ private:
         fm.w(offset + inner_feature_index) = w_new;
         relation_cache.e += relation_cache.X_t.row(inner_feature_index)
                                 .transpose()
-                                .cwiseProduct(relation_cache.cardinarity) *
+                                .cwiseProduct(relation_cache.cardinality) *
                             (w_new - w_old);
       }
 
@@ -316,7 +317,7 @@ private:
           relation_data.X * fm.w.segment(offset, relation_data.feature_size);
       train_data_index = 0;
       for (auto i : relation_data.original_to_block) {
-        e_train(train_data_index++) += relation_cache.q(i); // unsync
+        e_train(train_data_index++) += relation_cache.q(i); // un-sync
       }
       offset += relation_data.feature_size;
     }
@@ -370,7 +371,7 @@ private:
         square_coeff += hyper.lambda_V(g, factor_index);
         linear_coeff +=
             hyper.lambda_V(g, factor_index) * hyper.mu_V(g, factor_index);
- 
+
         Real v_new = sample_normal(square_coeff, linear_coeff);
         fm.V(feature_index, factor_index) = v_new;
         for (itertype it(X_t, feature_index); it; ++it) {
@@ -410,7 +411,7 @@ private:
           relation_cache.c_S(i) += temp * temp;
           relation_cache.e(i) += e_train(train_data_index);
           relation_cache.e_q(i) += e_train(train_data_index) * temp;
-          // unsynchronization of q and e
+          // un-synchronization of q and e
           q_train(train_data_index) -= relation_cache.q(i);
           // q_B
           // 1/ 2 ( (q_B + q_other) **2 - (q_B_S + other) )
@@ -434,10 +435,9 @@ private:
           for (itertype it(relation_cache.X_t, inner_feature_index); it; ++it) {
             auto block_data_index = it.col();
             x_il = it.value();
-            auto h_B =
-                (relation_cache.q(block_data_index) - x_il * v_old);
+            auto h_B = (relation_cache.q(block_data_index) - x_il * v_old);
             auto h_squared =
-                h_B * h_B * relation_cache.cardinarity(block_data_index) +
+                h_B * h_B * relation_cache.cardinality(block_data_index) +
                 2 * relation_cache.c(block_data_index) * h_B +
                 relation_cache.c_S(block_data_index);
             h_squared = x_il * x_il * h_squared;
@@ -466,7 +466,7 @@ private:
 
             relation_cache.e(block_data_index) +=
                 x_il * delta *
-                (h_B * relation_cache.cardinarity(block_data_index) +
+                (h_B * relation_cache.cardinality(block_data_index) +
                  relation_cache.c(block_data_index));
             relation_cache.e_q(block_data_index) +=
                 x_il * delta *
