@@ -21,24 +21,22 @@ using namespace std;
 
 namespace py = pybind11;
 template <typename Real>
-std::pair<myFM::Predictor<Real>,
-          std::vector<myFM::FMHyperParameters<Real>>>
-create_train_fm(size_t n_factor, Real init_std,
-                const typename myFM::FM<Real>::SparseMatrix &X,
-                const vector<myFM::relational::RelationBlock<Real>> & relations,
-                const typename myFM::FM<Real>::Vector &y, int random_seed,
-                myFM::FMLearningConfig<Real> &config,
-                std::function<bool(int, myFM::FM<Real> *,
-                                   myFM::FMHyperParameters<Real> *)>
-                    cb) {
+std::pair<myFM::Predictor<Real>, std::vector<myFM::FMHyperParameters<Real>>>
+create_train_fm(
+    size_t n_factor, Real init_std,
+    const typename myFM::FM<Real>::SparseMatrix &X,
+    const vector<myFM::relational::RelationBlock<Real>> &relations,
+    const typename myFM::FM<Real>::Vector &y, int random_seed,
+    myFM::FMLearningConfig<Real> &config,
+    std::function<bool(int, myFM::FM<Real> *, myFM::FMHyperParameters<Real> *)>
+        cb) {
   myFM::FMTrainer<Real> fm_trainer(X, relations, y, random_seed, config);
   auto fm = fm_trainer.create_FM(n_factor, init_std);
-  auto hyper_param = fm_trainer.create_Hyper(fm.n_factors); 
+  auto hyper_param = fm_trainer.create_Hyper(fm.n_factors);
   return fm_trainer.learn_with_callback(fm, hyper_param, cb);
 }
 
-template<typename Real>
-void declare_functional(py::module & m) {
+template <typename Real> void declare_functional(py::module &m) {
   using FMTrainer = myFM::FMTrainer<Real>;
   using FM = myFM::FM<Real>;
   using Hyper = myFM::FMHyperParameters<Real>;
@@ -54,8 +52,8 @@ void declare_functional(py::module & m) {
   m.doc() = "Backend C++ implementation for myfm.";
 
   py::enum_<typename FMTrainer::TASKTYPE>(m, "TaskType", py::arithmetic())
-    .value("REGRESSION", FMTrainer::TASKTYPE::REGRESSION)
-    .value("CLASSIFICATION", FMTrainer::TASKTYPE::CLASSIFICATION);
+      .value("REGRESSION", FMTrainer::TASKTYPE::REGRESSION)
+      .value("CLASSIFICATION", FMTrainer::TASKTYPE::CLASSIFICATION);
 
   py::class_<FMLearningConfig>(m, "FMLearningConfig");
 
@@ -63,30 +61,29 @@ void declare_functional(py::module & m) {
       .def(py::init<vector<size_t>, const SparseMatrix &>())
       .def_readonly("original_to_block", &RelationBlock::original_to_block)
       .def_readonly("data", &RelationBlock::X)
-      .def_readonly("mapper_size", &RelationBlock::mapper_size) 
+      .def_readonly("mapper_size", &RelationBlock::mapper_size)
       .def_readonly("block_size", &RelationBlock::block_size)
       .def_readonly("feature_size", &RelationBlock::feature_size)
-      .def("__repr__", [](const RelationBlock & block){ 
-        return (myFM::StringBuilder{})
-        ("<RelationBlock with mapper size = ")(block.mapper_size)
-        (", block data size = ")(block.block_size)
-        (", feature size = ")(block.feature_size)
-        (">").build();
+      .def("__repr__", [](const RelationBlock &block) {
+        return (myFM::StringBuilder{})("<RelationBlock with mapper size = ")(
+                   block.mapper_size)(", block data size = ")(block.block_size)(
+                   ", feature size = ")(block.feature_size)(">")
+            .build();
       });
 
   py::class_<ConfigBuilder>(m, "ConfigBuilder")
-    .def(py::init<>())
-    .def("set_alpha_0", &ConfigBuilder::set_alpha_0)
-    .def("set_beta_0", &ConfigBuilder::set_beta_0)
-    .def("set_gamma_0", &ConfigBuilder::set_gamma_0)
-    .def("set_mu_0", &ConfigBuilder::set_mu_0)
-    .def("set_reg_0", &ConfigBuilder::set_reg_0)
-    .def("set_n_iter", &ConfigBuilder::set_n_iter)
-    .def("set_n_kept_samples", &ConfigBuilder::set_n_kept_samples)
-    .def("set_task_type", &ConfigBuilder::set_task_type)
-    .def("set_group_index", &ConfigBuilder::set_group_index)
-    .def("set_indentical_groups", &ConfigBuilder::set_indentical_groups)
-    .def("build", &ConfigBuilder::build);
+      .def(py::init<>())
+      .def("set_alpha_0", &ConfigBuilder::set_alpha_0)
+      .def("set_beta_0", &ConfigBuilder::set_beta_0)
+      .def("set_gamma_0", &ConfigBuilder::set_gamma_0)
+      .def("set_mu_0", &ConfigBuilder::set_mu_0)
+      .def("set_reg_0", &ConfigBuilder::set_reg_0)
+      .def("set_n_iter", &ConfigBuilder::set_n_iter)
+      .def("set_n_kept_samples", &ConfigBuilder::set_n_kept_samples)
+      .def("set_task_type", &ConfigBuilder::set_task_type)
+      .def("set_group_index", &ConfigBuilder::set_group_index)
+      .def("set_indentical_groups", &ConfigBuilder::set_indentical_groups)
+      .def("build", &ConfigBuilder::build);
 
   py::class_<FM>(m, "FM")
       .def_readwrite("w0", &FM::w0)
@@ -164,11 +161,12 @@ void declare_functional(py::module & m) {
           }));
 
   py::class_<FMTrainer>(m, "FMTrainer")
-    .def(py::init<const SparseMatrix &, const vector<RelationBlock> &, const Vector &, int,
-        FMLearningConfig>())
-    .def("create_FM", &FMTrainer::create_FM)
-    .def("create_Hyper", &FMTrainer::create_Hyper)
-    .def("learn", &FMTrainer::learn);
+      .def(py::init<const SparseMatrix &, const vector<RelationBlock> &,
+                    const Vector &, int, FMLearningConfig>())
+      .def("create_FM", &FMTrainer::create_FM)
+      .def("create_Hyper", &FMTrainer::create_Hyper)
+      .def("learn", &FMTrainer::learn);
 
-  m.def("create_train_fm", &create_train_fm<Real>, "create and train fm.", py::return_value_policy::move);
+  m.def("create_train_fm", &create_train_fm<Real>, "create and train fm.",
+        py::return_value_policy::move);
 }
