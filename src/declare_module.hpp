@@ -93,13 +93,7 @@ void declare_functional(py::module & m) {
       .def_readwrite("w", &FM::w)
       .def_readwrite("V", &FM::V)
       .def("predict_score", &FM::predict_score)
-      .def("__getstate__",
-           [](const FM &fm) {
-             Real w0 = fm.w0;
-             Vector w(fm.w);
-             DenseMatrix V(fm.V);
-             return py::make_tuple(w0, w, V);
-           })
+
       .def("__repr__",
            [](const FM &fm) {
              return (myFM::StringBuilder{})(
@@ -107,56 +101,67 @@ void declare_functional(py::module & m) {
                         fm.w.rows())(", rank = ")(fm.V.cols())(">")
                  .build();
            })
-      .def("__setstate__", [](FM &fm, py::tuple t) {
-        if (t.size() != 3)
-          throw std::runtime_error("invalid state for FM.");
-        // placement new
-        new (&fm) FM(t[0].cast<Real>(), t[1].cast<Vector>(),
-                     t[2].cast<DenseMatrix>());
-      });
+      .def(py::pickle(
+          [](const FM &fm) {
+            Real w0 = fm.w0;
+            Vector w(fm.w);
+            DenseMatrix V(fm.V);
+            return py::make_tuple(w0, w, V);
+          },
+          [](py::tuple t) {
+            if (t.size() != 3) {
+              throw std::runtime_error("invalid state for FM.");
+            }
+            // placement new
+            return new FM(t[0].cast<Real>(), t[1].cast<Vector>(),
+                          t[2].cast<DenseMatrix>());
+          }));
 
   py::class_<Hyper>(m, "FMHyperParameters")
-    .def_readonly("alpha", &Hyper::alpha)
-    .def_readonly("mu_w", &Hyper::mu_w)
-    .def_readonly("lambda_w", &Hyper::lambda_w)
-    .def_readonly("mu_V", &Hyper::mu_V)
-    .def_readonly("lambda_V", &Hyper::lambda_V)
-    .def("__getstate__",
-        [](const Hyper &hyper) {
-        Real alpha = hyper.alpha;
-        Vector mu_w(hyper.mu_w);
-        Vector lambda_w(hyper.lambda_V);
-        DenseMatrix mu_V(hyper.mu_w);
-        DenseMatrix lambda_V(hyper.lambda_V);
-        return py::make_tuple(alpha, mu_w, lambda_w, mu_V, lambda_V);
-        })
-  .def("__setstate__", [](Hyper &hyper, py::tuple t) {
-      if (t.size() != 5)
-      throw std::runtime_error("invalid state for FMHyperParameters.");
-      // placement new
-      new (&hyper)
-      Hyper(t[0].cast<Real>(), t[1].cast<Vector>(), t[2].cast<Vector>(),
-          t[3].cast<DenseMatrix>(), t[4].cast<DenseMatrix>());
-      });
+      .def_readonly("alpha", &Hyper::alpha)
+      .def_readonly("mu_w", &Hyper::mu_w)
+      .def_readonly("lambda_w", &Hyper::lambda_w)
+      .def_readonly("mu_V", &Hyper::mu_V)
+      .def_readonly("lambda_V", &Hyper::lambda_V)
+      .def(py::pickle(
+          [](const Hyper &hyper) {
+            Real alpha = hyper.alpha;
+            Vector mu_w(hyper.mu_w);
+            Vector lambda_w(hyper.lambda_V);
+            DenseMatrix mu_V(hyper.mu_w);
+            DenseMatrix lambda_V(hyper.lambda_V);
+            return py::make_tuple(alpha, mu_w, lambda_w, mu_V, lambda_V);
+          },
+          [](py::tuple t) {
+            if (t.size() != 5) {
+              throw std::runtime_error("invalid state for FMHyperParameters.");
+            }
+            // placement new
+            return new Hyper(t[0].cast<Real>(), t[1].cast<Vector>(),
+                             t[2].cast<Vector>(), t[3].cast<DenseMatrix>(),
+                             t[4].cast<DenseMatrix>());
+          }));
 
   py::class_<Predictor>(m, "Predictor")
       .def_readonly("samples", &Predictor::samples)
       .def("predict", &Predictor::predict)
       .def("predict_parallel", &Predictor::predict_parallel)
-      .def("__getstate__",
-           [](const Predictor &predictor) {
-             return py::make_tuple(predictor.rank, predictor.feature_size,
-                                   static_cast<int>(predictor.type),
-                                   predictor.samples);
-           })
-      .def("__setstate__", [](Predictor &predictor, py::tuple t) {
-        if (t.size() != 4)
-          throw std::runtime_error("invalid state for FMHyperParameters.");
-        // placement new
-        new (&predictor) Predictor(t[0].cast<size_t>(), t[1].cast<size_t>(),
-                                   static_cast<TASKTYPE>(t[2].cast<int>()));
-        predictor.set_samples(std::move(t[3].cast<vector<FM>>()));
-      });
+      .def(py::pickle(
+          [](const Predictor &predictor) {
+            return py::make_tuple(predictor.rank, predictor.feature_size,
+                                  static_cast<int>(predictor.type),
+                                  predictor.samples);
+          },
+          [](py::tuple t) {
+            if (t.size() != 4) {
+              throw std::runtime_error("invalid state for FMHyperParameters.");
+            }
+            Predictor *p =
+                new Predictor(t[0].cast<size_t>(), t[1].cast<size_t>(),
+                              static_cast<TASKTYPE>(t[2].cast<int>()));
+            p->set_samples(std::move(t[3].cast<vector<FM>>()));
+            return p;
+          }));
 
   py::class_<FMTrainer>(m, "FMTrainer")
     .def(py::init<const SparseMatrix &, const vector<RelationBlock> &, const Vector &, int,
@@ -166,5 +171,4 @@ void declare_functional(py::module & m) {
     .def("learn", &FMTrainer::learn);
 
   m.def("create_train_fm", &create_train_fm<Real>, "create and train fm.", py::return_value_policy::move);
-
 }
