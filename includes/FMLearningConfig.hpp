@@ -62,7 +62,7 @@ private:
 public:
   inline size_t get_n_groups() const { return n_groups_; }
 
-  const vector<size_t> &group_index() const { return group_index_; }
+  inline size_t group_index(int at) const { return group_index_.at(at); }
 
   const vector<vector<size_t>> & group_vs_feature_index() const {
     return group_vs_feature_index_;

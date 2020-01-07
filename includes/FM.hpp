@@ -79,7 +79,7 @@ template <typename Real> struct FM {
     vector<Real> buffer_cache(1);
     vector<Vector> block_q_caches;
     for (auto &relation : relations) {
-      buffer_size = std::max(buffer_size, relation.feature_size);
+      buffer_size = std::max(buffer_size, relation.block_size);
     }
     buffer_cache.resize(buffer_size);
 
@@ -89,7 +89,7 @@ template <typename Real> struct FM {
       size_t relation_index = 0;
       for (auto iter = relations.begin(); iter != relations.end();
            iter++, relation_index++) {
-        Eigen::Map<Vector> block_cache (buffer_cache.data(), iter->feature_size);
+        Eigen::Map<Vector> block_cache (buffer_cache.data(), iter->block_size);
         block_cache =
             iter->X * V.col(factor_index).segment(offset, iter->feature_size);
         offset += iter->feature_size;
@@ -106,7 +106,7 @@ template <typename Real> struct FM {
                 (V.col(factor_index).head(X.cols()).array().square().matrix());
       for (auto iter = relations.begin(); iter != relations.end();
            iter++, relation_index++) {
-        Eigen::Map<Vector> block_cache (buffer_cache.data(), iter->feature_size);
+        Eigen::Map<Vector> block_cache (buffer_cache.data(), iter->block_size);
         block_cache =
             (iter->X.cwiseAbs2()) * (V.col(factor_index)
                                          .segment(offset, iter->feature_size)

@@ -254,7 +254,7 @@ private:
   inline void sample_w(FMType &fm, HyperType &hyper) {
     // main table
     for (int feature_index = 0; feature_index < X.cols(); feature_index++) {
-      int group = learning_config.group_index()[feature_index];
+      int group = learning_config.group_index(feature_index);
 
       const Real w_old = fm.w(feature_index);
       e_train.array() -= X_t.row(feature_index) * w_old;
@@ -279,17 +279,20 @@ private:
       relation_cache.e.array() = 0;
       relation_cache.q.array() = 0;
 
-      size_t train_data_index = 0;
       relation_cache.q =
           relation_data.X * fm.w.segment(offset, relation_data.feature_size);
-      for (auto i : relation_data.original_to_block) {
-        relation_cache.e(i) += e_train(train_data_index);
-        e_train(train_data_index++) -= relation_cache.q(i); // un-synchronize
+
+      {
+        size_t train_data_index = 0;
+        for (auto i : relation_data.original_to_block) {
+          relation_cache.e(i) += e_train(train_data_index);
+          e_train(train_data_index++) -= relation_cache.q(i); // un-synchronize
+        }
       }
       for (size_t inner_feature_index = 0;
            inner_feature_index < relation_data.feature_size;
            inner_feature_index++) {
-        int group = learning_config.group_index()[offset + inner_feature_index];
+        int group = learning_config.group_index(offset + inner_feature_index);
         const Real w_old = fm.w(offset + inner_feature_index);
         Real lambda = hyper.lambda_w(group);
         Real mu = hyper.mu_w(group);
@@ -315,9 +318,11 @@ private:
 
       relation_cache.q =
           relation_data.X * fm.w.segment(offset, relation_data.feature_size);
-      train_data_index = 0;
-      for (auto i : relation_data.original_to_block) {
-        e_train(train_data_index++) += relation_cache.q(i); // un-sync
+      {
+        size_t train_data_index = 0;
+        for (auto i : relation_data.original_to_block) {
+          e_train(train_data_index++) += relation_cache.q(i); // un-sync
+        }
       }
       offset += relation_data.feature_size;
     }
@@ -350,7 +355,7 @@ private:
 
       // main table
       for (int feature_index = 0; feature_index < X_t.rows(); feature_index++) {
-        auto g = learning_config.group_index()[feature_index];
+        auto g = learning_config.group_index(feature_index);
         Real v_old = fm.V(feature_index, factor_index);
 
         Real square_coeff = 0;
@@ -426,7 +431,7 @@ private:
         for (size_t inner_feature_index = 0;
              inner_feature_index < relation_data.feature_size;
              inner_feature_index++) {
-          auto g = learning_config.group_index()[offset + inner_feature_index];
+          auto g = learning_config.group_index(offset + inner_feature_index);
           Real v_old = fm.V(offset + inner_feature_index, factor_index);
           Real square_coeff = 0;
           Real linear_coeff = 0;
