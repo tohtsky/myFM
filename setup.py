@@ -9,7 +9,7 @@ import setuptools
 from distutils.command.clean import clean as Clean
 import os
 
-__version__ = '0.1.0'
+__version__ = '0.1.1'
 
 install_requires = ['pybind11>=2.4', 'numpy>=1.11', 'scipy>=1.0', 'tqdm>=4']
 
@@ -60,6 +60,17 @@ class get_pybind_include(object):
         import pybind11
         return pybind11.get_include(self.user)
 
+headers = [
+    'include/myfm/definitions.hpp',
+    'include/myfm/util.hpp',
+    'include/myfm/FM.hpp',
+    'include/myfm/HyperParams.hpp',
+    'include/myfm/predictor.hpp',
+    'include/myfm/FMTrainer.hpp',
+    'include/myfm/FMLearningConfig.hpp',
+    'src/declare_module.hpp'
+]
+
 
 ext_modules = [
     Extension(
@@ -70,22 +81,10 @@ ext_modules = [
             get_pybind_include(),
             get_pybind_include(user=True),
             get_eigen_include(),
-            "includes"
+            "include"
         ],
         language='c++'
     ),
-#    Extension(
-#        'myfm._myfm_float',
-#        ['src/bind_float.cpp'],
-#        include_dirs=[
-#            # Path to pybind11 headers
-#            get_pybind_include(),
-#            get_pybind_include(user=True),
-#            get_eigen_include(),
-#            "includes"
-#        ],
-#        language='c++'
-#    ),
 ]
 
 
@@ -123,7 +122,7 @@ class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
     c_opts = {
         'msvc': ['/EHsc'],
-        'unix': ['-march=native', '-O3'],
+        'unix': ['-O3'],
     }
     l_opts = {
         'msvc': [],
@@ -168,4 +167,5 @@ setup(
     cmdclass={'build_ext': BuildExt},
     packages=['myfm'],
     zip_safe=False,
+    headers=headers
 )

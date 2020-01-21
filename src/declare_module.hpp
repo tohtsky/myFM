@@ -3,12 +3,6 @@
 #include <random>
 #include <tuple>
 #include <vector>
-
-#include "FM.hpp"
-#include "FMLearningConfig.hpp"
-#include "FMTrainer.hpp"
-#include "definitions.hpp"
-#include "util.hpp"
 #include <functional>
 #include <iostream>
 
@@ -16,6 +10,12 @@
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
+#include "myfm/FM.hpp"
+#include "myfm/FMLearningConfig.hpp"
+#include "myfm/FMTrainer.hpp"
+#include "myfm/definitions.hpp"
+#include "myfm/util.hpp"
 
 using namespace std;
 
