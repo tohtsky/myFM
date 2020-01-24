@@ -18,7 +18,7 @@ Recent version of gcc/clang with C++ 11 support.
 
 For Linux / Mac OSX, type
 ```
-pip install git+https://github.com/tohtsky/myFM
+pip install myfm
 ```
 In addition to installing python dependencies (`numpy`, `scipy`, `pybind11`, ...),  the above command will automatically download eigen (ver 3.3.7) to its build directory and use it for the build.
 
