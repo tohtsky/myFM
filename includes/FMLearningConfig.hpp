@@ -1,29 +1,33 @@
 #pragma once
 
-#include <vector>
-#include <set> 
-#include "util.hpp"
 #include "definitions.hpp"
+#include "util.hpp"
+#include <set>
+#include <vector>
 
-namespace myFM{
+namespace myFM {
 template <typename Real> struct FMLearningConfig {
 
-  enum class TASKTYPE { REGRESSION, CLASSIFICATION };
-  
+  enum class TASKTYPE { REGRESSION, CLASSIFICATION, ORDERED };
 
-  inline FMLearningConfig(Real alpha_0, Real beta_0, Real gamma_0, Real mu_0, Real reg_0, TASKTYPE task_type,
-                          const vector<size_t> &group_index, int n_iter, int n_kept_samples)
-      : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0), reg_0(reg_0), task_type(task_type),
-        n_iter(n_iter), n_kept_samples(n_kept_samples), group_index_(group_index){
+  inline FMLearningConfig(Real alpha_0, Real beta_0, Real gamma_0, Real mu_0,
+                          Real reg_0, TASKTYPE task_type,
+                          const vector<size_t> &group_index, int n_iter,
+                          int n_kept_samples, Real cutpoint_scale)
+      : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0),
+        reg_0(reg_0), task_type(task_type), n_iter(n_iter),
+        n_kept_samples(n_kept_samples), group_index_(group_index),
+        cutpoint_scale(cutpoint_scale) {
     /* check group_index consistency */
     set<size_t> all_index(group_index.begin(), group_index.end());
     n_groups_ = all_index.size();
     /* verify that groups from 0 - (n_groups - 1)  are contained.*/
     for (size_t i = 0; i < n_groups_; i++) {
       if (all_index.find(i) == all_index.cend()) {
-        throw invalid_argument((StringBuilder{})
-                                   ("No matching index for group index ") (i) (" found.")
-                                   .build());
+        throw invalid_argument(
+            (StringBuilder{})("No matching index for group index ")(i)(
+                " found.")
+                .build());
       }
     }
     group_vs_feature_index_ = vector<vector<size_t>>{n_groups_};
@@ -33,10 +37,10 @@ template <typename Real> struct FMLearningConfig {
       group_vs_feature_index_[*iter].push_back(feature_index++);
     }
 
-    if (n_kept_samples < 0){
+    if (n_kept_samples < 0) {
       throw invalid_argument("n_kept_samples must be non-negative,");
     }
-    if (n_iter <=0){
+    if (n_iter <= 0) {
       throw invalid_argument("n_iter must be positive.");
     }
     if (n_iter < n_kept_samples) {
@@ -44,7 +48,7 @@ template <typename Real> struct FMLearningConfig {
     }
   }
 
-  FMLearningConfig(const FMLearningConfig & other) = default;
+  FMLearningConfig(const FMLearningConfig &other) = default;
 
   const Real alpha_0, beta_0, gamma_0;
   const Real mu_0;
@@ -53,6 +57,8 @@ template <typename Real> struct FMLearningConfig {
   const TASKTYPE task_type;
 
   const int n_iter, n_kept_samples;
+
+  const Real cutpoint_scale;
 
 private:
   const vector<size_t> group_index_;
@@ -64,10 +70,9 @@ public:
 
   inline size_t group_index(int at) const { return group_index_.at(at); }
 
-  const vector<vector<size_t>> & group_vs_feature_index() const {
+  const vector<vector<size_t>> &group_vs_feature_index() const {
     return group_vs_feature_index_;
   }
-
 
   struct Builder {
     Real alpha_0 = 1;
@@ -79,10 +84,9 @@ public:
     int n_kept_samples = 10;
     TASKTYPE task_type = TASKTYPE::REGRESSION;
     vector<size_t> group_index;
+    Real cutpoint_scale = 10;
 
     Builder() {}
-
-
 
     inline Builder &set_alpha_0(Real arg) {
       this->alpha_0 = arg;
@@ -103,7 +107,7 @@ public:
       this->mu_0 = arg;
       return *this;
     }
-    inline Builder & set_reg_0(Real arg) {
+    inline Builder &set_reg_0(Real arg) {
       this->reg_0 = arg;
       return *this;
     }
@@ -114,7 +118,7 @@ public:
     }
 
     inline Builder &set_n_kept_samples(int arg) {
-      this->n_kept_samples = arg; 
+      this->n_kept_samples = arg;
       return *this;
     }
 
@@ -122,7 +126,6 @@ public:
       this->task_type = arg;
       return *this;
     }
-
 
     inline Builder &set_group_index(const vector<size_t> arg) {
       this->group_index = arg;
@@ -138,9 +141,15 @@ public:
       return set_group_index(default_group_index);
     }
 
+    inline Builder &set_cutpoint_scale(Real cutpoint_scale) {
+      this->cutpoint_scale = cutpoint_scale;
+      return *this;
+    }
+
     FMLearningConfig build() {
-      return FMLearningConfig(alpha_0, beta_0, gamma_0, mu_0, reg_0, task_type, group_index,
-                              n_iter, n_kept_samples);
+      return FMLearningConfig(alpha_0, beta_0, gamma_0, mu_0, reg_0, task_type,
+                              group_index, n_iter, n_kept_samples,
+                              cutpoint_scale);
     }
 
     static FMLearningConfig get_default_config(size_t n_features) {
@@ -151,4 +160,4 @@ public:
   }; // end Builder
 };
 
-}
+} // namespace myFM

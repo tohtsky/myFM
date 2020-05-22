@@ -2,8 +2,10 @@
 
 #include <cmath>
 #include <fstream>
+#include <limits>
 #include <memory>
 #include <set>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 
@@ -14,7 +16,6 @@
 #include "predictor.hpp"
 #include "util.hpp"
 
-constexpr size_t checkIndex = 79999;
 namespace myFM {
 
 template <typename Real> struct FMTrainer {
@@ -40,6 +41,8 @@ template <typename Real> struct FMTrainer {
   const Vector y;
 
   const int n_train;
+  int n_class = 0; // Used by ordered probit
+  Vector zmins, zmaxs;
 
   Vector e_train;
   Vector q_train;
@@ -100,6 +103,7 @@ template <typename Real> struct FMTrainer {
         {}};
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
+
     result.first.samples.reserve(learning_config.n_kept_samples);
     for (int mcmc_iteration = 0; mcmc_iteration < learning_config.n_iter;
          mcmc_iteration++) {
@@ -129,8 +133,21 @@ template <typename Real> struct FMTrainer {
     hyper.lambda_V.array() = static_cast<Real>(1e-5);
   }
 
-  inline void initialize_e(const FMType &fm, const HyperType &h) {
+  inline void initialize_e(FMType &fm, const HyperType &h) {
     fm.predict_score_write_target(e_train, X, relations);
+    if (learning_config.task_type == TASKTYPE::ORDERED) {
+      n_class = static_cast<int>(y.maxCoeff() + 1);
+      if ((this->n_class <= 2) || (this->n_class < 0)) {
+        throw std::invalid_argument("Illegal n_class for ordered probit.");
+      }
+
+      fm.cutpoint.resize(n_class - 1);
+      for (int i = 0; i < (n_class - 1); i++) {
+        fm.cutpoint(i) = i + 0.5;
+      }
+      this->zmins.resize(n_class - 1);
+      this->zmaxs.resize(n_class - 1);
+    }
     e_train -= y;
   }
 
@@ -162,7 +179,8 @@ private:
 
   inline void sample_alpha(FMType &fm, HyperType &hyper) {
     // If the task is classification, take alpha = 1.
-    if (learning_config.task_type == TASKTYPE::CLASSIFICATION) {
+    if ((learning_config.task_type == TASKTYPE::CLASSIFICATION) ||
+        (learning_config.task_type == TASKTYPE::ORDERED)) {
       hyper.alpha = static_cast<Real>(1);
       return;
     }
@@ -174,8 +192,8 @@ private:
   }
 
   /*
-   The sampling method for both $\lambda _g ^{(w)}$ and $\lambda _{g,r} ^{(v)}$.
-   */
+ The sampling method for both $\lambda _g ^{(w)}$ and $\lambda _{g,r} ^{(v)}$.
+ */
   inline void sample_lambda_generic(const Vector &mu, Eigen::Ref<Vector> lambda,
                                     const Vector &weight) {
     const vector<vector<size_t>> &group_vs_feature_index =
@@ -197,8 +215,8 @@ private:
   }
 
   /*
-   The sampling method for both $\mu _g ^{(w)}$ and $\mu _{g,r} ^{(v)}$.
-   */
+ The sampling method for both $\mu _g ^{(w)}$ and $\mu _{g,r} ^{(v)}$.
+ */
   inline void sample_mu_generic(Eigen::Ref<Vector> mu, const Vector &lambda,
                                 const Vector &weight) {
     const vector<vector<size_t>> &group_vs_feature_index =
@@ -244,6 +262,10 @@ private:
   }
 
   inline void sample_w0(FMType &fm, HyperType &hyper) {
+    if (learning_config.task_type == TASKTYPE::ORDERED) {
+      fm.w0 = 0;
+      return;
+    }
     Real w0_lin_term = hyper.alpha * (fm.w0 - e_train.array()).sum();
     Real w0_quad_term = hyper.alpha * n_train + learning_config.reg_0;
     Real w0_new = sample_normal(w0_quad_term, w0_lin_term);
@@ -515,6 +537,53 @@ private:
           n = sample_truncated_normal_right(gen_, pred, std, zero);
         }
         e_train(train_data_index) -= n;
+      }
+    } else if (learning_config.task_type == TASKTYPE::ORDERED) {
+      zmins.array() = std::numeric_limits<Real>::max();
+      zmaxs.array() = std::numeric_limits<Real>::lowest();
+
+      for (int train_data_index = 0; train_data_index < X.rows();
+           train_data_index++) {
+        int class_index = static_cast<int>(y(train_data_index));
+        Real pred_score = e_train(train_data_index);
+        Real z_new;
+
+        if (class_index == 0) {
+          z_new = sample_truncated_normal_right(gen_, fm.cutpoint(class_index) -
+                                                          pred_score) +
+                  pred_score;
+          zmaxs(0) = std::max(zmaxs(0), z_new);
+        } else if (class_index == (n_class - 1)) {
+          z_new = sample_truncated_normal_left(gen_, fm.cutpoint(n_class - 2) -
+                                                         pred_score) +
+                  pred_score;
+          zmins(n_class - 1) = std::min(zmins(n_class - 1), z_new);
+        } else {
+          z_new = sample_truncated_normal_twoside(
+                      gen_, fm.cutpoint(class_index - 1) - pred_score,
+                      fm.cutpoint(class_index) - pred_score) +
+                  pred_score;
+          zmins(class_index) = std::min(zmins(class_index), z_new);
+          zmaxs(class_index) = std::max(zmaxs(class_index), z_new);
+        }
+        e_train(train_data_index) -= z_new;
+      }
+      /* sampling cutpoint */
+      {
+        {
+          Real lower = std::max(zmaxs(0), -learning_config.cutpoint_scale);
+          Real upper = std::min(zmins(1), learning_config.cutpoint_scale);
+          fm.cutpoint(0) =
+              std::uniform_real_distribution<Real>(lower, upper)(gen_);
+        }
+        for (int i = 1; i <= (n_class - 2); i++) {
+          Real lower = zmaxs(i);
+          Real upper =
+              std::min(zmins(i + 1),
+                       fm.cutpoint(i - 1) + learning_config.cutpoint_scale);
+          fm.cutpoint(i) =
+              std::uniform_real_distribution<Real>(lower, upper)(gen_);
+        }
       }
     }
   }
