@@ -47,7 +47,7 @@ template <typename Real> struct Predictor {
 
     for (size_t i = 0; i < n_workers; i++) {
       workers.emplace_back(
-          [this, i, n_samples, &result, &X, &relations, &currently_done, &mtx] {
+          [this, n_samples, &result, &X, &relations, &currently_done, &mtx] {
             Vector cache(X.rows());
             while (true) {
               size_t cd = currently_done++;
@@ -115,7 +115,6 @@ template <typename Real> struct Predictor {
   const size_t feature_size;
   const TASKTYPE type;
   vector<FM<Real>> samples;
-
 };
 
 } // namespace myFM

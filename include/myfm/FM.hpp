@@ -11,8 +11,8 @@ template <typename Real> struct FM {
   typedef relational::RelationBlock<Real> RelationBlock;
 
   typedef types::DenseMatrix<Real> DenseMatrix;
-  typedef types::SparseMatrix<Real> SparseMatrix; 
-  typedef types::Vector<Real> Vector; 
+  typedef types::SparseMatrix<Real> SparseMatrix;
+  typedef types::Vector<Real> Vector;
 
   inline FM(int n_factors, size_t n_groups)
       : n_factors(n_factors), initialized(false) {}
@@ -20,7 +20,7 @@ template <typename Real> struct FM {
 
   inline FM(const FM &other)
       : n_factors(other.n_factors), w0(other.w0), w(other.w), V(other.V),
-        initialized(other.initialized) {}
+        cutpoint(other.cutpoint), initialized(other.initialized) {}
 
   inline FM(Real w0, const Vector &w, const DenseMatrix &V)
       : n_factors(V.cols()), w0(w0), w(w), V(V), initialized(true) {}
@@ -29,7 +29,7 @@ template <typename Real> struct FM {
     initialized = false;
     normal_distribution<Real> nd;
 
-    auto get_rand = [&gen, &nd, init_std, this](Real dummy) {
+    auto get_rand = [&gen, &nd, init_std](Real dummy) {
       return nd(gen) * init_std;
     };
     V = DenseMatrix{n_features, n_factors}.unaryExpr(get_rand);
@@ -38,14 +38,16 @@ template <typename Real> struct FM {
     initialized = true;
   }
 
-  inline Vector predict_score(const SparseMatrix &X, const vector<RelationBlock> &relations) const { 
+  inline Vector predict_score(const SparseMatrix &X,
+                              const vector<RelationBlock> &relations) const {
     Vector result(X.rows());
     predict_score_write_target(result, X, relations);
     return result;
   }
 
-  inline void predict_score_write_target(Eigen::Ref<Vector> target, const SparseMatrix &X,
-                              const vector<RelationBlock> &relations) const {
+  inline void
+  predict_score_write_target(Eigen::Ref<Vector> target, const SparseMatrix &X,
+                             const vector<RelationBlock> &relations) const {
     // check input consistency
     size_t case_size = X.rows();
     size_t feature_size_all = X.cols();
@@ -56,7 +58,7 @@ template <typename Real> struct FM {
       }
       feature_size_all += rel.feature_size;
     }
-    if (feature_size_all != static_cast<size_t>(this->w.rows())){
+    if (feature_size_all != static_cast<size_t>(this->w.rows())) {
       throw std::invalid_argument("Total feature size mismatch.");
     }
 
@@ -89,7 +91,7 @@ template <typename Real> struct FM {
       size_t relation_index = 0;
       for (auto iter = relations.begin(); iter != relations.end();
            iter++, relation_index++) {
-        Eigen::Map<Vector> block_cache (buffer_cache.data(), iter->block_size);
+        Eigen::Map<Vector> block_cache(buffer_cache.data(), iter->block_size);
         block_cache =
             iter->X * V.col(factor_index).segment(offset, iter->feature_size);
         offset += iter->feature_size;
@@ -106,7 +108,7 @@ template <typename Real> struct FM {
                 (V.col(factor_index).head(X.cols()).array().square().matrix());
       for (auto iter = relations.begin(); iter != relations.end();
            iter++, relation_index++) {
-        Eigen::Map<Vector> block_cache (buffer_cache.data(), iter->block_size);
+        Eigen::Map<Vector> block_cache(buffer_cache.data(), iter->block_size);
         block_cache =
             (iter->X.cwiseAbs2()) * (V.col(factor_index)
                                          .segment(offset, iter->feature_size)
@@ -126,7 +128,8 @@ template <typename Real> struct FM {
   const int n_factors;
   Real w0;
   Vector w;
-  DenseMatrix V; // (n_feature, n_factor) - matrix
+  DenseMatrix V;   // (n_feature, n_factor) - matrix
+  Vector cutpoint; // ordered probit
 
 private:
   bool initialized;

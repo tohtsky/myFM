@@ -12,10 +12,10 @@ template <typename Real> struct FMHyperParameters {
 
   Real alpha;
 
-  Vector mu_w;      // mean for w. will be (n_group) - vector 
-  Vector lambda_w;      // variances for w. will be (n_group) - vector
+  Vector mu_w;     // mean for w. will be (n_group) - vector
+  Vector lambda_w; // variances for w. will be (n_group) - vector
 
-  DenseMatrix mu_V; // mean for V. will be (n_group x n_factor) matrix 
+  DenseMatrix mu_V;     // mean for V. will be (n_group x n_factor) matrix
   DenseMatrix lambda_V; // variances for V (n_group x n_factor) - matrix
 
   inline FMHyperParameters(size_t n_factors, size_t n_groups)

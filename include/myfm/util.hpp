@@ -1,7 +1,7 @@
 #pragma once
+#include "definitions.hpp"
 #include <random>
 #include <sstream>
-#include "definitions.hpp"
 
 namespace myFM {
 using namespace std;
@@ -35,6 +35,28 @@ inline Real sample_truncated_normal_left(mt19937 &gen, Real mu_minus) {
   }
 }
 
+template <typename Real>
+inline Real sample_truncated_normal_twoside(mt19937 &gen, Real mu_minus,
+                                            Real mu_plus) {
+  uniform_real_distribution<Real> proposal(mu_minus, mu_plus);
+  uniform_real_distribution<Real> acceptance(0, 1);
+  Real rho;
+  while (true) {
+    Real z = proposal(gen);
+    if ((mu_minus <= static_cast<Real>(0)) &&
+        (mu_plus >= static_cast<Real>(0))) {
+      rho = std::exp(-z * z / 2);
+    } else if (mu_plus < static_cast<Real>(0)) {
+      rho = std::exp((mu_plus * mu_plus - z * z) / 2);
+    } else {
+      rho = std::exp((mu_minus * mu_minus - z * z) / 2);
+    }
+    Real u = acceptance(gen);
+    if (u < rho) {
+      return z;
+    }
+  }
+}
 template <typename Real>
 inline Real sample_truncated_normal_left(mt19937 &gen, Real mean, Real std,
                                          Real mu_minus) {

@@ -4,6 +4,11 @@ from scipy import (special, sparse as sps)
 from tqdm import tqdm
 from . import _myfm as core
 
+
+def std_cdf(x):
+    return (1 + special.erf(x * np.sqrt(.5))) / 2
+
+
 def check_data_consistency(X, X_rel):
     shape = None
     if X_rel:
@@ -13,7 +18,7 @@ def check_data_consistency(X, X_rel):
         if len(shape_rel_all) > 1:
             raise ValueError('Inconsistent case size for X_rel.')
         shape = list(shape_rel_all)[0]
-        
+
     if X is None:
         if not X_rel:
             raise ValueError('At lease X or X_rel must be provided.')
@@ -23,8 +28,10 @@ def check_data_consistency(X, X_rel):
                 raise ValueError('X and X_rel have different shape.')
         shape = X.shape[0]
     return shape
- 
-REAL = np.float64 
+
+
+REAL = np.float64
+
 
 class MyFMRegressor(object):
 
@@ -95,7 +102,7 @@ class MyFMRegressor(object):
             reg_0=self.reg_0
         )
 
-    def fit(self, X, y, X_rel=[], 
+    def fit(self, X, y, X_rel=[],
             X_test=None, y_test=None, X_rel_test=None,
             n_iter=100, n_kept_samples=None, grouping=None, callback=None):
         """Performs Gibbs sampling to fit the data.
@@ -106,7 +113,7 @@ class MyFMRegressor(object):
 
         y : 1D array-like.
             Target variable.
-        
+
         X_rel: list of RelationBlock, optional (defalult=[])
                Relation blocks which supplement X.
 
@@ -156,14 +163,16 @@ class MyFMRegressor(object):
         pbar = None
         if (X_test is not None or X_rel_test):
             if y_test is None:
-                raise RuntimeError("Must specify both (X_test or X_rel_test) and y_test.")
+                raise RuntimeError(
+                    "Must specify both (X_test or X_rel_test) and y_test.")
             test_size = check_data_consistency(X_test, X_rel_test)
-            assert test_size == y_test.shape[0] 
+            assert test_size == y_test.shape[0]
             if X_test is None:
                 X_test = sps.csr_matrix((test_size, 0), dtype=np.float64)
             do_test = True
         elif y_test is not None:
-            raise RuntimeError("Must specify both (X_test or X_rel_test) and y_test.")
+            raise RuntimeError(
+                "Must specify both (X_test or X_rel_test) and y_test.")
         else:
             do_test = False
 
@@ -179,15 +188,17 @@ class MyFMRegressor(object):
 
         if callback is None:
             pbar = tqdm(total=n_iter)
+
             def callback(i, fm, hyper):
                 pbar.update(1)
                 if i % 5:
                     return False
-                
+
                 log_str = self.status_report(fm, hyper)
 
                 if do_test:
-                    pred_this = self.process_score(fm.predict_score(X_test, X_rel_test))
+                    pred_this = self.process_score(
+                        fm.predict_score(X_test, X_rel_test))
                     val_results = self.measure_score(pred_this, y_test)
                     for key, metric in val_results.items():
                         log_str += " {}_this: {:.2f}".format(key, metric)
@@ -215,7 +226,7 @@ class MyFMRegressor(object):
         if n_workers is not None:
             return self.predictor_.predict_parallel(X, X_rel, n_workers)
         else:
-            return self.predictor_.predict(X, X_rel) 
+            return self.predictor_.predict(X, X_rel)
 
     @classmethod
     def status_report(cls, fm, hyper):
@@ -275,7 +286,7 @@ class MyFMClassifier(MyFMRegressor):
 
     @classmethod
     def process_score(cls, score):
-        return (1 + special.erf(score * np.sqrt(.5))) / 2
+        return std_cdf(score)
 
     @classmethod
     def process_y(cls, y):
@@ -288,7 +299,7 @@ class MyFMClassifier(MyFMRegressor):
         l1mp = np.log(1 - prediction + 1e-15)
         gt = y > 0
         result['ll'] = - lp.dot(gt) - l1mp.dot(~gt)
-        result['accuracy'] = np.mean( (prediction >= 0.5) == gt )
+        result['accuracy'] = np.mean((prediction >= 0.5) == gt)
         return result
 
     @classmethod
@@ -301,3 +312,58 @@ class MyFMClassifier(MyFMRegressor):
 
     def predict_proba(self, *args, **kwargs):
         return super().predict(*args, **kwargs)
+
+
+class MyFMOrderedProbit(MyFMRegressor):
+    @classmethod
+    def set_tasktype(cls, config_builder):
+        config_builder.set_task_type(core.TaskType.ORDERED)
+
+    @classmethod
+    def process_score(cls, score):
+        return (1 + special.erf(score * np.sqrt(.5))) / 2
+
+    @classmethod
+    def process_y(cls, y):
+        y_as_float = y.astype(np.float64)
+        assert y.min() >= 0
+        return y_as_float
+
+    @classmethod
+    def measure_score(cls, prediction, y):
+        raise NotImplementedError('not implemented')
+        result = OrderedDict()
+        lp = np.log(prediction + 1e-15)
+        l1mp = np.log(1 - prediction + 1e-15)
+        gt = y > 0
+        result['ll'] = - lp.dot(gt) - l1mp.dot(~gt)
+        result['accuracy'] = np.mean((prediction >= 0.5) == gt)
+        return result
+
+    @classmethod
+    def status_report(cls, fm, hyper):
+        log_str = "alpha= {:2f}, cutpoint = {} ".format(
+            hyper.alpha,
+            ["{:.3f}".format(c) for c in list(fm.cutpoint)])
+        return log_str
+
+    def predict(self, *args, **kwargs):
+        return self.predict_proba(*args, **kwargs).argmax(axis=1)
+
+    def predict_proba(self, X, rels=[], **kwargs):
+        X = sps.csr_matrix(X)
+        if X.dtype != np.float64:
+            X.data = X.data.astype(np.float64)
+        p = 0
+        for sample in self.predictor_.samples:
+            score = sample.predict_score(X, rels)
+            score = std_cdf(
+                sample.cutpoint[np.newaxis, :] - score[:, np.newaxis]
+            )
+            score = np.hstack([
+                np.zeros((score.shape[0], 1), dtype=score.dtype),
+                score,
+                np.ones((score.shape[0], 1), dtype=score.dtype)
+            ])
+            p += (score[:, 1:] - score[:, :-1])
+        return p / len(self.predictor_.samples)
