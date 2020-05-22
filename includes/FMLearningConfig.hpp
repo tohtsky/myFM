@@ -16,8 +16,8 @@ template <typename Real> struct FMLearningConfig {
                           int n_kept_samples, Real cutpoint_scale)
       : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0),
         reg_0(reg_0), task_type(task_type), n_iter(n_iter),
-        n_kept_samples(n_kept_samples), group_index_(group_index),
-        cutpoint_scale(cutpoint_scale) {
+        n_kept_samples(n_kept_samples), cutpoint_scale(cutpoint_scale),
+        group_index_(group_index) {
     /* check group_index consistency */
     set<size_t> all_index(group_index.begin(), group_index.end());
     n_groups_ = all_index.size();

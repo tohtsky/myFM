@@ -5,6 +5,10 @@ from tqdm import tqdm
 from . import _myfm as core
 
 
+def std_cdf(x):
+    return (1 + special.erf(x * np.sqrt(.5))) / 2
+
+
 def check_data_consistency(X, X_rel):
     shape = None
     if X_rel:
@@ -282,7 +286,7 @@ class MyFMClassifier(MyFMRegressor):
 
     @classmethod
     def process_score(cls, score):
-        return (1 + special.erf(score * np.sqrt(.5))) / 2
+        return std_cdf(score)
 
     @classmethod
     def process_y(cls, y):
@@ -338,11 +342,28 @@ class MyFMOrderedProbit(MyFMRegressor):
 
     @classmethod
     def status_report(cls, fm, hyper):
-        log_str = "cutpoint = {:.2f} ".format(fm.cutpoint)
+        log_str = "alpha= {:2f}, cutpoint = {} ".format(
+            hyper.alpha,
+            ["{:.3f}".format(c) for c in list(fm.cutpoint)])
         return log_str
 
     def predict(self, *args, **kwargs):
-        return (self.predict_proba(*args, **kwargs)) > 0.5
+        return self.predict_proba(*args, **kwargs).argmax(axis=1)
 
-    def predict_proba(self, *args, **kwargs):
-        return super().predict(*args, **kwargs)
+    def predict_proba(self, X, rels=[], **kwargs):
+        X = sps.csr_matrix(X)
+        if X.dtype != np.float64:
+            X.data = X.data.astype(np.float64)
+        p = 0
+        for sample in self.predictor_.samples:
+            score = sample.predict_score(X, rels)
+            score = std_cdf(
+                sample.cutpoint[np.newaxis, :] - score[:, np.newaxis]
+            )
+            score = np.hstack([
+                np.zeros((score.shape[0], 1), dtype=score.dtype),
+                score,
+                np.ones((score.shape[0], 1), dtype=score.dtype)
+            ])
+            p += (score[:, 1:] - score[:, :-1])
+        return p / len(self.predictor_.samples)

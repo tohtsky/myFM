@@ -20,7 +20,7 @@ template <typename Real> struct FM {
 
   inline FM(const FM &other)
       : n_factors(other.n_factors), w0(other.w0), w(other.w), V(other.V),
-        initialized(other.initialized) {}
+        cutpoint(other.cutpoint), initialized(other.initialized) {}
 
   inline FM(Real w0, const Vector &w, const DenseMatrix &V)
       : n_factors(V.cols()), w0(w0), w(w), V(V), initialized(true) {}
@@ -29,7 +29,7 @@ template <typename Real> struct FM {
     initialized = false;
     normal_distribution<Real> nd;
 
-    auto get_rand = [&gen, &nd, init_std, this](Real dummy) {
+    auto get_rand = [&gen, &nd, init_std](Real dummy) {
       return nd(gen) * init_std;
     };
     V = DenseMatrix{n_features, n_factors}.unaryExpr(get_rand);
