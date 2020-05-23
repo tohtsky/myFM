@@ -355,10 +355,13 @@ class MyFMOrderedProbit(MyFMRegressor):
         if X.dtype != np.float64:
             X.data = X.data.astype(np.float64)
         p = 0
-        for sample in self.predictor_.samples:
+
+        sample_offset = len(self.hypers_) - len(self.predictor_.samples)
+        for sample_index, sample in enumerate(self.predictor_.samples):
+            alpha = self.hypers_[sample_index + sample_offset].alpha
             score = sample.predict_score(X, rels)
             score = std_cdf(
-                sample.cutpoint[np.newaxis, :] - score[:, np.newaxis]
+                np.sqrt(alpha) * (sample.cutpoint[np.newaxis, :] - score[:, np.newaxis])
             )
             score = np.hstack([
                 np.zeros((score.shape[0], 1), dtype=score.dtype),

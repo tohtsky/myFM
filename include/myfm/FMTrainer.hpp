@@ -164,7 +164,7 @@ template <typename Real> struct FMTrainer {
         }
       }
       std::vector<Real> samples(y.rows());
-      Real desired_std = std::sqrt(n_class);
+      Real desired_std = std::sqrt(n_class * n_class / 2 + 1);
       std::normal_distribution<Real> normal_dist(0, 1);
       for (int i = 0; i < y.rows(); i++) {
         samples[i] = normal_dist(gen_) * desired_std;
@@ -176,7 +176,6 @@ template <typename Real> struct FMTrainer {
       for (int i = 0; i < (n_class - 1); i++) {
         cumulative += label_count[i];
         fm.cutpoint(i) = samples[cumulative];
-        // fm.cutpoint(i) = i + 0.5;
       }
       this->zmins.resize(n_class);
       this->zmaxs.resize(n_class);
@@ -217,11 +216,9 @@ private:
     if ((learning_config.task_type == TASKTYPE::CLASSIFICATION)) {
       hyper.alpha = static_cast<Real>(1);
       return;
-    } else if (learning_config.task_type == TASKTYPE::ORDERED) {
-      hyper.alpha = 1; //  static_cast<Real>(n_class * n_class + 1);
-      return;
     }
     Real e_all = e_train.array().square().sum();
+
     Real exponent = (learning_config.alpha_0 + X.rows()) / 2;
     Real variance = (learning_config.beta_0 + e_all) / 2;
     Real new_alpha = gamma_distribution<Real>(exponent, 1 / variance)(gen_);
@@ -299,7 +296,7 @@ private:
   }
 
   inline void sample_w0(FMType &fm, HyperType &hyper) {
-    if (learning_config.task_type == TASKTYPE::ORDERED) {
+    if (0){//(learning_config.task_type == TASKTYPE::ORDERED) {
       fm.w0 = 0;
       return;
     }
@@ -555,10 +552,30 @@ private:
     // relations
   }
 
+  inline void sample_cutpoint_given_z(FMType &fm, const HyperType &hyper) {
+    for (int i = 1; i <= (n_class - 3); i++) {
+      Real lower = zmaxs(i);
+      Real upper = std::min(zmins(i + 1), fm.cutpoint(i - 1) +
+                                              learning_config.cutpoint_scale);
+#ifdef dEBUG
+      std::cout << "c[1]: (lower, upper) = (" << lower << ", " << upper << ")"
+                << endl;
+
+      if ((lower > (upper + 1e-3)) || ((lower + 1e-3) <= fm.cutpoint(i - 1))) {
+        std::stringstream ss;
+        ss << "something went wrong for c[" << i << "]";
+        throw std::runtime_error(ss.str());
+      }
+
+#endif
+      fm.cutpoint(i) = std::uniform_real_distribution<Real>(lower, upper)(gen_);
+    }
+  }
+
   inline void sample_z_given_cutpoint(FMType &fm, const HyperType &hyper) {
     zmins.array() = std::numeric_limits<Real>::max();
     zmaxs.array() = std::numeric_limits<Real>::lowest();
-    Real stdev = 1 / std::sqrt(hyper.alpha);
+    Real deviation = 1 / std::sqrt(hyper.alpha);
 
     for (int train_data_index = 0; train_data_index < X.rows();
          train_data_index++) {
@@ -567,19 +584,20 @@ private:
       Real z_new;
 
       if (class_index == 0) {
-        z_new = stdev * sample_truncated_normal_right(
-                            gen_, fm.cutpoint(class_index) - pred_score) +
+        z_new = deviation * sample_truncated_normal_right(
+                                gen_, (fm.cutpoint(class_index) - pred_score) / deviation) +
                 pred_score;
         zmaxs(0) = std::max(zmaxs(0), z_new);
       } else if (class_index == (n_class - 1)) {
-        z_new = stdev * sample_truncated_normal_left(
-                            gen_, fm.cutpoint(n_class - 2) - pred_score) +
+        z_new = deviation * sample_truncated_normal_left(
+                                gen_, (fm.cutpoint(n_class - 2) - pred_score) / deviation ) +
                 pred_score;
         zmins(n_class - 1) = std::min(zmins(n_class - 1), z_new);
       } else {
-        z_new = stdev * sample_truncated_normal_twoside(
-                            gen_, fm.cutpoint(class_index - 1) - pred_score,
-                            fm.cutpoint(class_index) - pred_score) +
+        z_new = deviation * sample_truncated_normal_twoside(
+                                gen_,
+                                (fm.cutpoint(class_index - 1) - pred_score) / deviation,
+                                (fm.cutpoint(class_index) - pred_score ) / deviation) +
                 pred_score;
         zmins(class_index) = std::min(zmins(class_index), z_new);
         zmaxs(class_index) = std::max(zmaxs(class_index), z_new);
@@ -610,50 +628,7 @@ private:
       }
     } else if (learning_config.task_type == TASKTYPE::ORDERED) {
       sample_z_given_cutpoint(fm, hyper);
-
-/* sampling cutpoint */
-#ifdef DEBUG
-      std::cout << zmins << std::endl;
-      std::cout << zmaxs << std::endl;
-      std::cout << fm.cutpoint << std::endl;
-#endif
-
-      {
-        {
-          Real lower = std::max(zmaxs(0), -learning_config.cutpoint_scale);
-          Real upper = std::min(zmins(1), learning_config.cutpoint_scale);
-
-#ifdef DEBUG
-          std::cout << "c[0]: (lower, upper) = (" << lower << ", " << upper
-                    << ")" << endl;
-          if (lower > (upper + 1e-3)) {
-            throw std::runtime_error("something went wrong for c[0]");
-          }
-#endif
-          fm.cutpoint(0) =
-              std::uniform_real_distribution<Real>(lower, upper)(gen_);
-        }
-        for (int i = 1; i <= (n_class - 2); i++) {
-          Real lower = zmaxs(i);
-          Real upper =
-              std::min(zmins(i + 1),
-                       fm.cutpoint(i - 1) + learning_config.cutpoint_scale);
-#ifdef dEBUG
-          std::cout << "c[1]: (lower, upper) = (" << lower << ", " << upper
-                    << ")" << endl;
-
-          if ((lower > (upper + 1e-3)) ||
-              ((lower + 1e-3) <= fm.cutpoint(i - 1))) {
-            std::stringstream ss;
-            ss << "something went wrong for c[" << i << "]";
-            throw std::runtime_error(ss.str());
-          }
-
-#endif
-          fm.cutpoint(i) =
-              std::uniform_real_distribution<Real>(lower, upper)(gen_);
-        }
-      }
+      sample_cutpoint_given_z(fm, hyper);
     }
   }
 
