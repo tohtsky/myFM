@@ -13,6 +13,7 @@
 
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
+#include "OProbitSampler.hpp"
 #include "HyperParams.hpp"
 #include "definitions.hpp"
 #include "predictor.hpp"
@@ -33,6 +34,8 @@ template <typename Real> struct FMTrainer {
 
   typedef FMLearningConfig<Real> Config;
   typedef typename Config::TASKTYPE TASKTYPE;
+  typedef typename Config::CutpointSampleMethod CutpointSampleMethod;
+  typedef AC01Sampler<Real> AC01SamplerType;
 
   SparseMatrix X;
   vector<RelationBlock> relations;
@@ -163,24 +166,34 @@ template <typename Real> struct FMTrainer {
           throw std::invalid_argument(ss.str());
         }
       }
-      std::vector<Real> samples(y.rows());
-      Real desired_std = std::sqrt(n_class * n_class / 2 + 1);
-      std::normal_distribution<Real> normal_dist(0, 1);
-      for (int i = 0; i < y.rows(); i++) {
-        samples[i] = normal_dist(gen_) * desired_std;
-      }
-      std::sort(samples.begin(), samples.end());
 
       fm.cutpoint.resize(n_class - 1);
-      int cumulative = 0;
-      for (int i = 0; i < (n_class - 1); i++) {
-        cumulative += label_count[i];
-        fm.cutpoint(i) = samples[cumulative];
+      if (learning_config.cutpoint_sample_method ==
+          CutpointSampleMethod::AlbertChib93) {
+        std::vector<Real> samples(y.rows());
+        Real desired_std = std::sqrt(n_class * n_class / 2 + 1);
+        std::normal_distribution<Real> normal_dist(0, 1);
+        for (int i = 0; i < y.rows(); i++) {
+          samples[i] = normal_dist(gen_) * desired_std;
+        }
+        std::sort(samples.begin(), samples.end());
+
+        int cumulative = 0;
+        for (int i = 0; i < (n_class - 1); i++) {
+          cumulative += label_count[i];
+          fm.cutpoint(i) = samples[cumulative];
+        }
+        this->zmins.resize(n_class);
+        this->zmaxs.resize(n_class);
+        this->sample_z_given_cutpoint(fm, hyper);
+        return;
+      } else {
+        cutpoint_sampler.reset(new AC01SamplerType(this->e_train, y,n_class ,gen_));
+        (*cutpoint_sampler).start_sample();
+        cutpoint_sampler->alpha_to_gamma(fm.cutpoint, cutpoint_sampler->alpha_now);
+
+        std::cout << "cp initialized to " << fm.cutpoint << std::endl; 
       }
-      this->zmins.resize(n_class);
-      this->zmaxs.resize(n_class);
-      this->sample_z_given_cutpoint(fm, hyper);
-      return;
     }
     e_train -= y;
   }
@@ -217,6 +230,11 @@ private:
       hyper.alpha = static_cast<Real>(1);
       return;
     }
+    if ( (learning_config.task_type == TASKTYPE::ORDERED) && (learning_config.cutpoint_sample_method == CutpointSampleMethod::AlbertChib01)) {
+      hyper.alpha = static_cast<Real>(1);
+      return;
+    }
+ 
     Real e_all = e_train.array().square().sum();
 
     Real exponent = (learning_config.alpha_0 + X.rows()) / 2;
@@ -296,7 +314,7 @@ private:
   }
 
   inline void sample_w0(FMType &fm, HyperType &hyper) {
-    if (0){//(learning_config.task_type == TASKTYPE::ORDERED) {
+    if ( (learning_config.task_type == TASKTYPE::ORDERED) && (learning_config.cutpoint_sample_method == CutpointSampleMethod::AlbertChib01)) {
       fm.w0 = 0;
       return;
     }
@@ -552,22 +570,16 @@ private:
     // relations
   }
 
+  inline void sample_cutpoint_z_marginalized(FMType &fm) {
+    cutpoint_sampler->step();
+    cutpoint_sampler->alpha_to_gamma(fm.cutpoint, cutpoint_sampler->alpha_now);
+  }
+
   inline void sample_cutpoint_given_z(FMType &fm, const HyperType &hyper) {
     for (int i = 1; i <= (n_class - 3); i++) {
       Real lower = zmaxs(i);
       Real upper = std::min(zmins(i + 1), fm.cutpoint(i - 1) +
                                               learning_config.cutpoint_scale);
-#ifdef dEBUG
-      std::cout << "c[1]: (lower, upper) = (" << lower << ", " << upper << ")"
-                << endl;
-
-      if ((lower > (upper + 1e-3)) || ((lower + 1e-3) <= fm.cutpoint(i - 1))) {
-        std::stringstream ss;
-        ss << "something went wrong for c[" << i << "]";
-        throw std::runtime_error(ss.str());
-      }
-
-#endif
       fm.cutpoint(i) = std::uniform_real_distribution<Real>(lower, upper)(gen_);
     }
   }
@@ -627,13 +639,22 @@ private:
         e_train(train_data_index) -= n;
       }
     } else if (learning_config.task_type == TASKTYPE::ORDERED) {
-      sample_z_given_cutpoint(fm, hyper);
-      sample_cutpoint_given_z(fm, hyper);
+      if (learning_config.cutpoint_sample_method ==
+          CutpointSampleMethod::AlbertChib93) {
+
+        sample_z_given_cutpoint(fm, hyper);
+        sample_cutpoint_given_z(fm, hyper);
+      }
+      if (learning_config.cutpoint_sample_method ==
+          CutpointSampleMethod::AlbertChib93) {
+        sample_cutpoint_z_marginalized(fm);
+        sample_z_given_cutpoint(fm, hyper);
+      }
     }
   }
-
   const int random_seed;
   mt19937 gen_;
+  std::unique_ptr<AC01SamplerType> cutpoint_sampler;
 };
 
 } // namespace myFM

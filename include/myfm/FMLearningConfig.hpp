@@ -9,15 +9,18 @@ namespace myFM {
 template <typename Real> struct FMLearningConfig {
 
   enum class TASKTYPE { REGRESSION, CLASSIFICATION, ORDERED };
+  enum class CutpointSampleMethod {AlbertChib93, AlbertChib01};
 
   inline FMLearningConfig(Real alpha_0, Real beta_0, Real gamma_0, Real mu_0,
                           Real reg_0, TASKTYPE task_type,
                           const vector<size_t> &group_index, int n_iter,
-                          int n_kept_samples, Real cutpoint_scale)
+                          int n_kept_samples, Real cutpoint_scale,
+                          CutpointSampleMethod cutpoint_sample_method
+                          )
       : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0),
         reg_0(reg_0), task_type(task_type), n_iter(n_iter),
         n_kept_samples(n_kept_samples), cutpoint_scale(cutpoint_scale),
-        group_index_(group_index) {
+        group_index_(group_index), cutpoint_sample_method(cutpoint_sample_method){
     /* check group_index consistency */
     set<size_t> all_index(group_index.begin(), group_index.end());
     n_groups_ = all_index.size();
@@ -59,6 +62,7 @@ template <typename Real> struct FMLearningConfig {
   const int n_iter, n_kept_samples;
 
   const Real cutpoint_scale;
+  const CutpointSampleMethod cutpoint_sample_method;
 
 private:
   const vector<size_t> group_index_;
@@ -85,6 +89,7 @@ public:
     TASKTYPE task_type = TASKTYPE::REGRESSION;
     vector<size_t> group_index;
     Real cutpoint_scale = 10;
+    CutpointSampleMethod cutpoint_sample_method = CutpointSampleMethod::AlbertChib01;
 
     Builder() {}
 
@@ -146,10 +151,15 @@ public:
       return *this;
     }
 
+    inline Builder &set_cutpoint_sample_method(CutpointSampleMethod cutpoint_sample_method) {
+      this->cutpoint_sample_method = cutpoint_sample_method;
+      return *this;
+    }
+
     FMLearningConfig build() {
       return FMLearningConfig(alpha_0, beta_0, gamma_0, mu_0, reg_0, task_type,
                               group_index, n_iter, n_kept_samples,
-                              cutpoint_scale);
+                              cutpoint_scale, cutpoint_sample_method);
     }
 
     static FMLearningConfig get_default_config(size_t n_features) {
