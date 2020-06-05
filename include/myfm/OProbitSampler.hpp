@@ -34,6 +34,9 @@ template <typename Real> struct AC01Sampler {
     Eigen::LLT<DenseMatrix, Eigen::Upper> L(SigmaInverse);
     result = L.matrixU().solve(result);
     result /= std::sqrt(chi_gen(rng) * 2 / nu);
+    if(fix_gamma0){
+      result(0) = 0;
+    }
     return result;
   }
 
@@ -42,8 +45,11 @@ template <typename Real> struct AC01Sampler {
     J_{ij} with i=> alpha, j=>gamma
     */
     J.array() = 0;
-    for (int j = 0; j < alpha.rows(); j++) {
-      J(0, j) = 1;
+    J(0,0)=1;
+    if (!fix_gamma0) {
+      for (int j = 1; j < alpha.rows(); j++) {
+        J(0, j) = 1;
+      }
     }
     for (int i = 1; i < alpha.rows(); i++) {
       Real ed = std::exp(alpha(i));
@@ -283,92 +289,6 @@ template <typename Real> struct AC01Sampler {
       return false;
     }
   }
-  inline DenseMatrix hessian(const DenseVector &alpha) {
-    DenseMatrix H = DenseMatrix::Zero(alpha.rows(), alpha.rows());
-    DenseVector gamma = DenseVector::Zero(alpha.rows());
-    DenseMatrix dGammadAlpha = DenseMatrix(alpha.rows(), alpha.rows());
-    alpha_to_gamma(gamma, alpha);
-    jacobian_dgamma_dalpha(dGammadAlpha, alpha);
-    for (int i = 0; i < x_.rows(); i++) {
-      int label = y_(i);
-      Real denominator;
-      if (label == 0) {
-        Real x = gamma(0) - x_(i);
-        if (x > 0) {
-          denominator = Faddeeva::erf(x / SQRT2) + 1;
-          H(label, label) +=
-              -(SQRT2PI * x * denominator * std::exp(-(x * x) / 2) +
-                2 * std::exp(-x * x)) /
-              PI / denominator / denominator;
-        } else {
-          denominator = Faddeeva::erfcx(-x / SQRT2);
-          H(label, label) +=
-              -(SQRT2PI * x * denominator + 2) / PI / denominator / denominator;
-        }
-      } else if (label == (K - 1)) {
-        Real y = gamma(K - 2) - x_(i);
-        if (y > 0) {
-          denominator = Faddeeva::erfcx(y / SQRT2);
-          H(label - 1, label - 1) +=
-              (SQRT2PI * y * denominator - 2) / denominator / denominator / PI;
-        } else {
-          denominator = 1 - Faddeeva::erf(y / SQRT2);
-          H(label - 1, label - 1) +=
-              -(-SQRT2PI * y * denominator * std::exp(-(y * y) / 2) +
-                2 * std::exp(-y * y)) /
-              PI / denominator / denominator;
-        }
-      } else {
-        Real x = gamma(label) - x_(i);
-        Real y = gamma(label - 1) - x_(i);
-        if (y > 0) {
-          denominator =
-              Faddeeva::erfcx(y / SQRT2) -
-              std::exp((y * y - x * x) / 2) * Faddeeva::erfcx(x / SQRT2);
-          H(label, label) +=
-              -(SQRT2PI * x * denominator * std::exp((y * y - x * x) / 2) +
-                2 * std::exp(y * y - x * x)) /
-              denominator / denominator / PI;
-          H(label - 1, label - 1) +=
-              (SQRT2PI * y * denominator - 2) / denominator / denominator / PI;
-          Real off_diag = 2 * std::exp((y * y - x * x) / 2) / PI / denominator /
-                          denominator;
-          H(label, label - 1) += off_diag;
-          H(label - 1, label) += off_diag;
-        } else if (x < 0) {
-          denominator =
-              Faddeeva::erfcx(-x / SQRT2) -
-              std::exp((x * x - y * y) / 2) * Faddeeva::erfcx(-y / SQRT2);
-          H(label, label) +=
-              -(SQRT2PI * x * denominator + 2) / PI / denominator / denominator;
-          H(label - 1, label - 1) +=
-              (SQRT2PI * y * std::exp((x * x - y * y) / 2) * denominator -
-               2 * std::exp(x * x - y * y)) /
-              PI / denominator / denominator;
-          Real off_diag = 2 * std::exp((x * x - y * y) / 2) / PI / denominator /
-                          denominator;
-          H(label, label - 1) += off_diag;
-          H(label - 1, label) += off_diag;
-        } else {
-          denominator = Faddeeva::erf(x / SQRT2) - Faddeeva::erf(y / SQRT2);
-          H(label, label) +=
-              -(SQRT2PI * x * denominator * std::exp(-(x * x) / 2) +
-                2 * std::exp(-x * x)) /
-              PI / denominator / denominator;
-          H(label - 1, label - 1) +=
-              -(-SQRT2PI * y * denominator * std::exp(-(y * y) / 2) +
-                2 * std::exp(-y * y)) /
-              PI / denominator / denominator;
-          Real off_diag = 2 * std::exp((-x * x - y * y) / 2) / PI /
-                          denominator / denominator;
-          H(label, label - 1) += off_diag;
-          H(label - 1, label) += off_diag;
-        }
-      }
-    }
-    H = dGammadAlpha * H * dGammadAlpha.transpose();
-    return H;
-  }
 
   inline Real operator()(const DenseVector &alpha, DenseVector &dalpha,
                          DenseMatrix *HessianTarget = nullptr) {
@@ -414,6 +334,14 @@ template <typename Real> struct AC01Sampler {
       }
       H.array() *= -1;
     }
+    if(fix_gamma0){
+      dalpha(0) = 0;
+      if(HessianTarget!=nullptr){
+        (*HessianTarget).row(0).array() = 0;
+        (*HessianTarget).col(0).array() = 0;
+        (*HessianTarget)(0, 0) = 1;
+      }
+    }
     dalpha = -dGammadAlpha * dalpha;
     return -ll;
   }
@@ -425,6 +353,7 @@ template <typename Real> struct AC01Sampler {
   std::mt19937& rng;
   DenseVector alpha_now;
   DenseMatrix H;
+  bool fix_gamma0 = true;
 };
 
 } // namespace myfm

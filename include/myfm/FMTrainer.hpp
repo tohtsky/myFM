@@ -319,10 +319,12 @@ private:
   }
 
   inline void sample_w0(FMType &fm, HyperType &hyper) {
+    /*
     if ( (learning_config.task_type == TASKTYPE::ORDERED) && (learning_config.cutpoint_sample_method == CutpointSampleMethod::AlbertChib01)) {
       fm.w0 = 0;
       return;
     }
+    */
     Real w0_lin_term = hyper.alpha * (fm.w0 - e_train.array()).sum();
     Real w0_quad_term = hyper.alpha * n_train + learning_config.reg_0;
     Real w0_new = sample_normal(w0_quad_term, w0_lin_term);
