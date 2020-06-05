@@ -168,6 +168,9 @@ template <typename Real> struct FMTrainer {
       }
 
       fm.cutpoint.resize(n_class - 1);
+      this->zmins.resize(n_class);
+      this->zmaxs.resize(n_class);
+
       if (learning_config.cutpoint_sample_method ==
           CutpointSampleMethod::AlbertChib93) {
         std::vector<Real> samples(y.rows());
@@ -183,16 +186,18 @@ template <typename Real> struct FMTrainer {
           cumulative += label_count[i];
           fm.cutpoint(i) = samples[cumulative];
         }
-        this->zmins.resize(n_class);
-        this->zmaxs.resize(n_class);
         this->sample_z_given_cutpoint(fm, hyper);
         return;
       } else {
         cutpoint_sampler.reset(new AC01SamplerType(this->e_train, y,n_class ,gen_));
-        (*cutpoint_sampler).start_sample();
+        cutpoint_sampler->start_sample();
+        cutpoint_sampler->step();
         cutpoint_sampler->alpha_to_gamma(fm.cutpoint, cutpoint_sampler->alpha_now);
 
+        this->sample_z_given_cutpoint(fm, hyper);
+
         std::cout << "cp initialized to " << fm.cutpoint << std::endl; 
+        return ;
       }
     }
     e_train -= y;
@@ -646,7 +651,8 @@ private:
         sample_cutpoint_given_z(fm, hyper);
       }
       if (learning_config.cutpoint_sample_method ==
-          CutpointSampleMethod::AlbertChib93) {
+          CutpointSampleMethod::AlbertChib01) {
+
         sample_cutpoint_z_marginalized(fm);
         sample_z_given_cutpoint(fm, hyper);
       }

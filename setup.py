@@ -9,7 +9,7 @@ import setuptools
 from distutils.command.clean import clean as Clean
 import os
 
-__version__ = '0.1.1'
+__version__ = '0.2.0'
 
 install_requires = ['pybind11>=2.4', 'numpy>=1.11', 'scipy>=1.0', 'tqdm>=4']
 
@@ -68,6 +68,8 @@ headers = [
     'include/myfm/predictor.hpp',
     'include/myfm/FMTrainer.hpp',
     'include/myfm/FMLearningConfig.hpp',
+    'include/myfm/OProbitSampler.hpp',
+    'include/Faddeeva/Faddeeva.hh',
     'src/declare_module.hpp'
 ]
 
@@ -75,7 +77,7 @@ headers = [
 ext_modules = [
     Extension(
         'myfm._myfm',
-        ['src/bind.cpp'],
+        ['src/bind.cpp', 'src/Faddeeva.cc'],
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),

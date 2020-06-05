@@ -206,7 +206,6 @@ template <typename Real> struct AC01Sampler {
   bool step() {
     DenseVector alpha_hat = alpha_now;
     DenseVector gamma(alpha_hat);
-    Real ll;
 
     {
       int max_iter = 10000;
@@ -284,20 +283,6 @@ template <typename Real> struct AC01Sampler {
       return false;
     }
   }
-
-  /*
-    inline DenseVector find_minimum(const DenseVector &initial) {
-      DenseVector alpha_hat(initial);
-      Real ll = 0;
-      int niter = solver_->minimize(*this, alpha_hat, ll);
-      return alpha_hat;
-    }
-    inline DenseVector find_minimum() {
-      DenseVector initial = DenseVector::Zero(K - 1);
-      return find_minimum(initial);
-    }
-    */
-
   inline DenseMatrix hessian(const DenseVector &alpha) {
     DenseMatrix H = DenseMatrix::Zero(alpha.rows(), alpha.rows());
     DenseVector gamma = DenseVector::Zero(alpha.rows());
