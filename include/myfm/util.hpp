@@ -126,4 +126,24 @@ inline size_t check_row_consistency_return_column(
   return col;
 }
 
+template<typename... Cs >
+void print_to_stream(std::ostream & ss, Cs&&... args);
+
+template<typename C, typename... Cs >
+inline void print_to_stream(std::ostream & ss, C && c0, Cs&&... args){
+  ss << c0;
+  print_to_stream(ss, std::forward<Cs>(args)...);
+}
+
+template<>
+inline void print_to_stream(std::ostream & ss){
+}
+
+template<typename ... Cs>
+std::string print_to_string(Cs&&... args) {
+  std::stringstream ss;
+  print_to_stream(ss, std::forward<Cs>(args)...);
+  return ss.str(); 
+}
+
 } // namespace myFM

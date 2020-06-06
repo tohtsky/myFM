@@ -331,7 +331,7 @@ class MyFMOrderedProbit(MyFMRegressor):
         self.config_builder.set_cutpoint_groups(
             cutpoint_group_configs
         )
-        super().fit(
+        return super().fit(
             X, y, X_rel=X_rel,
             n_iter=n_iter, n_kept_samples=n_kept_samples,
             grouping=grouping, callback=callback,

@@ -5,6 +5,7 @@
 #include <limits>
 #include <memory>
 #include <random>
+#include <iomanip>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -588,6 +589,7 @@ private:
       for (auto &sampler_ : cutpoint_sampler) {
         sampler_.step();
         sampler_.alpha_to_gamma(fm.cutpoints[i], sampler_.alpha_now);
+        sampler_.sample_z_given_cutpoint();
         i++;
       }
     }
