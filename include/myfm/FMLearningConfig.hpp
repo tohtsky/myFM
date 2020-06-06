@@ -2,25 +2,29 @@
 
 #include "definitions.hpp"
 #include "util.hpp"
+#include "OProbitSampler.hpp"
 #include <set>
 #include <vector>
+#include <tuple>
 
 namespace myFM {
 template <typename Real> struct FMLearningConfig {
 
   enum class TASKTYPE { REGRESSION, CLASSIFICATION, ORDERED };
-  enum class CutpointSampleMethod {AlbertChib93, AlbertChib01};
+  using CutpointGroupType = vector<pair<size_t, vector<size_t>>>;
 
   inline FMLearningConfig(Real alpha_0, Real beta_0, Real gamma_0, Real mu_0,
                           Real reg_0, TASKTYPE task_type,
                           const vector<size_t> &group_index, int n_iter,
                           int n_kept_samples, Real cutpoint_scale,
-                          CutpointSampleMethod cutpoint_sample_method
+                          const CutpointGroupType & cutpoint_groups
                           )
       : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0),
         reg_0(reg_0), task_type(task_type), n_iter(n_iter),
         n_kept_samples(n_kept_samples), cutpoint_scale(cutpoint_scale),
-        group_index_(group_index), cutpoint_sample_method(cutpoint_sample_method){
+        group_index_(group_index),
+        cutpoint_groups_(cutpoint_groups){
+
     /* check group_index consistency */
     set<size_t> all_index(group_index.begin(), group_index.end());
     n_groups_ = all_index.size();
@@ -62,17 +66,21 @@ template <typename Real> struct FMLearningConfig {
   const int n_iter, n_kept_samples;
 
   const Real cutpoint_scale;
-  const CutpointSampleMethod cutpoint_sample_method;
 
 private:
   const vector<size_t> group_index_;
   size_t n_groups_;
   vector<vector<size_t>> group_vs_feature_index_;
 
+  const CutpointGroupType cutpoint_groups_;
+
 public:
   inline size_t get_n_groups() const { return n_groups_; }
 
   inline size_t group_index(int at) const { return group_index_.at(at); }
+  const CutpointGroupType & cutpoint_groups() const {
+    return this->cutpoint_groups_;
+  }
 
   const vector<vector<size_t>> &group_vs_feature_index() const {
     return group_vs_feature_index_;
@@ -89,7 +97,7 @@ public:
     TASKTYPE task_type = TASKTYPE::REGRESSION;
     vector<size_t> group_index;
     Real cutpoint_scale = 10;
-    CutpointSampleMethod cutpoint_sample_method = CutpointSampleMethod::AlbertChib01;
+    CutpointGroupType cutpoint_groups;
 
     Builder() {}
 
@@ -137,7 +145,7 @@ public:
       return *this;
     }
 
-    inline Builder &set_indentical_groups(size_t n_features) {
+    inline Builder &set_identical_groups(size_t n_features) {
       vector<size_t> default_group_index(n_features);
       for (auto c = default_group_index.begin(); c != default_group_index.end();
            c++) {
@@ -151,20 +159,21 @@ public:
       return *this;
     }
 
-    inline Builder &set_cutpoint_sample_method(CutpointSampleMethod cutpoint_sample_method) {
-      this->cutpoint_sample_method = cutpoint_sample_method;
+    inline Builder &set_cutpoint_groups(const CutpointGroupType & cutpoint_groups) {
+      this->cutpoint_groups = cutpoint_groups;
       return *this;
     }
 
     FMLearningConfig build() {
       return FMLearningConfig(alpha_0, beta_0, gamma_0, mu_0, reg_0, task_type,
                               group_index, n_iter, n_kept_samples,
-                              cutpoint_scale, cutpoint_sample_method);
+                              cutpoint_scale,
+                              this->cutpoint_groups);
     }
 
     static FMLearningConfig get_default_config(size_t n_features) {
       Builder builder;
-      return builder.set_indentical_groups(n_features).build();
+      return builder.set_identical_groups(n_features).build();
     }
 
   }; // end Builder

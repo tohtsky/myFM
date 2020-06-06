@@ -1,14 +1,17 @@
 #pragma once 
 
 #include <iostream>
+#include "util.hpp"
 #include <random>
 #include "Faddeeva/Faddeeva.hh"
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
 #include <memory>
 
+#include <sstream>
 namespace myFM {
-template <typename Real> struct AC01Sampler {
+template <typename Real> struct OprobitSampler {
+
   using DenseVector = Eigen::VectorXd;
   using DenseMatrix = Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>;
   using IntVector = Eigen::Matrix<int, Eigen::Dynamic, 1>;
@@ -199,78 +202,144 @@ template <typename Real> struct AC01Sampler {
     }
   }
 
-  AC01Sampler(DenseVector & x, const DenseVector& y, int K, std::mt19937& rng)
-      : x_(x), y_(y), K(K), rng(rng) {
+  inline void sample_z_given_cutpoint() {
+    zmins.array() = std::numeric_limits<Real>::max();
+    zmaxs.array() = std::numeric_limits<Real>::lowest();
+    Real deviation = 1;
+
+    for (int train_data_index : indices_) {
+      int class_index = static_cast<int>(y_(train_data_index));
+      Real pred_score = x_(train_data_index);
+      Real z_new;
+
+      if (class_index == 0) {
+        z_new = deviation * sample_truncated_normal_right(
+                                rng, (gamma_now(class_index) - pred_score) / deviation) +
+                pred_score;
+        zmaxs(0) = std::max(zmaxs(0), z_new);
+      } else if (class_index == (K - 1)) {
+        z_new = deviation * sample_truncated_normal_left(
+                                rng, (gamma_now(K - 2) - pred_score) / deviation ) +
+                pred_score;
+        zmins(K - 1) = std::min(zmins(K - 1), z_new);
+      } else {
+        z_new = deviation * sample_truncated_normal_twoside(
+                                rng,
+                                (gamma_now(class_index - 1) - pred_score) / deviation,
+                                (gamma_now(class_index) - pred_score ) / deviation) +
+                pred_score;
+        zmins(class_index) = std::min(zmins(class_index), z_new);
+        zmaxs(class_index) = std::max(zmaxs(class_index), z_new);
+      }
+      x_(train_data_index) -= z_new;
+    }
   }
 
-  void start_sample() {
-    // this->alpha_now = find_minimum();
+  OprobitSampler(DenseVector &x, const DenseVector &y, int K,
+                 const std::vector<size_t> &indices, std::mt19937 &rng)
+      : x_(x), y_(y), K(K), indices_(indices), rng(rng), zmins(K), zmaxs(K),
+      histogram(K){
     this->alpha_now = DenseVector::Zero(K - 1);
+    this->gamma_now = DenseVector::Zero(K - 1);
+    this->alpha_to_gamma(gamma_now, alpha_now);
     this->H = DenseMatrix::Zero(K - 1, K - 1);
+    for (auto i : indices_) {
+      int y_label = static_cast<int>(y_(i));
+      if (std::abs(y_label - y(i)) > 1e-3) {
+        throw std::invalid_argument("y has a floating-point element.");
+      }
+      if (y_label < 0) {
+        throw std::invalid_argument("y has a negative element.");
+      }
+      if (y_label >= K) {
+        std::stringstream ss;
+        ss << "y[ " << i << "] is greater than " << (K - 1) << ".";
+        throw std::invalid_argument(ss.str());
+      }
+      histogram[y_label]++;
+    }
   }
 
-  bool step() {
-    DenseVector alpha_hat = alpha_now;
-    DenseVector gamma(alpha_hat);
+  inline void start_sample() {
+    DenseVector alpha_hat = DenseVector::Zero(K-1);
+    find_minimum(alpha_hat);
+    alpha_now = alpha_hat;
+    alpha_to_gamma(gamma_now, alpha_now);
+  }
 
-    {
-      int max_iter = 10000;
-      Real epsilon = 1e-5;
-      Real epsilon_rel = 1e-5;
-      Real delta = 1e-10;
-      int past = 3;
-      DenseVector history(past);
-      DenseVector alpha_new(alpha_hat);
-      DenseVector dalpha(alpha_hat);
-      DenseVector direction(alpha_hat);
-      Real ll_current;
-      bool first = true;
-      int i = 0;
+  inline void sample_cutpoint_given_z() {
+    for (int i = 1; i <= (K - 3); i++) {
+      Real lower = zmaxs(i);
+      Real upper = zmins(i + 1);
+      gamma_now(i) = std::uniform_real_distribution<Real>(lower, upper)(rng);
+    }
+  }
+
+
+
+  inline void find_minimum(DenseVector & alpha_hat) {
+    int max_iter = 10000;
+    Real epsilon = 1e-5;
+    Real epsilon_rel = 1e-5;
+    Real delta = 1e-10;
+    int past = 3;
+    DenseVector history(past);
+    DenseVector alpha_new(alpha_hat);
+    DenseVector dalpha(alpha_hat);
+    DenseVector direction(alpha_hat);
+    Real ll_current;
+    bool first = true;
+    int i = 0;
+    while (true) {
+      if (first) {
+        ll_current = (*this)(alpha_hat, dalpha, &H);
+      }
+      {
+
+        Real alpha2 = alpha_hat.norm();
+        Real dalpha2 = dalpha.norm();
+        if (dalpha2 < epsilon || dalpha2 < epsilon_rel * alpha2) {
+          break;
+        }
+      }
+      direction = -H.llt().solve(dalpha);
+      Real step_size = 1;
+      int lsc = 0;
       while (true) {
-        if (first) {
-          ll_current = (*this)(alpha_hat, dalpha, &H);
+        alpha_new = alpha_hat + step_size * direction;
+        Real ll_new = (*this)(alpha_new, dalpha, &H);
+        if (ll_new >= (ll_current * (1 + delta))) {
+          step_size /= 2;
+        } else {
+          alpha_hat = alpha_new;
+          ll_current = ll_new;
+          break;
         }
-        {
-
-          Real alpha2 = alpha_hat.norm();
-          Real dalpha2 = dalpha.norm();
-          if (dalpha2 < epsilon || dalpha2 < epsilon_rel * alpha2) {
-            break;
-          }
-        }
-        direction = -H.llt().solve(dalpha);
-        Real step_size = 1;
-        int lsc = 0;
-        while (true) {
-          alpha_new = alpha_hat + step_size * direction;
-          Real ll_new = (*this)(alpha_new, dalpha, &H);
-          if (ll_new >= (ll_current * (1 + delta))) {
-            step_size /= 2;
-          } else {
-            alpha_hat = alpha_new;
-            ll_current = ll_new;
-            break;
-          }
-          if (++lsc > 1000)
-            break;
-        }
-        first = false;
-        if (i >= past) {
-          Real past_loss = history(i % past);
-          if (std::abs(past_loss - ll_current) <=
-              delta * std::max(std::max(abs(ll_current), abs(past_loss)),
-                               Real(1))) {
-            break;
-          }
-        }
-        history(i % past) = ll_current;
-        i++;
-        if (i >= max_iter)
+        if (++lsc > 1000)
           break;
       }
-      if (i == max_iter)
-        throw std::runtime_error("Failed to converge");
+      first = false;
+      if (i >= past) {
+        Real past_loss = history(i % past);
+        if (std::abs(past_loss - ll_current) <=
+            delta *
+                std::max(std::max(abs(ll_current), abs(past_loss)), Real(1))) {
+          break;
+        }
+      }
+      history(i % past) = ll_current;
+      i++;
+      if (i >= max_iter)
+        break;
     }
+    if (i == max_iter)
+      throw std::runtime_error("Failed to converge");
+  }
+
+  inline bool step() {
+    DenseVector alpha_hat = alpha_now;
+    DenseVector gamma(alpha_hat);
+    find_minimum(alpha_hat);
 
     DenseVector alpha_candidate = sample_mvt(H, nu) + alpha_hat;
 
@@ -303,7 +372,7 @@ template <typename Real> struct AC01Sampler {
 
       (*HessianTarget).array() = 0;
     }
-    for (int i = 0; i < x_.rows(); i++) {
+    for (auto i : indices_) {
       int label = y_(i);
       if (label == 0) {
         safe_lcdf(gamma(0) - x_(i), ll, dalpha(0), HessianTarget, label);
@@ -347,13 +416,18 @@ template <typename Real> struct AC01Sampler {
   }
   DenseVector& x_;
   const DenseVector & y_;
+
   int K;
+  const std::vector<size_t> indices_;
   Real tune = 1;
   Real nu = 5;
   std::mt19937& rng;
   DenseVector alpha_now;
+  DenseVector gamma_now;
   DenseMatrix H;
   bool fix_gamma0 = true;
+  DenseVector zmins, zmaxs;
+  std::vector<size_t> histogram;
 };
 
 } // namespace myfm

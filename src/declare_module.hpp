@@ -83,15 +83,16 @@ template <typename Real> void declare_functional(py::module &m) {
       .def("set_n_kept_samples", &ConfigBuilder::set_n_kept_samples)
       .def("set_task_type", &ConfigBuilder::set_task_type)
       .def("set_group_index", &ConfigBuilder::set_group_index)
-      .def("set_indentical_groups", &ConfigBuilder::set_indentical_groups)
+      .def("set_identical_groups", &ConfigBuilder::set_identical_groups)
       .def("set_set_cutpoint_scale", &ConfigBuilder::set_cutpoint_scale)
+      .def("set_cutpoint_groups", &ConfigBuilder::set_cutpoint_groups)
       .def("build", &ConfigBuilder::build);
 
   py::class_<FM>(m, "FM")
       .def_readwrite("w0", &FM::w0)
       .def_readwrite("w", &FM::w)
       .def_readwrite("V", &FM::V)
-      .def_readwrite("cutpoint", &FM::cutpoint)
+      .def_readwrite("cutpoint", &FM::cutpoints)
       .def("predict_score", &FM::predict_score)
 
       .def("__repr__",

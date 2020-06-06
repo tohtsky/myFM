@@ -93,6 +93,8 @@ class MyFMRegressor(object):
 
         self.n_groups_ = None
 
+        self.config_builder = core.ConfigBuilder()
+        
     def __str__(self):
         return "{class_name}(init_stdev={init_stdev}, alpha_0={alpha_0}, beta_0={beta_0}, gamma_0={gamma_0}, mu_0={mu_0}, reg_0={reg_0})".format(
             class_name=self.__class__.__name__,
@@ -147,18 +149,17 @@ class MyFMRegressor(object):
         else:
             assert n_iter >= n_kept_samples
 
-        config_builder = core.ConfigBuilder()
 
         for key in ['alpha_0', 'beta_0', 'gamma_0', 'mu_0', 'reg_0']:
             value = getattr(self, key)
-            getattr(config_builder, "set_{}".format(key))(value)
+            getattr(self.config_builder, "set_{}".format(key))(value)
         if grouping is None:
             self.n_groups_ = 1
-            config_builder.set_indentical_groups(dim_all)
+            self.config_builder.set_identical_groups(dim_all)
         else:
             assert dim_all == len(grouping)
             self.n_groups_ = np.unique(grouping).shape[0]
-            config_builder.set_group_index(grouping)
+            self.config_builder.set_group_index(grouping)
 
         pbar = None
         if (X_test is not None or X_rel_test):
@@ -176,15 +177,15 @@ class MyFMRegressor(object):
         else:
             do_test = False
 
-        config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
+        self.config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
 
         X = sps.csr_matrix(X)
         if X.dtype != np.float64:
             X.data = X.data.astype(np.float64)
         y = self.process_y(y)
-        self.set_tasktype(config_builder)
+        self.set_tasktype()
 
-        config = config_builder.build()
+        config = self.config_builder.build()
 
         if callback is None:
             pbar = tqdm(total=n_iter)
@@ -215,9 +216,8 @@ class MyFMRegressor(object):
             if pbar is not None:
                 pbar.close()
 
-    @classmethod
-    def set_tasktype(cls, config_builder):
-        config_builder.set_task_type(core.TaskType.REGRESSION)
+    def set_tasktype(self):
+        self.config_builder.set_task_type(core.TaskType.REGRESSION)
 
     def predict(self, X, X_rel=[], n_workers=None):
         shape = check_data_consistency(X, X_rel)
@@ -280,9 +280,8 @@ class MyFMRegressor(object):
 
 
 class MyFMClassifier(MyFMRegressor):
-    @classmethod
-    def set_tasktype(cls, config_builder):
-        config_builder.set_task_type(core.TaskType.CLASSIFICATION)
+    def set_tasktype(self):
+        self.config_builder.set_task_type(core.TaskType.CLASSIFICATION)
 
     @classmethod
     def process_score(cls, score):
@@ -315,9 +314,27 @@ class MyFMClassifier(MyFMRegressor):
 
 
 class MyFMOrderedProbit(MyFMRegressor):
-    @classmethod
-    def set_tasktype(cls, config_builder):
-        config_builder.set_task_type(core.TaskType.ORDERED)
+    def set_tasktype(self):
+        self.config_builder.set_task_type(core.TaskType.ORDERED)
+
+    def fit(self, X, y, X_rel=[],
+            n_iter=100, n_kept_samples=None, grouping=None, callback=None,
+            cutpoint_group_configs=None
+    ):
+        y = np.asarray(y)
+        if cutpoint_group_configs is None:
+            n_class = y.max() + 1
+            cutpoint_group_configs = [
+                (int(n_class), np.arange(y.shape[0], dtype=np.int64))
+            ]
+        self.config_builder.set_cutpoint_groups(
+            cutpoint_group_configs
+        )
+        super().fit(
+            X, y, X_rel=X_rel,
+            n_iter=n_iter, n_kept_samples=n_kept_samples,
+            grouping=grouping, callback=callback,
+        )
 
     @classmethod
     def process_score(cls, score):

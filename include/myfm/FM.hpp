@@ -20,7 +20,7 @@ template <typename Real> struct FM {
 
   inline FM(const FM &other)
       : n_factors(other.n_factors), w0(other.w0), w(other.w), V(other.V),
-        cutpoint(other.cutpoint), initialized(other.initialized) {}
+        cutpoints(other.cutpoints), initialized(other.initialized) {}
 
   inline FM(Real w0, const Vector &w, const DenseMatrix &V)
       : n_factors(V.cols()), w0(w0), w(w), V(V), initialized(true) {}
@@ -129,7 +129,7 @@ template <typename Real> struct FM {
   Real w0;
   Vector w;
   DenseMatrix V;   // (n_feature, n_factor) - matrix
-  Vector cutpoint; // ordered probit
+  vector<Vector> cutpoints; // ordered probit
 
 private:
   bool initialized;
