@@ -92,7 +92,7 @@ template <typename Real> void declare_functional(py::module &m) {
       .def_readwrite("w0", &FM::w0)
       .def_readwrite("w", &FM::w)
       .def_readwrite("V", &FM::V)
-      .def_readwrite("cutpoint", &FM::cutpoints)
+      .def_readwrite("cutpoints", &FM::cutpoints)
       .def("predict_score", &FM::predict_score)
 
       .def("__repr__",

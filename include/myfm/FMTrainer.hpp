@@ -165,9 +165,9 @@ template <typename Real> struct FMTrainer {
     fm.predict_score_write_target(e_train, X, relations);
     if (learning_config.task_type == TASKTYPE::ORDERED) {
       int i = 0;
-      for (auto &indices : this->learning_config.cutpoint_groups()) {
-        fm.cutpoints.emplace_back(indices.first);
-        cutpoint_sampler.emplace_back(this->e_train, y, n_class, indices.second,
+      for (auto &config : this->learning_config.cutpoint_groups()) {
+        fm.cutpoints.emplace_back(config.first - 1);
+        cutpoint_sampler.emplace_back(this->e_train, y, config.first, config.second,
                                       gen_);
         cutpoint_sampler[i].start_sample();
         cutpoint_sampler[i].alpha_to_gamma(fm.cutpoints[i],

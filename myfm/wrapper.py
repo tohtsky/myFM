@@ -327,6 +327,7 @@ class MyFMOrderedProbit(MyFMRegressor):
             cutpoint_group_configs = [
                 (int(n_class), np.arange(y.shape[0], dtype=np.int64))
             ]
+        self.n_cutpoint_groups = len(cutpoint_group_configs)
         self.config_builder.set_cutpoint_groups(
             cutpoint_group_configs
         )
@@ -359,15 +360,23 @@ class MyFMOrderedProbit(MyFMRegressor):
 
     @classmethod
     def status_report(cls, fm, hyper):
-        log_str = "alpha= {:2f}, cutpoint = {} ".format(
-            hyper.alpha,
-            ["{:.3f}".format(c) for c in list(fm.cutpoint)])
+        
+        log_str = "w0= {:2f}".format(fm.w0)
+        if len(fm.cutpoints) == 1:
+            log_str += ", cutpoint = {} ".format(
+                ["{:.3f}".format(c) for c in list(fm.cutpoints[0])]
+            )
         return log_str
 
     def predict(self, *args, **kwargs):
         return self.predict_proba(*args, **kwargs).argmax(axis=1)
 
-    def predict_proba(self, X, rels=[], **kwargs):
+    def predict_proba(self, X, rels=[], cutpoint_index=None, **kwargs):
+        if cutpoint_index is None:
+            if self.n_cutpoint_groups == 1:
+                cutpoint_index = 0
+        else:
+            raise ValueError('specify the cutpoint index')
         X = sps.csr_matrix(X)
         if X.dtype != np.float64:
             X.data = X.data.astype(np.float64)
@@ -378,7 +387,7 @@ class MyFMOrderedProbit(MyFMRegressor):
             alpha = self.hypers_[sample_index + sample_offset].alpha
             score = sample.predict_score(X, rels)
             score = std_cdf(
-                np.sqrt(alpha) * (sample.cutpoint[np.newaxis, :] - score[:, np.newaxis])
+                np.sqrt(alpha) * (sample.cutpoints[cutpoint_index][np.newaxis, :] - score[:, np.newaxis])
             )
             score = np.hstack([
                 np.zeros((score.shape[0], 1), dtype=score.dtype),
