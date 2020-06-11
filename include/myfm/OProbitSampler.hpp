@@ -14,13 +14,14 @@
 namespace myFM {
 template <typename Real> struct OprobitSampler {
 
-  using DenseVector = Eigen::VectorXd;
-  using DenseMatrix = Eigen::Matrix<Real, Eigen::Dynamic, Eigen::Dynamic>;
+  using DenseVector = types::Vector<Real>;
+  using DenseMatrix = types::DenseMatrix<Real>;
   using IntVector = Eigen::Matrix<int, Eigen::Dynamic, 1>;
   static constexpr Real SQRT2 = 1.4142135623730951;
   static constexpr Real SQRTPI = 1.7724538509055159;
   static constexpr Real SQRT2PI = SQRT2 * SQRTPI;
   static constexpr Real PI = 3.141592653589793;
+
 
   inline Real log_p_mvt(const DenseMatrix &SigmaInverse, const DenseVector mu,
                         Real nu, const DenseVector &x) {
@@ -45,7 +46,7 @@ template <typename Real> struct OprobitSampler {
     return result;
   }
 
-  inline void jacobian_dgamma_dalpha(DenseMatrix &J, const DenseVector &alpha) {
+  static inline void jacobian_dgamma_dalpha(DenseMatrix &J, const DenseVector &alpha) {
     /*
     J_{ij} with i=> alpha, j=>gamma
     */
@@ -65,21 +66,21 @@ template <typename Real> struct OprobitSampler {
     // d f / d alpha_0 = (df / d gamma_i) (d gamma_i / d alpha_0 )
   }
 
-  inline void alpha_to_gamma(DenseVector &target, const DenseVector &alpha) {
+  static inline void alpha_to_gamma(DenseVector &target, const DenseVector &alpha) {
     target(0) = alpha(0);
     for (int i = 1; i < alpha.rows(); i++) {
       target(i) = target(i - 1) + std::exp(alpha(i));
     }
   }
 
-  inline void gamma_to_alpha(DenseVector &target, const DenseVector &gamma) {
+  static inline void gamma_to_alpha(DenseVector &target, const DenseVector &gamma) {
     target(0) = gamma(0);
     for (int i = 1; i < gamma.rows(); i++) {
       target(i) = std::log(gamma(i) - gamma(i - 1));
     }
   }
 
-  inline void safe_ldiff(Real x, Real y, Real &loss, Real &dx, Real &dy,
+  static inline void safe_ldiff(Real x, Real y, Real &loss, Real &dx, Real &dy,
                          DenseMatrix *HessianTarget = nullptr, int label = 0) {
     // assert(x >= y);
     Real denominator;
@@ -150,7 +151,7 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline void safe_lcdf(Real x, Real &loss, Real &dx,
+  static inline void safe_lcdf(Real x, Real &loss, Real &dx,
                         DenseMatrix *HessianTarget = nullptr, int label = 0) {
     Real denominator;
     Real exp_factor;
@@ -508,13 +509,13 @@ template <typename Real> struct OprobitSampler {
   const std::vector<size_t> indices_;
   Real tune = 1;
   Real nu = 5;
-  const Real alpha_0_reg = .01;
-  const Real alpha_reg = .01;
+  Real alpha_0_reg = .01;
+  Real alpha_reg = .01;
   std::mt19937& rng;
   DenseVector alpha_now;
   DenseVector gamma_now;
   DenseMatrix H;
-  bool fix_gamma0 = false;
+  static constexpr bool fix_gamma0 = false;
   DenseVector zmins, zmaxs;
   std::vector<size_t> histogram;
 };
