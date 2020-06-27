@@ -93,7 +93,6 @@ class MyFMRegressor(object):
 
         self.n_groups_ = None
 
-        self.config_builder = core.ConfigBuilder()
         
     def __str__(self):
         return "{class_name}(init_stdev={init_stdev}, alpha_0={alpha_0}, beta_0={beta_0}, gamma_0={gamma_0}, mu_0={mu_0}, reg_0={reg_0})".format(
@@ -106,7 +105,7 @@ class MyFMRegressor(object):
 
     def fit(self, X, y, X_rel=[],
             X_test=None, y_test=None, X_rel_test=None,
-            n_iter=100, n_kept_samples=None, grouping=None, callback=None):
+            n_iter=100, n_kept_samples=None, grouping=None, callback=None, config_builder=None):
         """Performs Gibbs sampling to fit the data.
         Parameters
         ----------
@@ -137,6 +136,9 @@ class MyFMRegressor(object):
         callback: function(int, fm, hyper) -> bool, optional(default = None)
             Called at the every end of each iteration.
         """
+
+        if config_builder is None:
+            config_builder = core.ConfigBuilder()
         train_size = check_data_consistency(X, X_rel)
         if X is None:
             X = sps.csr_matrix((train_size, 0), dtype=np.float64)
@@ -152,14 +154,14 @@ class MyFMRegressor(object):
 
         for key in ['alpha_0', 'beta_0', 'gamma_0', 'mu_0', 'reg_0']:
             value = getattr(self, key)
-            getattr(self.config_builder, "set_{}".format(key))(value)
+            getattr(config_builder, "set_{}".format(key))(value)
         if grouping is None:
             self.n_groups_ = 1
-            self.config_builder.set_identical_groups(dim_all)
+            config_builder.set_identical_groups(dim_all)
         else:
             assert dim_all == len(grouping)
             self.n_groups_ = np.unique(grouping).shape[0]
-            self.config_builder.set_group_index(grouping)
+            config_builder.set_group_index(grouping)
 
         pbar = None
         if (X_test is not None or X_rel_test):
@@ -177,15 +179,15 @@ class MyFMRegressor(object):
         else:
             do_test = False
 
-        self.config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
+        config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
 
         X = sps.csr_matrix(X)
         if X.dtype != np.float64:
             X.data = X.data.astype(np.float64)
         y = self.process_y(y)
-        self.set_tasktype()
+        self.set_tasktype(config_builder)
 
-        config = self.config_builder.build()
+        config = config_builder.build()
 
         if callback is None:
             pbar = tqdm(total=n_iter)
@@ -216,8 +218,8 @@ class MyFMRegressor(object):
             if pbar is not None:
                 pbar.close()
 
-    def set_tasktype(self):
-        self.config_builder.set_task_type(core.TaskType.REGRESSION)
+    def set_tasktype(self, config_builder):
+        config_builder.set_task_type(core.TaskType.REGRESSION)
 
     def predict(self, X, X_rel=[], n_workers=None):
         shape = check_data_consistency(X, X_rel)
@@ -250,8 +252,6 @@ class MyFMRegressor(object):
         return result
 
     def get_hyper_trace(self, dataframe=True):
-        if dataframe:
-            import pandas as pd
         columns = (
             ['alpha'] +
             ['mu_w[{}]'.format(g) for g in range(self.n_groups_)] +
@@ -269,6 +269,7 @@ class MyFMRegressor(object):
             ]))
         res = np.vstack(res)
         if dataframe:
+            import pandas as pd
             res = pd.DataFrame(res)
             res.columns = columns
             return res
@@ -280,8 +281,8 @@ class MyFMRegressor(object):
 
 
 class MyFMClassifier(MyFMRegressor):
-    def set_tasktype(self):
-        self.config_builder.set_task_type(core.TaskType.CLASSIFICATION)
+    def set_tasktype(self, config_builder):
+        config_builder.set_task_type(core.TaskType.CLASSIFICATION)
 
     @classmethod
     def process_score(cls, score):
@@ -314,13 +315,14 @@ class MyFMClassifier(MyFMRegressor):
 
 
 class MyFMOrderedProbit(MyFMRegressor):
-    def set_tasktype(self):
-        self.config_builder.set_task_type(core.TaskType.ORDERED)
+    def set_tasktype(self, config_builder):
+        config_builder.set_task_type(core.TaskType.ORDERED)
 
     def fit(self, X, y, X_rel=[],
             n_iter=100, n_kept_samples=None, grouping=None, callback=None,
             cutpoint_group_configs=None
     ):
+        config_builder = core.ConfigBuilder()
         y = np.asarray(y)
         if cutpoint_group_configs is None:
             n_class = y.max() + 1
@@ -328,13 +330,14 @@ class MyFMOrderedProbit(MyFMRegressor):
                 (int(n_class), np.arange(y.shape[0], dtype=np.int64))
             ]
         self.n_cutpoint_groups = len(cutpoint_group_configs)
-        self.config_builder.set_cutpoint_groups(
+        config_builder.set_cutpoint_groups(
             cutpoint_group_configs
         )
         return super().fit(
             X, y, X_rel=X_rel,
             n_iter=n_iter, n_kept_samples=n_kept_samples,
             grouping=grouping, callback=callback,
+            config_builder=config_builder
         )
 
     @classmethod
@@ -368,8 +371,6 @@ class MyFMOrderedProbit(MyFMRegressor):
             )
         return log_str
 
-    def predict(self, *args, **kwargs):
-        return self.predict_proba(*args, **kwargs).argmax(axis=1)
 
     def predict_proba(self, X, rels=[], cutpoint_index=None, **kwargs):
         if cutpoint_index is None:
@@ -396,3 +397,6 @@ class MyFMOrderedProbit(MyFMRegressor):
             ])
             p += (score[:, 1:] - score[:, :-1])
         return p / len(self.predictor_.samples)
+
+    def predict(self, *args, **kwargs):
+        return self.predict_proba(*args, **kwargs).argmax(axis=1)
