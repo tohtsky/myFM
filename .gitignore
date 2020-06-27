@@ -1,0 +1,14 @@
+build
+eigen
+pybind11
+.python-version
+.clangd
+eigen-eigen-323c052e1731/
+myfm.egg-info/
+tmp
+.eggs
+*.pyc
+*.so
+.vscode
+compile_commands.json
+eigen3.zip
