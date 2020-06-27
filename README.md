@@ -10,6 +10,7 @@ Currently this supports most options for libFM MCMC engine, such as
  - Grouping of input variables (`-meta` option of [libFM](https://github.com/srendle/libfm))
  - Relation Data format (See the paper ["Scaling Factorization Machine to relational data"](https://dl.acm.org/citation.cfm?id=2488340))
 
+## \[Version 0.2 update\]
 In addition to the original libFM functionalities, it now supports the sampling for ordered probit regression. The cutpoint sampler is implemented following the Metropolis-within-Gibbs scheme of [6], for which I have used the `erfcx` function of [Faddeeva package](http://ab-initio.mit.edu/wiki/index.php/Faddeeva_Package) to find the optimal cutpoint values at each iteration with numerical stability. See `examples/ml-100k.ipynb` for a Movielens example where the rating are treated as ordinal categorical variables.
 
 # Requirements

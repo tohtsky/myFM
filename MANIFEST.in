@@ -1,2 +1,2 @@
 recursive-include include/myfm *.hpp
-include LICENSE README.md src/declare_module.hpp
+include LICENSE README.md src/declare_module.hpp include/Faddeeva/Faddeeva.hh src/Faddeeva.cc
