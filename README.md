@@ -10,6 +10,7 @@ Currently this supports most options for libFM MCMC engine, such as
  - Grouping of input variables (`-meta` option of [libFM](https://github.com/srendle/libfm))
  - Relation Data format (See the paper ["Scaling Factorization Machine to relational data"](https://dl.acm.org/citation.cfm?id=2488340))
 
+In addition to the original libFM functionalities, it now supports the sampling for ordered probit regression. The cutpoint sampler is implemented following the Metropolis-within-Gibbs scheme of [6], for which I have used the `erfcx` function of [Faddeeva package](http://ab-initio.mit.edu/wiki/index.php/Faddeeva_Package) to find the optimal cutpoint values at each iteration with numerical stability. See `examples/ml-100k.ipynb` for a Movielens example where the rating are treated as ordinal categorical variables.
 
 # Requirements
 Recent version of gcc/clang with C++ 11 support.
@@ -101,7 +102,7 @@ fm = test_myfm(df_train, df_test, rank=8, grouping=True)
 ```
 
 ## Examples for Relational Data format 
-Below is a toy movielens-like example which utilizes relational data format proposed in [Rendle,].  
+Below is a toy movielens-like example which utilizes relational data format proposed in [3].  
 
 This example, however, is too simplistic to exhibit the computational advantage of this data format. For an example with drastically reduced computational complexity, see `examples/ml-100k-extended.ipynb`; 
 
@@ -173,3 +174,5 @@ print(
 1. Rendle, Steffen. "Factorization machines with libfm." ACM Transactions on Intelligent Systems and Technology (TIST) 3.3 (2012): 57.
 1. Rendle, Steffen. "Scaling factorization machines to relational data." Proceedings of the VLDB Endowment. Vol. 6. No. 5. VLDB Endowment, 2013.
 1. Bayer, Immanuel. "fastfm: A library for factorization machines." arXiv preprint arXiv:1505.00641 (2015).
+1. Albert, James H., and Siddhartha Chib. "Bayesian analysis of binary and polychotomous response data." Journal of the American statistical Association 88.422 (1993): 669-679.
+1. Albert, James H., and Siddhartha Chib. "Sequential ordinal modeling with applications to survival data." Biometrics 57.3 (2001): 829-836.
