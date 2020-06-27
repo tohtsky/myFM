@@ -1,10 +1,10 @@
 #pragma once
 
+#include <functional>
+#include <iostream>
 #include <random>
 #include <tuple>
 #include <vector>
-#include <functional>
-#include <iostream>
 
 #include <pybind11/eigen.h>
 #include <pybind11/functional.h>
@@ -14,6 +14,7 @@
 #include "myfm/FM.hpp"
 #include "myfm/FMLearningConfig.hpp"
 #include "myfm/FMTrainer.hpp"
+#include "myfm/OProbitSampler.hpp"
 #include "myfm/definitions.hpp"
 #include "myfm/util.hpp"
 
@@ -84,7 +85,7 @@ template <typename Real> void declare_functional(py::module &m) {
       .def("set_task_type", &ConfigBuilder::set_task_type)
       .def("set_group_index", &ConfigBuilder::set_group_index)
       .def("set_identical_groups", &ConfigBuilder::set_identical_groups)
-      .def("set_set_cutpoint_scale", &ConfigBuilder::set_cutpoint_scale)
+      .def("set_cutpoint_scale", &ConfigBuilder::set_cutpoint_scale)
       .def("set_cutpoint_groups", &ConfigBuilder::set_cutpoint_groups)
       .def("build", &ConfigBuilder::build);
 
@@ -107,15 +108,20 @@ template <typename Real> void declare_functional(py::module &m) {
             Real w0 = fm.w0;
             Vector w(fm.w);
             DenseMatrix V(fm.V);
-            return py::make_tuple(w0, w, V);
+            vector<Vector> cutpoints(fm.cutpoints);
+            return py::make_tuple(w0, w, V, cutpoints);
           },
           [](py::tuple t) {
-            if (t.size() != 3) {
+            if (t.size() == 3) {
+              /* For the compatibility with earlier versions */
+              return new FM(t[0].cast<Real>(), t[1].cast<Vector>(),
+                            t[2].cast<DenseMatrix>());
+            } else if (t.size()==4) {
+              return new FM(t[0].cast<Real>(), t[1].cast<Vector>(),
+                            t[2].cast<DenseMatrix>(), t[3].cast<vector<Vector>>());
+            } else {
               throw std::runtime_error("invalid state for FM.");
             }
-            // placement new
-            return new FM(t[0].cast<Real>(), t[1].cast<Vector>(),
-                          t[2].cast<DenseMatrix>());
           }));
 
   py::class_<Hyper>(m, "FMHyperParameters")
