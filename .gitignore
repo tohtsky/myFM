@@ -13,3 +13,4 @@ tmp
 compile_commands.json
 eigen3.zip
 dist/
+*-checkpoint.ipynb
