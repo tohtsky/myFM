@@ -11,7 +11,7 @@ def std_cdf(x):
 
 class LibFMLikeCallbackBase(ABC):
     def __init__(self, n_iter, X_test, X_rel_test,
-                 y_test, trace_path="rmse_result.csv"):
+                 y_test, trace_path=None):
         """Provides a LibFM-like callback after each iteration.
         This will be helpful when we cannot afford enough memory to store
         all posterior samples."""
@@ -44,9 +44,9 @@ class LibFMLikeCallbackBase(ABC):
                 description
             )
         self.result_trace.append(trace_result)
-        with open(self.trace_path, 'w') as ofs:
-            df = pd.DataFrame(self.result_trace, index=False)
-            df.to_csv(ofs)
+        if self.trace_path is not None:
+            df = pd.DataFrame(self.result_trace)
+            df.to_csv(self.trace_path, index=False)
 
         if self.pbar is not None:
             self.pbar.update(1)
@@ -56,7 +56,7 @@ class LibFMLikeCallbackBase(ABC):
 class RegressionCallback(LibFMLikeCallbackBase):
     def __init__(self, n_iter,
                  X_test, y_test, X_rel_test=None,
-                 clip_min=None, clip_max=None, trace_path="rmse_result.csv"):
+                 clip_min=None, clip_max=None, trace_path=None):
         super(RegressionCallback, self).__init__(
             n_iter, X_test, X_rel_test, y_test, trace_path=trace_path
         )
@@ -145,8 +145,8 @@ class ClassificationCallback(LibFMLikeCallbackBase):
         ll_this = self.__log_loss(prob_this)
         accuracy_this = self.__accuracy(prob_this)
         description = \
-            "alpha={0:.4f}, ll_mean={1:.4f}, ll_this={2:.4f}, ll_all_but_5={3:.4f}".format(
-                hyper.alpha, ll, ll_this, ll_all_but_5
+            "ll_mean={0:.4f}, ll_this={1:.4f}, ll_all_but_5={2:.4f}".format(
+                ll, ll_this, ll_all_but_5
             )
         result = OrderedDict(
             [
@@ -164,7 +164,7 @@ class OrderedProbitCallback(LibFMLikeCallbackBase):
     def __init__(self, n_iter,
                  X_test, y_test, n_class, X_rel_test=None, 
                  eps=1e-15,
-                 trace_path="rmse_result.csv"):
+                 trace_path=None):
         super(OrderedProbitCallback, self).__init__(
             n_iter, X_test, X_rel_test, y_test, trace_path=trace_path
         )
@@ -221,8 +221,8 @@ class OrderedProbitCallback(LibFMLikeCallbackBase):
         accuracy_this = self.__accuracy(prob_this)
         rmse_this = self.__rmse(prob_this)
         description = \
-            "alpha={0:.4f}, ll_mean={1:.4f}, ll_this={2:.4f}, ll_all_but_5={3:.4f}".format(
-                hyper.alpha, ll, ll_this, ll_all_but_5
+            "ll_mean={0:.4f}, ll_this={1:.4f}, ll_all_but_5={2:.4f}".format(
+                ll, ll_this, ll_all_but_5
             )
         result = OrderedDict(
             [
