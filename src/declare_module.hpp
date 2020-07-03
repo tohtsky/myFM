@@ -46,8 +46,8 @@ template <typename Real> void declare_functional(py::module &m) {
   using Vector = typename FM::Vector;
   using DenseMatrix = typename FM::DenseMatrix;
   using ConfigBuilder = typename FMLearningConfig::Builder;
-  using RelationBlock = myFM::relational::RelationBlock<Real>;
-  using Predictor = myFM::Predictor<Real>;
+  using RelationBlock = typename myFM::relational::RelationBlock<Real>;
+  using Predictor = typename myFM::Predictor<Real>;
   using TASKTYPE = typename myFM::FMLearningConfig<Real>::TASKTYPE;
 
   m.doc() = "Backend C++ implementation for myfm.";
@@ -66,13 +66,26 @@ template <typename Real> void declare_functional(py::module &m) {
       .def_readonly("mapper_size", &RelationBlock::mapper_size)
       .def_readonly("block_size", &RelationBlock::block_size)
       .def_readonly("feature_size", &RelationBlock::feature_size)
-      .def("__repr__", [](const RelationBlock &block) {
-        return (myFM::StringBuilder{})("<RelationBlock with mapper size = ")(
-                   block.mapper_size)(", block data size = ")(block.block_size)(
-                   ", feature size = ")(block.feature_size)(">")
-            .build();
-      });
-
+      .def("__repr__",
+           [](const RelationBlock &block) {
+             return (myFM::StringBuilder{})(
+                        "<RelationBlock with mapper size = ")(
+                        block.mapper_size)(", block data size = ")(
+                        block.block_size)(", feature size = ")(
+                        block.feature_size)(">")
+                 .build();
+           })
+      .def(py::pickle(
+          [](const RelationBlock &block) {
+            return py::make_tuple(block.original_to_block, block.X);
+          },
+          [](py::tuple t) {
+            if (t.size() != 2) {
+              throw std::runtime_error("invalid state for Relationblock.");
+            }
+            return new RelationBlock(t[0].cast<vector<size_t>>(),
+                                     t[1].cast<typename RelationBlock::SparseMatrix>());
+          }));
   py::class_<ConfigBuilder>(m, "ConfigBuilder")
       .def(py::init<>())
       .def("set_alpha_0", &ConfigBuilder::set_alpha_0)
@@ -116,9 +129,10 @@ template <typename Real> void declare_functional(py::module &m) {
               /* For the compatibility with earlier versions */
               return new FM(t[0].cast<Real>(), t[1].cast<Vector>(),
                             t[2].cast<DenseMatrix>());
-            } else if (t.size()==4) {
+            } else if (t.size() == 4) {
               return new FM(t[0].cast<Real>(), t[1].cast<Vector>(),
-                            t[2].cast<DenseMatrix>(), t[3].cast<vector<Vector>>());
+                            t[2].cast<DenseMatrix>(),
+                            t[3].cast<vector<Vector>>());
             } else {
               throw std::runtime_error("invalid state for FM.");
             }
