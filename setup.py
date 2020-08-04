@@ -9,7 +9,7 @@ import setuptools
 from distutils.command.clean import clean as Clean
 import os
 
-__version__ = '0.2.0'
+__version__ = '0.2.1'
 
 install_requires = ['pybind11>=2.5.0', 'numpy>=1.11', 'scipy>=1.0', 'tqdm>=4']
 
@@ -167,7 +167,7 @@ setup(
     install_requires=install_requires,
     setup_requires=install_requires,
     cmdclass={'build_ext': BuildExt},
-    packages=['myfm'],
+    packages=['myfm', 'myfm.utils.benchmark_data', 'myfm.utils.callbacks'],
     zip_safe=False,
     headers=headers
 )

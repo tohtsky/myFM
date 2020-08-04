@@ -13,6 +13,8 @@ Currently this supports most options for libFM MCMC engine, such as
 ## \[Version 0.2 update\]
 It now supports the Gibbs sampler for ordered probit regression. The cutpoint sampler is implemented following the Metropolis-within-Gibbs scheme of [6], for which I have used the `erfcx` function of [Faddeeva package](http://ab-initio.mit.edu/wiki/index.php/Faddeeva_Package) to find the optimal cutpoint values at each iteration with numerical stability. See `examples/ml-100k.ipynb` and `examples/ml-1m-extended.ipynb` for a Movielens example where the ratings are treated as ordinal categorical variables.
 
+We have also confirmed that a slight performance boost can be obtained for Movielens 10M rating prediction following the protocol of [\[Rendle, et. al., 2019\]](https://arxiv.org/abs/1905.01395). See `examples/ml-10m-regression.py`.
+
 # Requirements
 Recent version of gcc/clang with C++ 11 support.
 
