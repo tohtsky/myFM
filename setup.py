@@ -9,7 +9,7 @@ import setuptools
 from distutils.command.clean import clean as Clean
 import os
 
-__version__ = '0.2.1'
+__version__ = '0.2.1.1'
 
 install_requires = ['pybind11>=2.5.0', 'numpy>=1.11', 'scipy>=1.0', 'tqdm>=4']
 
@@ -19,8 +19,9 @@ if eigen_include_dir is None:
 
 
 class get_eigen_include(object):
-    EIGEN3_URL = 'http://bitbucket.org/eigen/eigen/get/3.3.7.zip'
-    EIGEN3_DIRNAME = 'eigen-eigen-323c052e1731'
+    EIGEN3_URL = 'https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.zip'
+    EIGEN3_DIRNAME = 'eigen-3.3.7'
+
     def __str__(self):
 
         if eigen_include_dir is not None:
