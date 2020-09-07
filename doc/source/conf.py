@@ -18,8 +18,8 @@
 # -- Project information -----------------------------------------------------
 
 project = 'myFM'
-copyright = '2020, tohtsky'
-author = 'tohtsky'
+copyright = '2020, Tomoki Ohtsuki'
+author = 'Tomoki Ohtsuki'
 
 # The full version, including alpha/beta/rc tags
 release = '0.2.0'

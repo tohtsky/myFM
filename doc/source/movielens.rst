@@ -88,3 +88,5 @@ In fact you can tell these information ``MyFMRegressor`` by ``group_shapes`` opt
     rmse = ((y_test - prediction_grouped) ** 2).mean() ** .5
     mae = np.abs(y_test - prediction_grouped).mean()
     print(f'rmse={rmse}, mae={mae}')
+
+In this case this will slightly improves the performance to rmse=0.8925, mae=0.7001.
