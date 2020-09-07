@@ -3,16 +3,31 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
+
 Welcome to myFM's documentation!
 ================================
 
-myFM provides an unofficial implementation of Bayesian Factorization Machines.
+myFM is an unofficial implementation of Bayesian Factorization Machines.
 
-The goal of this project is to
+The goals of ``myFM`` are to
 
 * implement a `libFM <http://libfm.org/>`_ - like functionality that is easy to use from Python
 * provide a simpler and faster implementation with `Pybind11 <https://github.com/pybind/pybind11>`_ and `Eigen <http://eigen.tuxfamily.org/index.php?title=Main_Page>`_
-* implement Ordred Probit Regression models and Factorization Machine generalization thereof.
+
+If you have a standard Python environment on MacOS/Linux, you can install the library from PyPI: ::
+
+   pip install myFM
+
+It has interfaces similar to sklearn, and you can use them for wide variety of prediction tasks, such as 
+
+* regression (``MyFMRegressor``)
+* binary classification (``MyFMClassifier``)
+* ordered probit regression (``MyFMOrderedProbit``)
+
+Checkout the :ref:`examples <MovielensIndex>` below to see how Bayesian approaches to explicit collaborative filtering
+are still very competitive (almost unbeaten)!
+
+Note that it can also be used to high-performance Bayesian linear regression.
 
 Contents:
 
@@ -21,6 +36,7 @@ Contents:
    :maxdepth: 1
 
    quickstart
+   movielens
    relation-blocks
 
 .. toctree::

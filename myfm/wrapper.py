@@ -105,7 +105,9 @@ class MyFMRegressor(object):
 
     def fit(self, X, y, X_rel=[],
             X_test=None, y_test=None, X_rel_test=None,
-            n_iter=100, n_kept_samples=None, grouping=None, callback=None, config_builder=None):
+            n_iter=100, n_kept_samples=None, grouping=None,
+            group_shapes=None,
+            callback=None, config_builder=None):
         """Performs Gibbs sampling to fit the data.
         Parameters
         ----------
@@ -133,6 +135,12 @@ class MyFMRegressor(object):
             respectively.
             If `None`, all the columns of X are assumed to belong to a single group 0.
 
+        group_shapes: Integer array, optional (default = None)
+            If not `None`, this specifies each variable group's size.
+            Ignored if grouping is not None.
+            For example, if ``group_shapes = [n_1, n_2]``,
+            this is equivalent to ``grouping = [0] * n _1 + [1] * n_2``
+
         callback: function(int, fm, hyper) -> bool, optional(default = None)
             Called at the every end of each iteration.
         """
@@ -155,6 +163,10 @@ class MyFMRegressor(object):
         for key in ['alpha_0', 'beta_0', 'gamma_0', 'mu_0', 'reg_0']:
             value = getattr(self, key)
             getattr(config_builder, "set_{}".format(key))(value)
+        
+        if group_shapes is not None and grouping is None:
+            grouping = [ i for i, gsize in enumerate(group_shapes) for _ in range(gsize)]
+
         if grouping is None:
             self.n_groups_ = 1
             config_builder.set_identical_groups(dim_all)
@@ -319,7 +331,9 @@ class MyFMOrderedProbit(MyFMRegressor):
         config_builder.set_task_type(core.TaskType.ORDERED)
 
     def fit(self, X, y, X_rel=[],
-            n_iter=100, n_kept_samples=None, grouping=None, callback=None,
+            n_iter=100, n_kept_samples=None, grouping=None,
+            group_shapes=None,
+            callback=None,
             cutpoint_group_configs=None
     ):
         config_builder = core.ConfigBuilder()
@@ -337,6 +351,7 @@ class MyFMOrderedProbit(MyFMRegressor):
             X, y, X_rel=X_rel,
             n_iter=n_iter, n_kept_samples=n_kept_samples,
             grouping=grouping, callback=callback,
+            group_shapes=group_shapes,
             config_builder=config_builder
         )
 
