@@ -1,7 +1,7 @@
 .. _MovielensIndex:
 
 =========================================
-A Tutorial with Movielens
+A Basic Tutorial with Movielens 100K
 =========================================
 
 FMs are believed to perform remarkably well on the datasets with
@@ -76,13 +76,15 @@ user vectors and item vectors are drawn from separate normal priors:
 
 However, we haven't provided any information about which columns are users' and items'.
 
-In fact you can tell these information ``MyFMRegressor`` by ``group_shapes`` option: ::
+You can tell  ``MyFMRegressor`` these information (i.e., which parameters share a common mean and variance) by ``group_shapes`` option: ::
 
     fm_grouped = myfm.MyFMRegressor(
         rank=FM_RANK, random_seed=42,
+    )
+    fm_grouped.fit(
+        X_train, y_train, n_iter=200, n_kept_samples=200,
         group_shapes=[len(group) for group in ohe.categories_]
     )
-    fm_grouped.fit(X_train, y_train, n_iter=200, n_kept_samples=200)
 
     prediction_grouped = fm_grouped.predict(X_test)
     rmse = ((y_test - prediction_grouped) ** 2).mean() ** .5
@@ -90,3 +92,84 @@ In fact you can tell these information ``MyFMRegressor`` by ``group_shapes`` opt
     print(f'rmse={rmse}, mae={mae}')
 
 In this case this will slightly improves the performance to rmse=0.8925, mae=0.7001.
+
+
+^^^^^^^^^^^^^^^^^^^^^^^
+Adding Side information
+^^^^^^^^^^^^^^^^^^^^^^^
+
+It is straightforward to include user/item side information.
+
+First we retrieve the side information from ``Movielens100kDataManager``: ::
+
+    user_info = data_manager.load_userinfo().set_index('user_id')
+    user_info['age'] = user_info.age // 5 * 5
+    user_info['zipcode'] = user_info.zipcode.str[0]
+    user_info_ohe = OneHotEncoder(handle_unknown='ignore').fit(user_info)
+
+    movie_info, movie_genres = data_manager.load_movieinfo()
+    movie_info['release_year'] = [
+        str(x) for x in movie_info['release_date'].dt.year.fillna('NaN')
+    ] # hack to avoid NaN
+    movie_info = movie_info[['movie_id', 'release_year'] + movie_genres].set_index('movie_id')
+    movie_info_ohe = OneHotEncoder(handle_unknown='ignore').fit(movie_info.drop(columns=movie_genres))
+
+Note that the way movie genre information is represented in movie info DataFrame is a bit tricky (it is already binary encoded).
+
+We can then augment ``X_train`` / ``X_test`` by side information. The `hstack <https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.hstack.html>`_ function of ``scipy.sparse`` is very convenient for this purpose: ::
+
+    import scipy.sparse as sps
+    X_train_extended = sps.hstack([
+        X_train,
+        user_info_ohe.transform(
+            user_info.reindex(df_train.user_id)
+        ),
+        movie_info_ohe.transform(
+            movie_info.reindex(df_train.movie_id).drop(columns=movie_genres)
+        ),
+        movie_info[movie_genres].reindex(df_train.movie_id).values
+    ])
+
+    X_test_extended = sps.hstack([
+        X_test,
+        user_info_ohe.transform(
+            user_info.reindex(df_test.user_id)
+        ),
+        movie_info_ohe.transform(
+            movie_info.reindex(df_test.movie_id).drop(columns=movie_genres)
+        ),
+        movie_info[movie_genres].reindex(df_test.movie_id).values
+    ])
+
+Then we can regress ``X_train_extended`` against ``y_train`` ::
+
+    group_shapes_extended = [len(group) for group in ohe.categories_] + \
+        [len(group) for group in user_info_ohe.categories_] + \
+        [len(group) for group in movie_info_ohe.categories_] + \
+        [ len(movie_genres)]
+
+    fm_side_info = myfm.MyFMRegressor(
+        rank=FM_RANK, random_seed=42,
+    )
+    fm_side_info.fit(
+        X_train_extended, y_train, n_iter=200, n_kept_samples=200,
+        group_shapes=group_shapes_extended
+    )
+
+    prediction_side_info = fm_side_info.predict(X_test_extended)
+    rmse = ((y_test - prediction_side_info) ** 2).mean() ** .5
+    mae = np.abs(y_test - prediction_side_info).mean()
+    print(f'rmse={rmse}, mae={mae}')
+
+The resulting should be further improved to rmse = 0.8855, mae = 0.6944.
+
+Unfortunately, the running time is somewhat (~ 4 times) slower compared to pure
+MF regression described above. This is as it should be:
+the complexity of Bayesian FM is proportional to :math:`O(\mathrm{NNZ})`
+(i.e., non-zero elements of input sparse matrix),
+and we have incorporated various non-zero elements (user/item features) for each row.
+
+Somewhat surprisingly, we can still train the equivalent model
+in a running time close to pure MF regression above if represent the data in Relational Data Format.
+
+See :ref:`next section <RelationBlockTutorial>` for how Relational Data Format works.
