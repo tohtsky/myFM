@@ -199,3 +199,6 @@ The resulting performance measures are RMSE=0.889, MAE=0.7000 : ::
     rmse = ((df_test.rating.values - test_prediction) ** 2).mean() ** 0.5
     mae = np.abs(df_test.rating.values - test_prediction).mean()
     print(f'rmse={rmse}, mae={mae}')
+
+Note that we still haven't exploited all the available ingredients such as
+user/item side-information and :ref:`grouping of the input variables <grouping>`.

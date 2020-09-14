@@ -63,6 +63,8 @@ to prepare the input matrix.
 The above script should give you rmse=0.8944, mae=0.7031 which is already
 impressive compared with other recent methods.
 
+.. _grouping:
+
 -------------------------------------------
 Assuming Separate Variance for movie & user
 -------------------------------------------

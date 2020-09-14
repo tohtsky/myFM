@@ -54,6 +54,8 @@ Contents:
    :maxdepth: 1
 
    quickstart
+   movielens
+   relation-blocks
 
 .. toctree::
    :caption: Details
@@ -61,10 +63,6 @@ Contents:
 
    dependencies
    api_reference
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Hoge
 
 
 Indices and tables
