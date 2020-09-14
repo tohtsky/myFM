@@ -173,7 +173,7 @@ so that we can drastically reduce the complexity ::
     block_user_test = RelationBlock(test_uid_index, user_data_test)
     block_movie_test = RelationBlock(test_mid_index, movie_data_test)
 
-We can now feed these blocks into :py:meth:`myfm.RelationBlock.fit` by ::
+We can now feed these blocks into :py:meth:`myfm.MyFMRegressor.fit` by ::
 
     fm_rb = myfm.MyFMRegressor(rank=10).fit(
         X_date_train, df_train.rating,

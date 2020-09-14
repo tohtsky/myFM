@@ -35,13 +35,15 @@ REAL = np.float64
 
 class MyFMRegressor(object):
     r"""Bayesian Factorization Machines for regression tasks.
-    """    
+    """
+
     def __init__(
         self, rank,
         init_stdev=0.1, random_seed=42,
         alpha_0=1.0, beta_0=1.0, gamma_0=1.0, mu_0=0.0, reg_0=1.0,
     ):
-        """ 
+        """Setup the configuration.
+
         Parameters
         ----------
         rank : int
@@ -93,7 +95,6 @@ class MyFMRegressor(object):
 
         self.n_groups_ = None
 
-        
     def __str__(self):
         return "{class_name}(init_stdev={init_stdev}, alpha_0={alpha_0}, beta_0={beta_0}, gamma_0={gamma_0}, mu_0={mu_0}, reg_0={reg_0})".format(
             class_name=self.__class__.__name__,
@@ -110,40 +111,40 @@ class MyFMRegressor(object):
             callback=None, config_builder=None):
         """Performs Gibbs sampling to fit the data.
 
-            Parameters
-            ----------
-            X : 2D array-like.
-                Input variable.
+        Parameters
+        ----------
+        X : 2D array-like.
+            Input variable.
 
-            y : 1D array-like.
-                Target variable.
+        y : 1D array-like.
+            Target variable.
 
-            X_rel: list of RelationBlock, optional (defalult=[])
-                   Relation blocks which supplements X.
+        X_rel: list of RelationBlock, optional (defalult=[])
+               Relation blocks which supplements X.
 
-            n_iter : int, optional (defalult = 100)
-                Iterations to perform.
+        n_iter : int, optional (defalult = 100)
+            Iterations to perform.
 
-            n_kept_samples: int, optional (default = None)
-                The number of samples to store.
-                If `None`, the value is set to `n_iter` - 5.
+        n_kept_samples: int, optional (default = None)
+            The number of samples to store.
+            If `None`, the value is set to `n_iter` - 5.
 
-            grouping: Integer List, optional (default = None)
-                If not `None`, this specifies which column of X belongs to which group.
-                That is, if grouping[i] is g, then, :math:`w_i` and :math:`V_{i, r}`
-                will be distributed according to
-                :math:`\mathcal{N}(\mu_w[g], \lambda_w[g])` and :math:`\mathcal{N}(\mu_V[g, r], \lambda_V[g,r])`,
-                respectively.
-                If `None`, all the columns of X are assumed to belong to a single group, 0.
+        grouping: Integer List, optional (default = None)
+            If not `None`, this specifies which column of X belongs to which group.
+            That is, if grouping[i] is g, then, :math:`w_i` and :math:`V_{i, r}`
+            will be distributed according to
+            :math:`\mathcal{N}(\mu_w[g], \lambda_w[g])` and :math:`\mathcal{N}(\mu_V[g, r], \lambda_V[g,r])`,
+            respectively.
+            If `None`, all the columns of X are assumed to belong to a single group, 0.
 
-            group_shapes: Integer array, optional (default = None)
-                If not `None`, this specifies each variable group's size.
-                Ignored if grouping is not None.
-                For example, if ``group_shapes = [n_1, n_2]``,
-                this is equivalent to ``grouping = [0] * n_1 + [1] * n_2``
+        group_shapes: Integer array, optional (default = None)
+            If not `None`, this specifies each variable group's size.
+            Ignored if grouping is not None.
+            For example, if ``group_shapes = [n_1, n_2]``,
+            this is equivalent to ``grouping = [0] * n_1 + [1] * n_2``
 
-            callback: function(int, fm, hyper) -> bool, optional(default = None)
-                Called at the every end of each Gibbs iteration.
+        callback: function(int, fm, hyper) -> bool, optional(default = None)
+            Called at the every end of each Gibbs iteration.
         """
 
         if config_builder is None:
@@ -160,13 +161,13 @@ class MyFMRegressor(object):
         else:
             assert n_iter >= n_kept_samples
 
-
         for key in ['alpha_0', 'beta_0', 'gamma_0', 'mu_0', 'reg_0']:
             value = getattr(self, key)
             getattr(config_builder, "set_{}".format(key))(value)
-        
+
         if group_shapes is not None and grouping is None:
-            grouping = [ i for i, gsize in enumerate(group_shapes) for _ in range(gsize)]
+            grouping = [i for i, gsize in enumerate(
+                group_shapes) for _ in range(gsize)]
 
         if grouping is None:
             self.n_groups_ = 1
@@ -311,7 +312,8 @@ class MyFMRegressor(object):
 
 
 class MyFMClassifier(MyFMRegressor):
-    r"""Bayesian Factorization Machines for binary classification tasks."""    
+    r"""Bayesian Factorization Machines for binary classification tasks."""
+
     def _set_tasktype(self, config_builder):
         config_builder.set_task_type(core.TaskType.CLASSIFICATION)
 
@@ -366,6 +368,7 @@ class MyFMClassifier(MyFMRegressor):
 
 class MyFMOrderedProbit(MyFMRegressor):
     """Bayesian Factorization Machines for Ordinal Regression Tasks."""
+
     def _set_tasktype(self, config_builder):
         config_builder.set_task_type(core.TaskType.ORDERED)
 
@@ -374,7 +377,7 @@ class MyFMOrderedProbit(MyFMRegressor):
             group_shapes=None,
             callback=None,
             cutpoint_group_configs=None
-    ):
+            ):
         config_builder = core.ConfigBuilder()
         y = np.asarray(y)
         if cutpoint_group_configs is None:
@@ -410,14 +413,13 @@ class MyFMOrderedProbit(MyFMRegressor):
 
     @classmethod
     def _status_report(cls, fm, hyper):
-        
+
         log_str = "w0= {:2f}".format(fm.w0)
         if len(fm.cutpoints) == 1:
             log_str += ", cutpoint = {} ".format(
                 ["{:.3f}".format(c) for c in list(fm.cutpoints[0])]
             )
         return log_str
-
 
     def predict_proba(self, X, X_rel=[], cutpoint_index=None, **kwargs):
         if cutpoint_index is None:
@@ -435,7 +437,8 @@ class MyFMOrderedProbit(MyFMRegressor):
             alpha = self.hypers_[sample_index + sample_offset].alpha
             score = sample.predict_score(X, X_rel)
             score = std_cdf(
-                np.sqrt(alpha) * (sample.cutpoints[cutpoint_index][np.newaxis, :] - score[:, np.newaxis])
+                np.sqrt(
+                    alpha) * (sample.cutpoints[cutpoint_index][np.newaxis, :] - score[:, np.newaxis])
             )
             score = np.hstack([
                 np.zeros((score.shape[0], 1), dtype=score.dtype),

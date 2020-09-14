@@ -1,6 +1,6 @@
 # myFM
 
-myFM is an implementation of Bayesian [Factorization Machine](https://ieeexplore.ieee.org/abstract/document/5694074/) based on Gibbs sampling, which I believe is a wheel worth reinventing.
+myFM is an implementation of Bayesian [Factorization Machines](https://ieeexplore.ieee.org/abstract/document/5694074/) based on Gibbs sampling, which I believe is a wheel worth reinventing.
 
 The goal of this project is to
 
@@ -9,7 +9,7 @@ The goal of this project is to
 
 Currently this supports most options for libFM MCMC engine, such as
  - Grouping of input variables (`-meta` option of [libFM](https://github.com/srendle/libfm))
- - Relation Data format (See the paper ["Scaling Factorization Machine to relational data"](https://dl.acm.org/citation.cfm?id=2488340))
+ - Relation Data format (See the paper ["Scaling Factorization Machines to relational data"](https://dl.acm.org/citation.cfm?id=2488340))
 
 Tutorial and reference doc is provided at https://myfm.readthedocs.io/en/latest/.
 
