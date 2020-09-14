@@ -12,16 +12,7 @@
 #
 import os
 import sys
-CURRENT_DIR = os.path.abspath(os.path.dirname(__file__))
 sys.path.insert(0, os.path.abspath('../../'))
-
-MYFM_DIR = os.path.join(
-    os.path.dirname(os.path.dirname(CURRENT_DIR)),
-    'myfm'
-)
-print(MYFM_DIR)
-sys.path.insert(0, MYFM_DIR)
-
 
 # -- Project information -----------------------------------------------------
 

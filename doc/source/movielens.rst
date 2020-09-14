@@ -171,7 +171,6 @@ the complexity of Bayesian FM is proportional to :math:`O(\mathrm{NNZ})`
 (i.e., non-zero elements of input sparse matrix),
 and we have incorporated various non-zero elements (user/item features) for each row.
 
-Somewhat surprisingly, we can still train the equivalent model
+Surprisingly, we can still train the equivalent model
 in a running time close to pure MF regression above if represent the data in Relational Data Format.
-
 See :ref:`next section <RelationBlockTutorial>` for how Relational Data Format works.
