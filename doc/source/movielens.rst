@@ -63,9 +63,9 @@ to prepare the input matrix.
 The above script should give you rmse=0.8944, mae=0.7031 which is already
 impressive compared with other recent methods.
 
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------------
 Assuming Separate Variance for movie & user
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------------
 
 In Probabilistic Matrix Factorization, we usually assume
 user vectors and item vectors are drawn from separate normal priors:
@@ -76,7 +76,7 @@ user vectors and item vectors are drawn from separate normal priors:
 
 However, we haven't provided any information about which columns are users' and items'.
 
-You can tell  ``MyFMRegressor`` these information (i.e., which parameters share a common mean and variance) by ``group_shapes`` option: ::
+You can tell  :py:class:`myfm.MyFMRegressor` these information (i.e., which parameters share a common mean and variance) by ``group_shapes`` option: ::
 
     fm_grouped = myfm.MyFMRegressor(
         rank=FM_RANK, random_seed=42,
@@ -94,9 +94,9 @@ You can tell  ``MyFMRegressor`` these information (i.e., which parameters share 
 In this case this will slightly improves the performance to rmse=0.8925, mae=0.7001.
 
 
-^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------------
 Adding Side information
-^^^^^^^^^^^^^^^^^^^^^^^
+-------------------------------------------
 
 It is straightforward to include user/item side information.
 

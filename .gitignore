@@ -14,3 +14,5 @@ compile_commands.json
 eigen3.zip
 dist/
 *-checkpoint.ipynb
+doc/_build/*
+eigen-3.3.7/

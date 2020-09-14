@@ -18,6 +18,7 @@ and figure out what went wrong.
 Of course, feel free to create an issue on `GitHub <https://github.com/tohtsky/myFM>`_!
 
 
+-------------
 A toy example
 -------------
 
