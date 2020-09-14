@@ -9,7 +9,7 @@ import setuptools
 from distutils.command.clean import clean as Clean
 import os
 
-__version__ = '0.2.1.1'
+__version__ = '0.2.1.2'
 
 install_requires = ['pybind11>=2.5.0', 'numpy>=1.11', 'scipy>=1.0', 'tqdm>=4']
 
