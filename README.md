@@ -1,5 +1,6 @@
 # myFM
-An implementation of Bayesian [Factorization Machine](https://ieeexplore.ieee.org/abstract/document/5694074/) based on Gibbs sampling, which I believe is a wheel worth reinventing.
+
+myFM is an implementation of Bayesian [Factorization Machine](https://ieeexplore.ieee.org/abstract/document/5694074/) based on Gibbs sampling, which I believe is a wheel worth reinventing.
 
 The goal of this project is to
 
@@ -9,6 +10,8 @@ The goal of this project is to
 Currently this supports most options for libFM MCMC engine, such as
  - Grouping of input variables (`-meta` option of [libFM](https://github.com/srendle/libfm))
  - Relation Data format (See the paper ["Scaling Factorization Machine to relational data"](https://dl.acm.org/citation.cfm?id=2488340))
+
+Tutorial and reference doc is provided at https://myfm.readthedocs.io/en/latest/.
 
 ## \[Version 0.2 update\]
 It now supports the Gibbs sampler for ordered probit regression. The cutpoint sampler is implemented following the Metropolis-within-Gibbs scheme of [6], for which I have used the `erfcx` function of [Faddeeva package](http://ab-initio.mit.edu/wiki/index.php/Faddeeva_Package) to find the optimal cutpoint values at each iteration with numerical stability. See `examples/ml-100k.ipynb` and `examples/ml-1m-extended.ipynb` for a Movielens example where the ratings are treated as ordinal categorical variables.
