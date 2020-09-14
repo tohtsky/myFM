@@ -202,3 +202,5 @@ The resulting performance measures are RMSE=0.889, MAE=0.7000 : ::
 
 Note that we still haven't exploited all the available ingredients such as
 user/item side-information and :ref:`grouping of the input variables <grouping>`.
+See also `examples notebooks & scripts <https://github.com/tohtsky/myFM/blob/master/examples/>`_
+for further improved results.
