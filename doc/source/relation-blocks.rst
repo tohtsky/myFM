@@ -160,7 +160,7 @@ The line ::
 
         user_data_train[train_uid_index],
 
-says that the sparse matrix  ``user_data_train`` is repeated many times,
+says that each row of the sparse matrix ``user_data_train`` appears many times,
 and we will compute the same combination of factors repeatedly.
 
 The role of :py:class:`myfm.RelationBlock` is to tell such a repeated pattern explicitly
@@ -179,12 +179,12 @@ We can now feed these blocks into :py:meth:`myfm.MyFMRegressor.fit` by ::
         n_iter=300, n_kept_samples=300
     )
 
-Note that we cannot express ``X_date_train`` as a relation block, and we have
+Note that we cannot express ``X_date_train`` as a relation block and we have
 supplied such a non-repeated data for the first argument.
-This time, the speed is 20iters / s, almost 40x speed up compared to the naive version.
+This time, the speed is 20 iters / s, almost 40x speed up compared to the naive version.
 
-What the relation format does is to reorganize the computation, but it does not 
-change the result up to a floating point artifact: ::
+What the relation format does is to reorganize the computation,
+but the result should be the same up to floating point artifacts: ::
 
     for i in range(5):
         sample_naive = fm_naive.predictor_.samples[i].w

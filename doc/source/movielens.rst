@@ -60,7 +60,7 @@ to prepare the input matrix.
     mae = np.abs(y_test - prediction).mean()
     print(f'rmse={rmse}, mae={mae}')
 
-The above script should give you rmse=0.8944, mae=0.7031 which is already
+The above script should give you RMSE=0.8944, MAE=0.7031 which is already
 impressive compared with other recent methods.
 
 .. _grouping:
@@ -163,7 +163,7 @@ Then we can regress ``X_train_extended`` against ``y_train`` ::
     mae = np.abs(y_test - prediction_side_info).mean()
     print(f'rmse={rmse}, mae={mae}')
 
-The result should improve further with rmse = 0.8855, mae = 0.6944.
+The result should improve further with RMSE = 0.8855, MAE = 0.6944.
 
 Unfortunately, the running time is somewhat (~ 4 times) slower compared to
 the pure matrix-factorization described above. This is as it should be:
