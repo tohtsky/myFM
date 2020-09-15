@@ -54,6 +54,7 @@ Contents:
    quickstart
    movielens
    relation-blocks
+   ordinal-regression
 
 .. toctree::
    :caption: Details

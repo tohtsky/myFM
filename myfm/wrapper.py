@@ -250,8 +250,9 @@ class MyFMRegressor(object):
 
         Returns
         -------
-        [type]
-            [description]
+        np.float64
+            The prediction value.
+
         """
         shape = check_data_consistency(X, X_rel)
         if X is None:
@@ -359,7 +360,7 @@ class MyFMClassifier(MyFMRegressor):
 
         Returns
         -------
-        [np.ndarray]
+        np.float64
             The probability that each row belongs to class = 1.
         """
 
@@ -422,6 +423,25 @@ class MyFMOrderedProbit(MyFMRegressor):
         return log_str
 
     def predict_proba(self, X, X_rel=[], cutpoint_index=None, **kwargs):
+        """ Compute the ordinal class probability.
+
+        ----------
+        X : array_like
+            The input data.
+        X_rel : List[RelationBlock], optional
+            Relational Block part of the data., by default []
+        cutpoint_index : int, optional
+            if not ``None`` and multiple cutpoints are enabled
+            when ``fit``, compute the class probability
+            based on the ``cutpoint_index``-th cutpoint, by default None.
+            Must not be ``None`` when there are multiple cutpoints.
+
+        Returns
+        -------
+        np.float
+            The class probability
+        """
+
         if cutpoint_index is None:
             if self.n_cutpoint_groups == 1:
                 cutpoint_index = 0
@@ -448,5 +468,27 @@ class MyFMOrderedProbit(MyFMRegressor):
             p += (score[:, 1:] - score[:, :-1])
         return p / len(self.predictor_.samples)
 
-    def predict(self, *args, **kwargs):
-        return self.predict_proba(*args, **kwargs).argmax(axis=1)
+    def predict(self, X, X_rel=[], cutpoint_index=None):
+        """ predict the class outcome according to the class probability.
+
+        Parameters
+        ----------
+        X : array_like
+            The input data.
+        X_rel : List[RelationBlock], optional
+            Relational Block part of the data., by default []
+        cutpoint_index : int, optional
+            if not ``None`` and multiple cutpoints are enabled
+            when ``fit``, compute the class probability
+            based on the ``cutpoint_index``-th cutpoint, by default None
+            Must not be ``None`` when there are multiple cutpoints.
+
+        Returns
+        -------
+        np.int64
+            The class prediction
+        """
+
+        return self.predict_proba(
+            X, X_rel=X_rel, cutpoint_index=cutpoint_index
+        ).argmax(axis=1)
