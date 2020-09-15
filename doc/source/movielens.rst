@@ -4,25 +4,25 @@
 A Basic Tutorial with Movielens 100K
 =========================================
 
-FMs are believed to perform remarkably well on the datasets with
-huge and sparse feature matrices,
-and most common examples are (explicit) collaborative filtering tasks.
+FMs perform remarkably well on datasets with huge and sparse feature matrices,
+and the most common examples are (explicit) collaborative filtering tasks.
 
-Here, let us see the power of Bayesian Factorization Machine
-using the well-known Movielens 100k and go through the ``myFM``'s API.
+Let us examine the power of the Bayesian Factorization Machines
+by testing a series of APIs in myFM using the well-known Movielens 100k dataset.
+
 
 -------------------------
 Pure Matrix Factorization
 -------------------------
 
-First let us consider the pure Matrix Factorization.
+First let us consider the probabilistic Matrix Factorization.
 That is, we model the user :math:`u`'s rating response to movie :math:`i`,
 which we write :math:`r_{ui}`, as
 
 .. math::
     r_{ui} \sim w_0 + b_u + d_i + \vec{u}_u \cdot \vec{v}_j
 
-This formulation is equivalent to Factorization Machine with
+This formulation is equivalent to Factorization Machines with
 
 1. User IDs treated as a categorical feature with one-hot encoding
 2. Movie IDs treated as a categorical feature with one-hot encoding
@@ -93,7 +93,7 @@ You can tell  :py:class:`myfm.MyFMRegressor` these information (i.e., which para
     mae = np.abs(y_test - prediction_grouped).mean()
     print(f'rmse={rmse}, mae={mae}')
 
-In this case this will slightly improves the performance to rmse=0.8925, mae=0.7001.
+This will slightly improve the performance to rmse=0.8925, mae=0.7001.
 
 
 -------------------------------------------
@@ -116,9 +116,9 @@ First we retrieve the side information from ``Movielens100kDataManager``: ::
     movie_info = movie_info[['movie_id', 'release_year'] + movie_genres].set_index('movie_id')
     movie_info_ohe = OneHotEncoder(handle_unknown='ignore').fit(movie_info.drop(columns=movie_genres))
 
-Note that the way movie genre information is represented in movie info DataFrame is a bit tricky (it is already binary encoded).
+Note that the way movie genre information is represented in ``movie_info`` DataFrame is a bit tricky (it is already binary encoded).
 
-We can then augment ``X_train`` / ``X_test`` by side information. The `hstack <https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.hstack.html>`_ function of ``scipy.sparse`` is very convenient for this purpose: ::
+We can then augment ``X_train`` / ``X_test`` with auxiliary information. The `hstack <https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.hstack.html>`_ function of ``scipy.sparse`` is very convenient for this purpose: ::
 
     import scipy.sparse as sps
     X_train_extended = sps.hstack([
@@ -163,14 +163,14 @@ Then we can regress ``X_train_extended`` against ``y_train`` ::
     mae = np.abs(y_test - prediction_side_info).mean()
     print(f'rmse={rmse}, mae={mae}')
 
-The resulting should be further improved to rmse = 0.8855, mae = 0.6944.
+The result should improve further with rmse = 0.8855, mae = 0.6944.
 
-Unfortunately, the running time is somewhat (~ 4 times) slower compared to pure
-MF regression described above. This is as it should be:
-the complexity of Bayesian FM is proportional to :math:`O(\mathrm{NNZ})`
+Unfortunately, the running time is somewhat (~ 4 times) slower compared to
+the pure matrix-factorization described above. This is as it should be:
+the complexity of Bayesian FMs is proportional to :math:`O(\mathrm{NNZ})`
 (i.e., non-zero elements of input sparse matrix),
 and we have incorporated various non-zero elements (user/item features) for each row.
 
 Surprisingly, we can still train the equivalent model
-in a running time close to pure MF regression above if represent the data in Relational Data Format.
+in a running time close to pure MF if represent the data in Relational Data Format.
 See :ref:`next section <RelationBlockTutorial>` for how Relational Data Format works.

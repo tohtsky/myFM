@@ -4,26 +4,25 @@
 TimeSVD++ Flipped with Relation Blocks
 --------------------------------------
 
-As stated in the :ref:`Movielens example <MovielensIndex>`, the complexity of
-Bayesian FM is basically :math:`O(\mathrm{NNZ})`.
-This will in particular be troublesome when we include SVD++-like feature into the feature matrix.
-In such a case, we include for each user the item ids with which he or she had an interaction,
+As mentioned in the :ref:`Movielens example <MovielensIndex>`,
+the complexity of Bayesian FMs is proportional to :math:`O(\mathrm{NNZ})`.
+This is especially troublesome when we include SVD++-like features in the feature matrix.
+In such a case, for each user, we include all of the item IDs that the user had interacted with,
 and the complexity grows further by a factor of :math:`O(\mathrm{NNZ} / N_U)`.
 
 However, we can get away with this catastrophic complexity if we notice the repeated pattern in the input matrix.
-For the interested readers we refer `[Rendle, '13] <https://dl.acm.org/doi/abs/10.14778/2535573.2488340>`_ 
+Interested readers can refer to `[Rendle, '13] <https://dl.acm.org/doi/abs/10.14778/2535573.2488340>`_ 
 and `libFM's Manual <http://www.libfm.org/libfm-1.40.manual.pdf>`_ for details.
 
-Below let us see how we can incorporate SVD++ - like feature efficiently using the relational data
-again using Movielens 100K dataset.
+Below let us see how we can incorporate SVD++-like features efficiently
+using the relational data again using Movielens 100K dataset.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^
 Building SVD++ Features
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
-In `[Rendle, et. al.,  '19] <https://arxiv.org/abs/1905.01395>`_
-In addition to the user id/movie used for the pure matrix factorization,
-they have made full use of the following features to improve accuracy considerably:
+In `[Rendle, et al., '19] <https://arxiv.org/abs/1905.01395>`_,
+in addition to the user/movie id, they have made use of the following features to improve the accuracy considerably:
 
 1. User Implicit Features: All the movies the user had watched
 2. Movie Implicit Features: All the users who have watched the movie
@@ -60,7 +59,6 @@ Above we constructed dictionaries which map user/movie id to the corresponding i
 We have preserved the index ''0'' for ''Unknown'' user/movies, respectively.
 
 To do the feature-engineering stated above, we have to memoize which users/movies had interactions with which movies/users. ::
-
 
     # The flags to control the included features.
     use_date = True # use date info or not

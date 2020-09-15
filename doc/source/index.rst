@@ -7,16 +7,14 @@
 Welcome to myFM's documentation!
 ================================
 
-myFM is an unofficial implementation of Bayesian Factorization Machines.
-
-The goals of myFM are to
+myFM is an unofficial implementation of Bayesian Factorization Machines. Its goals are to 
 
 * implement a `libFM <http://libfm.org/>`_ - like functionality that is easy to use from Python
 * provide a simpler and faster implementation with `Pybind11 <https://github.com/pybind/pybind11>`_ and `Eigen <http://eigen.tuxfamily.org/index.php?title=Main_Page>`_
 
 If you have a standard Python environment on MacOS/Linux, you can install the library from PyPI: ::
 
-   pip install myFM
+   pip install myfm
 
 It has an interface similar to sklearn, and you can use them for wide variety of prediction tasks.
 For example, ::
