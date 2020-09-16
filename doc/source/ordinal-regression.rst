@@ -134,3 +134,5 @@ which may explain the advantage of the formulation in ordinal regression.
 .. image:: ./rating_vs_cps.png
     :width: 50%
 
+You can also improve the performance for Movielens 1M & 10M dataset.
+See our `examples <https://github.com/tohtsky/myFM/blob/master/examples/>`_ directory.

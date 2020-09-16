@@ -1,3 +1,4 @@
+import pandas as pd
 import argparse
 import pickle
 import numpy as np
@@ -5,15 +6,16 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn.model_selection import KFold
 import myfm
 from myfm import RelationBlock
-from myfm.utils.benchmark_data import MovieLens10MDataManager
+from myfm.utils.benchmark_data import MovieLens1MDataManager
 from myfm.utils.callbacks.libfm import OrderedProbitCallback, RegressionCallback
 from scipy import sparse as sps
 from mapper import DefaultMapper
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="""
-    The script to reproduce the Movielens 10M rating prediction experiment in
-    "On the Difficulty of Evaluating Baselines" paper by Rendle et al, using myFM.
+    This script apply the method and evaluation protocal proposed in
+    "On the Difficulty of Evaluating Baselines" paper by Rendle et al,
+    against smaller Movielens 1M dataset, using myFM.
     """,
     formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
@@ -21,8 +23,8 @@ if __name__ == '__main__':
     parser.add_argument('fold_index', type=int, help="which index set to use as a test within 10-fold CV.")
     parser.add_argument('-a', '--algorithm', type=str, choices=["regression", "oprobit"], default="regression", help="specify the output type.")
     parser.add_argument('-i', '--iteration', type=int, help="mcmc iteration", default=512)
-    parser.add_argument('-d', '--dimension', type=int, help="fm embedding dimension", default=128)
-    parser.add_argument('--stricter_protocol', action="store_true", help="Whether to use the \"stricter\" protocol (i.e., don't include the test set implicit information) stated in [Rendle, '19].", default=False)
+    parser.add_argument('-d', '--dimension', type=int, help="fm embedding dimension", default=32)
+    parser.add_argument('--stricter_protocol', action="store_true", help="Whether to use the \"stricter\" protocol (i.e., don't include the test set implicit information) stated in [Rendle, '19].", default=True)
     parser.add_argument(
         '-f', '--feature', type=str,
         choices=['mf', 'svdpp', 'timesvd', 'timesvdpp', 'timesvdpp_flipped'],
@@ -67,12 +69,11 @@ if __name__ == '__main__':
     if FOLD_INDEX < 0 or FOLD_INDEX >= 10:
         raise ValueError('fold_index must be in the range(10).')
     ALGORITHM = args.algorithm
-    data_manager = MovieLens10MDataManager()
-    df = data_manager.load_rating()
+    data_manager = MovieLens1MDataManager()
+    df = pd.concat(data_manager.load_rating())
 
     if ALGORITHM == "oprobit":
-        # interpret the rating (0.5, 1.0, 1.5, ..., 5.0) as class (0, 1, 2, ... ,9).
-        df.rating *= 2
+        # interpret the rating (1, 2, 3, 4, 5) as class (0, 1, 2, 3, 4).
         df.rating -= 1
         df.rating = df.rating.astype(np.int32)
 
@@ -196,7 +197,7 @@ if __name__ == '__main__':
     else:
         fm = myfm.MyFMOrderedProbit(rank=DIMENSION)
         callback = OrderedProbitCallback(
-            ITERATION, X_date_test, df_test.rating.values, n_class=10, X_rel_test=test_blocks,
+            ITERATION, X_date_test, df_test.rating.values, n_class=5, X_rel_test=test_blocks,
             trace_path=trace_path
         )
 
