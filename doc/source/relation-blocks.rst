@@ -182,6 +182,7 @@ We can now feed these blocks into :py:meth:`myfm.MyFMRegressor.fit` by ::
 Note that we cannot express ``X_date_train`` as a relation block and we have
 supplied such a non-repeated data for the first argument.
 This time, the speed is 20 iters / s, almost 40x speed up compared to the naive version.
+This is also much faster than e.g., `Surprise's implementation of SVD++ <https://github.com/NicolasHug/Surprise>`_.
 
 What the relation format does is to reorganize the computation,
 but the result should be the same up to floating point artifacts: ::

@@ -93,7 +93,7 @@ You can tell  :py:class:`myfm.MyFMRegressor` these information (i.e., which para
     mae = np.abs(y_test - prediction_grouped).mean()
     print(f'rmse={rmse}, mae={mae}')
 
-This will slightly improve the performance to rmse=0.8925, mae=0.7001.
+This will slightly improve the performance to RMSE=0.8925, MAE=0.7001.
 
 
 -------------------------------------------
