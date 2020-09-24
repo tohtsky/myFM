@@ -423,8 +423,9 @@ class MyFMOrderedProbit(MyFMRegressor):
         return log_str
 
     def predict_proba(self, X, X_rel=[], cutpoint_index=None, **kwargs):
-        """ Compute the ordinal class probability.
+        """Compute the ordinal class probability.
 
+        Parameters
         ----------
         X : array_like
             The input data.
@@ -469,7 +470,7 @@ class MyFMOrderedProbit(MyFMRegressor):
         return p / len(self.predictor_.samples)
 
     def predict(self, X, X_rel=[], cutpoint_index=None):
-        """ predict the class outcome according to the class probability.
+        """Predict the class outcome according to the class probability.
 
         Parameters
         ----------

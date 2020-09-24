@@ -132,6 +132,7 @@ This will give you the following figure. The line is slightly non-linear,
 which may explain the advantage of the formulation in ordinal regression.
 
 .. image:: ./rating_vs_cps.png
+    :alt: The relationship between cutpoints and rating boundaries are shown.
     :width: 50%
 
 You can also improve the performance for Movielens 1M & 10M dataset.
