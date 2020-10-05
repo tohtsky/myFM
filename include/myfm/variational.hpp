@@ -452,8 +452,6 @@ public:
     using itertype = typename SparseMatrix::InnerIterator;
 
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
-      throw std::runtime_error("NI");
-
       this->q_train.array() = 0;
       this->x2s.array() = 0;
       this->x3sv.array() = 0;
@@ -475,7 +473,7 @@ public:
         for (size_t relation_index = 0; relation_index < this->relations.size();
              relation_index++) {
 
-          throw std::runtime_error("not implementate");
+          throw std::runtime_error("not implemented");
           const RelationBlock &relation_data = this->relations[relation_index];
           RelationWiseCache &relation_cache =
               this->relation_caches[relation_index];
@@ -512,7 +510,7 @@ public:
           x3sv -= x * x * x * v_var_old * v_old;
           square_coeff += h * h;
           linear_coeff += (-this->e_train(train_data_index)) * h;
-          square_coeff_var += x2s * x2s * x * x;
+          square_coeff_var += x2s * x * x;
           linear_coeff_var += h * x2s - x * x3sv;
         }
         linear_coeff += square_coeff * v_old;
