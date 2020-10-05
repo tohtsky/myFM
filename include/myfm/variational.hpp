@@ -108,37 +108,57 @@ template <typename Real>
 using VariationalPredictor = Predictor<Real, VariationalFM<Real>>;
 
 template <typename Real>
-using GibbsRelationWiseCache = relational::RelationWiseCache<Real>;
+struct VariationalRelationWiseCache
+    : public relational::RelationWiseCache<Real> {
+  using BaseType = relational::RelationWiseCache<Real>;
+  using Vector = typename BaseType::Vector;
+  using RelationBlock = relational::RelationBlock<Real>;
+  inline VariationalRelationWiseCache(const RelationBlock &source)
+      : BaseType(source), x2s(source.X.rows()), x3sv(source.X.rows()),
+        x4s2(source.X.rows()), x4sv2(source.X.rows()) {}
+  Vector x2s;
+  Vector x3sv;
+  Vector x4s2;
+  Vector x4sv2;
+};
 
 template <typename RealType>
 struct VariationalFMTrainer
     : public BaseFMTrainer<RealType, class VariationalFMTrainer<RealType>,
                            VariationalFM<RealType>,
                            VariationalFMHyperParameters<RealType>,
-                           GibbsRelationWiseCache<RealType>> {
+                           VariationalRelationWiseCache<RealType>> {
 
   typedef RealType Real;
 
   typedef VariationalFM<Real> FMType;
   typedef VariationalFMHyperParameters<Real> HyperType;
-  typedef GibbsRelationWiseCache<Real> RelationWiseCache;
+  typedef VariationalRelationWiseCache<Real> RelationWiseCache;
 
   typedef BaseFMTrainer<RealType, VariationalFMTrainer<RealType>, FMType,
                         HyperType, RelationWiseCache>
       BaseType;
 
-  using BaseType::BaseType;
-
   typedef typename BaseType::RelationBlock RelationBlock;
   typedef typename FMType::Vector Vector;
   typedef typename FMType::DenseMatrix DenseMatrix;
   typedef typename FMType::SparseMatrix SparseMatrix;
-
   typedef OprobitSampler<Real> OprobitSamplerType;
+  typedef FMLearningConfig<Real> Config;
 
   using TASKTYPE = typename BaseType::TASKTYPE;
 
 public:
+  Vector x2s;
+  Vector x3sv;
+
+  inline VariationalFMTrainer(const SparseMatrix &X,
+                              const vector<RelationBlock> &relations,
+                              const Vector &y, int random_seed,
+                              Config learning_config)
+      : BaseType(X, relations, y, random_seed, learning_config), x2s(X.rows()),
+        x3sv(X.rows()) {}
+
   inline pair<VariationalPredictor<Real>, HyperType> learn(FMType &fm,
                                                            HyperType &hyper) {
     return learn_with_callback(
@@ -146,7 +166,7 @@ public:
   }
 
   /**
-   *  Main routine for Gibbs sampling.
+   *  Main routine for Variational update.
    */
   inline pair<VariationalPredictor<Real>, HyperType>
   learn_with_callback(FMType &fm, HyperType &hyper,
@@ -198,17 +218,46 @@ public:
 
   inline void update_alpha(FMType &fm, HyperType &hyper) {
     // If the task is classification, take alpha = 1.
+    using itertype = typename SparseMatrix::InnerIterator;
+
     if ((this->learning_config.task_type == TASKTYPE::CLASSIFICATION)) {
       hyper.alpha = static_cast<Real>(1);
       return;
-    }
-    if (fm.V.cols() > 0) {
-      throw std::runtime_error("not implemented");
     }
 
     Real e_all = fm.w0_var * fm.w0_var * this->n_train +
                  this->e_train.array().square().sum();
     e_all += (this->X.cwiseAbs2() * fm.w_var).sum();
+
+    for (int r = 0; r < fm.n_factors; r++) {
+      const Vector &V_ref = fm.V.col(r);
+      const Vector &V_var_ref = fm.V_var.col(r);
+      for (int train_index = 0; train_index < this->n_train; train_index++) {
+        Real x2s = 0;
+        Real x3sv = 0;
+        Real x4s2 = 0;
+        Real x4sv2 = 0;
+        Real q = 0;
+        for (itertype it(this->X, train_index); it; ++it) {
+          Real x = it.value();
+          Real x2 = x * x;
+          Real x4 = x2 * x2;
+          int col = it.col();
+          q += x * V_ref(col);
+          x2s += x * V_var_ref(col);
+          x3sv += x2 * x * V_var_ref(col) * V_ref(col);
+          x4s2 += x4 * V_var_ref(col) * V_var_ref(col);
+          x4sv2 += x4 * V_var_ref(col) * V_ref(col) * V_ref(col);
+        }
+        size_t offset = this->X.cols();
+        for (size_t relation_index = 0; relation_index < this->relations.size();
+             relation_index++) {
+          throw std::runtime_error("not implemented");
+        }
+        e_all +=
+            (q * q * x2s + 0.5 * x2s * x2s - 2 * x3sv * q - 0.5 * x4s2 + x4sv2);
+      }
+    }
 
     Real exponent = (this->learning_config.alpha_0 + this->X.rows()) / 2;
     Real rate = (this->learning_config.beta_0 + e_all) / 2;
@@ -403,16 +452,30 @@ public:
     using itertype = typename SparseMatrix::InnerIterator;
 
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
+      throw std::runtime_error("NI");
 
-      throw std::runtime_error("not implemented");
-      this->q_train = this->X * fm.V.col(factor_index).head(this->X.cols());
-
+      this->q_train.array() = 0;
+      this->x2s.array() = 0;
+      this->x3sv.array() = 0;
+      const auto &V_ref = fm.V.col(factor_index);
+      const auto &V_var_ref = fm.V_var.col(factor_index);
+      for (int train_index = 0; train_index < this->n_train; train_index++) {
+        for (itertype it(this->X, train_index); it; ++it) {
+          Real x = it.value();
+          int col = it.col();
+          this->q_train(train_index) += x * V_ref(col);
+          this->x2s(train_index) += x * x * V_var_ref(col);
+          this->x3sv(train_index) += x * x * x * V_var_ref(col) * V_ref(col);
+        }
+      }
       // compute contribution of blocks
       {
         // initialize block q caches
         size_t offset = this->X.cols();
         for (size_t relation_index = 0; relation_index < this->relations.size();
              relation_index++) {
+
+          throw std::runtime_error("not implementate");
           const RelationBlock &relation_data = this->relations[relation_index];
           RelationWiseCache &relation_cache =
               this->relation_caches[relation_index];
@@ -432,18 +495,29 @@ public:
            feature_index++) {
         auto g = this->learning_config.group_index(feature_index);
         Real v_old = fm.V(feature_index, factor_index);
+        Real v_var_old = fm.V_var(feature_index, factor_index);
 
         Real square_coeff = 0;
         Real linear_coeff = 0;
+        Real square_coeff_var = 0;
+        Real linear_coeff_var = 0;
 
         for (itertype it(this->X_t, feature_index); it; ++it) {
+          auto x = it.value();
           auto train_data_index = it.col();
-          auto h = it.value() *
-                   (this->q_train(train_data_index) - it.value() * v_old);
+          auto h = x * (this->q_train(train_data_index) - x * v_old);
+          Real x2s = this->x2s(train_data_index);
+          Real x3sv = this->x3sv(train_data_index);
+          x2s -= x * x * v_var_old;
+          x3sv -= x * x * x * v_var_old * v_old;
           square_coeff += h * h;
           linear_coeff += (-this->e_train(train_data_index)) * h;
+          square_coeff_var += x2s * x2s * x * x;
+          linear_coeff_var += h * x2s - x * x3sv;
         }
         linear_coeff += square_coeff * v_old;
+        linear_coeff -= linear_coeff_var;
+        square_coeff += square_coeff_var;
 
         square_coeff *= hyper.alpha;
         linear_coeff *= hyper.alpha;
@@ -453,13 +527,19 @@ public:
             hyper.lambda_V(g, factor_index) * hyper.mu_V(g, factor_index);
 
         Real v_new = sample_normal(square_coeff, linear_coeff);
+        Real v_var_new = 1 / square_coeff;
         fm.V(feature_index, factor_index) = v_new;
+        fm.V_var(feature_index, factor_index) = v_var_new;
         for (itertype it(this->X_t, feature_index); it; ++it) {
           auto train_data_index = it.col();
-          auto h = it.value() *
-                   (this->q_train(train_data_index) - it.value() * v_old);
-          this->q_train(train_data_index) += it.value() * (v_new - v_old);
+          auto x = it.value();
+          auto h = x * (this->q_train(train_data_index) - x * v_old);
+          this->q_train(train_data_index) += x * (v_new - v_old);
           this->e_train(train_data_index) += h * (v_new - v_old);
+
+          this->x2s(train_data_index) += x * x * (v_var_new - v_var_old);
+          this->x3sv(train_data_index) +=
+              x * x * x * (v_var_new * v_new - v_var_old * v_old);
         }
       }
 
@@ -468,6 +548,8 @@ public:
       // initialize caches
       for (size_t relation_index = 0; relation_index < this->relations.size();
            relation_index++) {
+        throw std::runtime_error("not implemented");
+
         const RelationBlock &relation_data = this->relations[relation_index];
         RelationWiseCache &relation_cache =
             this->relation_caches[relation_index];

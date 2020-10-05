@@ -42,9 +42,7 @@ create_train_fm(
 }
 
 template <typename Real>
-using VPredictor = myFM::variational::VariationalPredictor<Real>;
-template <typename Real>
-std::pair<VPredictor<Real>,
+std::pair<myFM::variational::VariationalPredictor<Real>,
           myFM::variational::VariationalFMHyperParameters<Real>>
 create_train_vfm(
     size_t n_factor, Real init_std,
@@ -75,6 +73,7 @@ template <typename Real> void declare_functional(py::module &m) {
   using ConfigBuilder = typename FMLearningConfig::Builder;
   using RelationBlock = typename myFM::relational::RelationBlock<Real>;
   using Predictor = typename myFM::Predictor<Real>;
+  using VPredictor = typename myFM::variational::VariationalPredictor<Real>;
   using TASKTYPE = typename myFM::FMLearningConfig<Real>::TASKTYPE;
 
   m.doc() = "Backend C++ implementation for myfm.";
@@ -185,9 +184,9 @@ template <typename Real> void declare_functional(py::module &m) {
       .def_readwrite("w0", &VFM::w0)
       .def_readwrite("w0_var", &VFM::w0_var)
       .def_readwrite("w", &VFM::w)
-      .def_readwrite("w", &VFM::w_var)
+      .def_readwrite("w_var", &VFM::w_var)
       .def_readwrite("V", &VFM::V)
-      .def_readwrite("V", &VFM::V_var)
+      .def_readwrite("V_var", &VFM::V_var)
       .def_readwrite("cutpoints", &VFM::cutpoints)
       .def("predict_score", &VFM::predict_score)
       .def("__repr__",
@@ -256,7 +255,7 @@ template <typename Real> void declare_functional(py::module &m) {
       .def_readonly("mu_w", &VHyper::mu_w)
       .def_readonly("mu_w_var", &VHyper::mu_w_var)
       .def_readonly("lambda_w", &VHyper::lambda_w)
-      .def_readonly("lambda_w_var", &VHyper::lambda_w_rate)
+      .def_readonly("lambda_w_rate", &VHyper::lambda_w_rate)
       .def_readonly("mu_V", &VHyper::mu_V)
       .def_readonly("mu_V_var", &VHyper::mu_V_var)
       .def_readonly("lambda_V", &VHyper::lambda_V)
@@ -311,7 +310,26 @@ template <typename Real> void declare_functional(py::module &m) {
             return p;
           }));
 
-  //
+  py::class_<VPredictor>(m, "VariationalPredictor")
+      .def_readonly("samples", &VPredictor::samples)
+      .def("predict", &VPredictor::predict)
+      .def(py::pickle(
+          [](const VPredictor &predictor) {
+            return py::make_tuple(predictor.rank, predictor.feature_size,
+                                  static_cast<int>(predictor.type),
+                                  predictor.samples);
+          },
+          [](py::tuple t) {
+            if (t.size() != 4) {
+              throw std::runtime_error("invalid state for FMHyperParameters.");
+            }
+            VPredictor *p =
+                new VPredictor(t[0].cast<size_t>(), t[1].cast<size_t>(),
+                               static_cast<TASKTYPE>(t[2].cast<int>()));
+            // p->set_samples(std::move(t[3].cast<vector<VFM>>()));
+            return p;
+          }));
+
   py::class_<FMTrainer>(m, "FMTrainer")
       .def(py::init<const SparseMatrix &, const vector<RelationBlock> &,
                     const Vector &, int, FMLearningConfig>())

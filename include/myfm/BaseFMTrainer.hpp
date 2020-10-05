@@ -51,6 +51,7 @@ struct BaseFMTrainer {
 
   size_t n_nan_occurred = 0;
 
+public:
   inline BaseFMTrainer(const SparseMatrix &X,
                        const vector<RelationBlock> &relations, int random_seed,
                        Config learning_config) {}

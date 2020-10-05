@@ -34,18 +34,18 @@ struct GibbsFMTrainer
                         RelationWiseCache>
       BaseType;
 
-  using BaseType::BaseType;
-
   typedef typename BaseType::RelationBlock RelationBlock;
   typedef typename FMType::Vector Vector;
   typedef typename FMType::DenseMatrix DenseMatrix;
   typedef typename FMType::SparseMatrix SparseMatrix;
 
+  using Config = FMLearningConfig<Real>;
+  using TASKTYPE = typename Config::TASKTYPE;
+
   typedef OprobitSampler<Real> OprobitSamplerType;
 
-  using TASKTYPE = typename BaseType::TASKTYPE;
-
 public:
+  using BaseType::BaseType;
   inline pair<Predictor<Real>, vector<HyperType>> learn(FMType &fm,
                                                         HyperType &hyper) {
     return learn_with_callback(
