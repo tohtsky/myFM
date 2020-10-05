@@ -36,7 +36,7 @@ REAL = np.float64
 class MyFMRegressor(object):
     r"""Bayesian Factorization Machines for regression tasks.
     """
-
+    _create_function = core.create_train_fm
     def __init__(
         self, rank,
         init_stdev=0.1, random_seed=42,
@@ -225,7 +225,7 @@ class MyFMRegressor(object):
 
         try:
             self.predictor_, self.hypers_ = \
-                core.create_train_fm(self.rank, self.init_stdev, X, X_rel,
+                self._create_function(self.rank, self.init_stdev, X, X_rel,
                                      y, self.random_seed, config, callback)
             return self
         finally:
@@ -274,7 +274,7 @@ class MyFMRegressor(object):
 
     @classmethod
     def _process_y(cls, y):
-        return y
+        return y.astype(np.float64)
 
     @classmethod
     def _measure_score(cls, prediction, y):

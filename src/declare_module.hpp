@@ -17,10 +17,14 @@
 #include "myfm/OProbitSampler.hpp"
 #include "myfm/definitions.hpp"
 #include "myfm/util.hpp"
+#include "myfm/variational.hpp"
 
 using namespace std;
 
 namespace py = pybind11;
+
+template <typename Real> using FMTrainer = myFM::GibbsFMTrainer<Real>;
+
 template <typename Real>
 std::pair<myFM::Predictor<Real>, std::vector<myFM::FMHyperParameters<Real>>>
 create_train_fm(
@@ -31,16 +35,39 @@ create_train_fm(
     myFM::FMLearningConfig<Real> &config,
     std::function<bool(int, myFM::FM<Real> *, myFM::FMHyperParameters<Real> *)>
         cb) {
-  myFM::FMTrainer<Real> fm_trainer(X, relations, y, random_seed, config);
+  FMTrainer<Real> fm_trainer(X, relations, y, random_seed, config);
+  auto fm = fm_trainer.create_FM(n_factor, init_std);
+  auto hyper_param = fm_trainer.create_Hyper(fm.n_factors);
+  return fm_trainer.learn_with_callback(fm, hyper_param, cb);
+}
+
+template <typename Real>
+using VPredictor = myFM::variational::VariationalPredictor<Real>;
+template <typename Real>
+std::pair<VPredictor<Real>,
+          myFM::variational::VariationalFMHyperParameters<Real>>
+create_train_vfm(
+    size_t n_factor, Real init_std,
+    const typename myFM::FM<Real>::SparseMatrix &X,
+    const vector<myFM::relational::RelationBlock<Real>> &relations,
+    const typename myFM::FM<Real>::Vector &y, int random_seed,
+    myFM::FMLearningConfig<Real> &config,
+    std::function<bool(int, myFM::FM<Real> *, myFM::FMHyperParameters<Real> *)>
+        cb) {
+  myFM::variational::VariationalFMTrainer<Real> fm_trainer(X, relations, y,
+                                                           random_seed, config);
   auto fm = fm_trainer.create_FM(n_factor, init_std);
   auto hyper_param = fm_trainer.create_Hyper(fm.n_factors);
   return fm_trainer.learn_with_callback(fm, hyper_param, cb);
 }
 
 template <typename Real> void declare_functional(py::module &m) {
-  using FMTrainer = myFM::FMTrainer<Real>;
+  using FMTrainer = FMTrainer<Real>;
+  using VFMTrainer = myFM::variational::VariationalFMTrainer<Real>;
   using FM = myFM::FM<Real>;
+  using VFM = myFM::variational::VariationalFM<Real>;
   using Hyper = myFM::FMHyperParameters<Real>;
+  using VHyper = myFM::variational::VariationalFMHyperParameters<Real>;
   using SparseMatrix = typename FM::SparseMatrix;
   using FMLearningConfig = typename myFM::FMLearningConfig<Real>;
   using Vector = typename FM::Vector;
@@ -52,14 +79,15 @@ template <typename Real> void declare_functional(py::module &m) {
 
   m.doc() = "Backend C++ implementation for myfm.";
 
-  py::enum_<typename FMTrainer::TASKTYPE>(m, "TaskType", py::arithmetic())
-      .value("REGRESSION", FMTrainer::TASKTYPE::REGRESSION)
-      .value("CLASSIFICATION", FMTrainer::TASKTYPE::CLASSIFICATION)
-      .value("ORDERED", FMTrainer::TASKTYPE::ORDERED);
+  py::enum_<TASKTYPE>(m, "TaskType", py::arithmetic())
+      .value("REGRESSION", TASKTYPE::REGRESSION)
+      .value("CLASSIFICATION", TASKTYPE::CLASSIFICATION)
+      .value("ORDERED", TASKTYPE::ORDERED);
 
   py::class_<FMLearningConfig>(m, "FMLearningConfig");
 
-  py::class_<RelationBlock>(m, "RelationBlock", R"delim(The RelationBlock Class.)delim")
+  py::class_<RelationBlock>(m, "RelationBlock",
+                            R"delim(The RelationBlock Class.)delim")
       .def(py::init<vector<size_t>, const SparseMatrix &>(), R"delim(
     Initializes relation block.
 
@@ -74,8 +102,7 @@ template <typename Real> void declare_functional(py::module &m) {
     Note
     -----
     The entries of `original_to_block` must be in the [0, data.shape[0]-1].)delim",
-    py::arg("original_to_block"), py::arg("data")
-    )
+           py::arg("original_to_block"), py::arg("data"))
       .def_readonly("original_to_block", &RelationBlock::original_to_block)
       .def_readonly("data", &RelationBlock::X)
       .def_readonly("mapper_size", &RelationBlock::mapper_size)
@@ -98,8 +125,9 @@ template <typename Real> void declare_functional(py::module &m) {
             if (t.size() != 2) {
               throw std::runtime_error("invalid state for Relationblock.");
             }
-            return new RelationBlock(t[0].cast<vector<size_t>>(),
-                                     t[1].cast<typename RelationBlock::SparseMatrix>());
+            return new RelationBlock(
+                t[0].cast<vector<size_t>>(),
+                t[1].cast<typename RelationBlock::SparseMatrix>());
           }));
   py::class_<ConfigBuilder>(m, "ConfigBuilder")
       .def(py::init<>())
@@ -153,6 +181,50 @@ template <typename Real> void declare_functional(py::module &m) {
             }
           }));
 
+  py::class_<VFM>(m, "VariationalFM")
+      .def_readwrite("w0", &VFM::w0)
+      .def_readwrite("w0_var", &VFM::w0_var)
+      .def_readwrite("w", &VFM::w)
+      .def_readwrite("w", &VFM::w_var)
+      .def_readwrite("V", &VFM::V)
+      .def_readwrite("V", &VFM::V_var)
+      .def_readwrite("cutpoints", &VFM::cutpoints)
+      .def("predict_score", &VFM::predict_score)
+      .def("__repr__",
+           [](const VFM &fm) {
+             return (myFM::StringBuilder{})(
+                        "<Factorization Machine sample with feature size = ")(
+                        fm.w.rows())(", rank = ")(fm.V.cols())(">")
+                 .build();
+           })
+      .def(py::pickle(
+          [](const VFM &fm) {
+            Real w0 = fm.w0;
+            Real w0_var = fm.w0_var;
+            Vector w(fm.w);
+            Vector w_var(fm.w_var);
+            DenseMatrix V(fm.V);
+            DenseMatrix V_var(fm.V_var);
+            vector<Vector> cutpoints(fm.cutpoints);
+            return py::make_tuple(w0, w0_var, w, w_var, V, V_var, cutpoints);
+          },
+          [](py::tuple t) {
+            if (t.size() == 6) {
+              /* For the compatibility with earlier versions */
+              return new VFM(t[0].cast<Real>(), t[1].cast<Real>(),
+                             t[2].cast<Vector>(), t[3].cast<Vector>(),
+                             t[4].cast<DenseMatrix>(),
+                             t[5].cast<DenseMatrix>());
+            } else if (t.size() == 7) {
+              return new VFM(t[0].cast<Real>(), t[1].cast<Real>(),
+                             t[2].cast<Vector>(), t[3].cast<Vector>(),
+                             t[4].cast<DenseMatrix>(), t[5].cast<DenseMatrix>(),
+                             t[6].cast<vector<Vector>>());
+            } else {
+              throw std::runtime_error("invalid state for FM.");
+            }
+          }));
+
   py::class_<Hyper>(m, "FMHyperParameters")
       .def_readonly("alpha", &Hyper::alpha)
       .def_readonly("mu_w", &Hyper::mu_w)
@@ -163,8 +235,8 @@ template <typename Real> void declare_functional(py::module &m) {
           [](const Hyper &hyper) {
             Real alpha = hyper.alpha;
             Vector mu_w(hyper.mu_w);
-            Vector lambda_w(hyper.lambda_V);
-            DenseMatrix mu_V(hyper.mu_w);
+            Vector lambda_w(hyper.lambda_w);
+            DenseMatrix mu_V(hyper.mu_V);
             DenseMatrix lambda_V(hyper.lambda_V);
             return py::make_tuple(alpha, mu_w, lambda_w, mu_V, lambda_V);
           },
@@ -176,6 +248,46 @@ template <typename Real> void declare_functional(py::module &m) {
             return new Hyper(t[0].cast<Real>(), t[1].cast<Vector>(),
                              t[2].cast<Vector>(), t[3].cast<DenseMatrix>(),
                              t[4].cast<DenseMatrix>());
+          }));
+
+  py::class_<VHyper>(m, "VariationalFMHyperParameters")
+      .def_readonly("alpha", &VHyper::alpha)
+      .def_readonly("alpha_rate", &VHyper::alpha_rate)
+      .def_readonly("mu_w", &VHyper::mu_w)
+      .def_readonly("mu_w_var", &VHyper::mu_w_var)
+      .def_readonly("lambda_w", &VHyper::lambda_w)
+      .def_readonly("lambda_w_var", &VHyper::lambda_w_rate)
+      .def_readonly("mu_V", &VHyper::mu_V)
+      .def_readonly("mu_V_var", &VHyper::mu_V_var)
+      .def_readonly("lambda_V", &VHyper::lambda_V)
+      .def_readonly("lambda_V_rate", &VHyper::lambda_V_rate)
+      .def(py::pickle(
+          [](const VHyper &hyper) {
+            Real alpha = hyper.alpha;
+            Real alpha_rate = hyper.alpha_rate;
+            Vector mu_w(hyper.mu_w);
+            Vector mu_w_var(hyper.mu_w_var);
+            Vector lambda_w(hyper.lambda_w);
+            Vector lambda_w_rate(hyper.lambda_w_rate);
+            DenseMatrix mu_V(hyper.mu_V);
+            DenseMatrix mu_V_var(hyper.mu_V_var);
+            DenseMatrix lambda_V(hyper.lambda_V);
+            DenseMatrix lambda_V_rate(hyper.lambda_V_rate);
+
+            return py::make_tuple(alpha, alpha_rate, mu_w, mu_w_var, lambda_w,
+                                  lambda_w_rate, mu_V, mu_V_var, lambda_V,
+                                  lambda_V_rate);
+          },
+          [](py::tuple t) {
+            if (t.size() != 10) {
+              throw std::runtime_error("invalid state for FMHyperParameters.");
+            }
+            // placement new
+            return new VHyper(
+                t[0].cast<Real>(), t[1].cast<Real>(), t[2].cast<Vector>(),
+                t[3].cast<Vector>(), t[4].cast<Vector>(), t[5].cast<Vector>(),
+                t[6].cast<DenseMatrix>(), t[7].cast<DenseMatrix>(),
+                t[8].cast<DenseMatrix>(), t[9].cast<DenseMatrix>());
           }));
 
   py::class_<Predictor>(m, "Predictor")
@@ -199,6 +311,7 @@ template <typename Real> void declare_functional(py::module &m) {
             return p;
           }));
 
+  //
   py::class_<FMTrainer>(m, "FMTrainer")
       .def(py::init<const SparseMatrix &, const vector<RelationBlock> &,
                     const Vector &, int, FMLearningConfig>())
@@ -206,6 +319,18 @@ template <typename Real> void declare_functional(py::module &m) {
       .def("create_Hyper", &FMTrainer::create_Hyper)
       .def("learn", &FMTrainer::learn);
 
+  py::class_<VFMTrainer>(m, "VariationalFMTrainer")
+      .def(py::init<const SparseMatrix &, const vector<RelationBlock> &,
+                    const Vector &, int, FMLearningConfig>())
+      .def("create_FM", &VFMTrainer::create_FM)
+      .def("create_Hyper", &VFMTrainer::create_Hyper)
+      .def("learn", &VFMTrainer::learn);
+
   m.def("create_train_fm", &create_train_fm<Real>, "create and train fm.",
         py::return_value_policy::move);
+  m.def("create_train_vfm", &create_train_vfm<Real>, "create and train fm.",
+        py::return_value_policy::move, py::arg("rank"), py::arg("init_std"),
+        py::arg("X"), py::arg("relations"), py::arg("y"),
+        py::arg("random_seed"), py::arg("learning_config"),
+        py::arg("callback"));
 }

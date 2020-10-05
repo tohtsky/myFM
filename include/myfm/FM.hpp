@@ -25,8 +25,10 @@ template <typename Real> struct FM {
   inline FM(Real w0, const Vector &w, const DenseMatrix &V)
       : n_factors(V.cols()), w0(w0), w(w), V(V), initialized(true) {}
 
-  inline FM(Real w0, const Vector &w, const DenseMatrix &V, const vector<Vector> & cutpoints)
-      : n_factors(V.cols()), w0(w0), w(w), V(V), cutpoints(cutpoints), initialized(true) {}
+  inline FM(Real w0, const Vector &w, const DenseMatrix &V,
+            const vector<Vector> &cutpoints)
+      : n_factors(V.cols()), w0(w0), w(w), V(V), cutpoints(cutpoints),
+        initialized(true) {}
 
   inline void initialize_weight(int n_features, Real init_std, mt19937 &gen) {
     initialized = false;
@@ -131,10 +133,10 @@ template <typename Real> struct FM {
   const int n_factors;
   Real w0;
   Vector w;
-  DenseMatrix V;   // (n_feature, n_factor) - matrix
+  DenseMatrix V;            // (n_feature, n_factor) - matrix
   vector<Vector> cutpoints; // ordered probit
 
-private:
+protected:
   bool initialized;
 };
 

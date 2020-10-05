@@ -1,15 +1,15 @@
 #pragma once
 
+#include "OProbitSampler.hpp"
 #include "definitions.hpp"
 #include "util.hpp"
-#include "OProbitSampler.hpp"
 #include <set>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 namespace myFM {
 template <typename Real> struct FMLearningConfig {
-
+public:
   enum class TASKTYPE { REGRESSION, CLASSIFICATION, ORDERED };
   using CutpointGroupType = vector<pair<size_t, vector<size_t>>>;
 
@@ -17,13 +17,11 @@ template <typename Real> struct FMLearningConfig {
                           Real reg_0, TASKTYPE task_type,
                           const vector<size_t> &group_index, int n_iter,
                           int n_kept_samples, Real cutpoint_scale,
-                          const CutpointGroupType & cutpoint_groups
-                          )
+                          const CutpointGroupType &cutpoint_groups)
       : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0),
         reg_0(reg_0), task_type(task_type), n_iter(n_iter),
         n_kept_samples(n_kept_samples), cutpoint_scale(cutpoint_scale),
-        group_index_(group_index),
-        cutpoint_groups_(cutpoint_groups){
+        group_index_(group_index), cutpoint_groups_(cutpoint_groups) {
 
     /* check group_index consistency */
     set<size_t> all_index(group_index.begin(), group_index.end());
@@ -78,7 +76,7 @@ public:
   inline size_t get_n_groups() const { return n_groups_; }
 
   inline size_t group_index(int at) const { return group_index_.at(at); }
-  const CutpointGroupType & cutpoint_groups() const {
+  const CutpointGroupType &cutpoint_groups() const {
     return this->cutpoint_groups_;
   }
 
@@ -159,7 +157,8 @@ public:
       return *this;
     }
 
-    inline Builder &set_cutpoint_groups(const CutpointGroupType & cutpoint_groups) {
+    inline Builder &
+    set_cutpoint_groups(const CutpointGroupType &cutpoint_groups) {
       this->cutpoint_groups = cutpoint_groups;
       return *this;
     }
@@ -167,8 +166,7 @@ public:
     FMLearningConfig build() {
       return FMLearningConfig(alpha_0, beta_0, gamma_0, mu_0, reg_0, task_type,
                               group_index, n_iter, n_kept_samples,
-                              cutpoint_scale,
-                              this->cutpoint_groups);
+                              cutpoint_scale, this->cutpoint_groups);
     }
 
     static FMLearningConfig get_default_config(size_t n_features) {

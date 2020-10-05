@@ -11,11 +11,11 @@
 
 namespace myFM {
 
-template <typename Real> struct Predictor {
+template <typename Real, class FMType = FM<Real>> struct Predictor {
   typedef typename FMLearningConfig<Real>::TASKTYPE TASKTYPE;
-  typedef typename FM<Real>::SparseMatrix SparseMatrix;
-  typedef typename FM<Real>::Vector Vector;
-  typedef typename FM<Real>::RelationBlock RelationBlock;
+  typedef typename FMType::SparseMatrix SparseMatrix;
+  typedef typename FMType::Vector Vector;
+  typedef typename FMType::RelationBlock RelationBlock;
 
   inline Predictor(size_t rank, size_t feature_size, TASKTYPE type)
       : rank(rank), feature_size(feature_size), type(type), samples() {}
@@ -97,11 +97,11 @@ template <typename Real> struct Predictor {
     return result;
   }
 
-  inline void set_samples(vector<FM<Real>> &&samples_from) {
-    samples = std::forward<vector<FM<Real>>>(samples_from);
+  inline void set_samples(vector<FMType> &&samples_from) {
+    samples = std::forward<vector<FMType>>(samples_from);
   }
 
-  inline void add_sample(const FM<Real> &fm) {
+  inline void add_sample(const FMType &fm) {
     if (fm.w0.rows() != feature_size) {
       throw std::invalid_argument("feature size mismatch!");
     }
@@ -114,7 +114,7 @@ template <typename Real> struct Predictor {
   const size_t rank;
   const size_t feature_size;
   const TASKTYPE type;
-  vector<FM<Real>> samples;
+  vector<FMType> samples;
 };
 
 } // namespace myFM

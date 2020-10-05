@@ -1,4 +1,8 @@
+set(CMAKE_C_COMPILER gcc)
+set(CMAKE_CXX_COMPILER g++)
+
 cmake_minimum_required(VERSION 3.0.0)
+set(PYBIND11_PYTHON_VERSION 3.8)
 project(myfm)
 
 set(CMAKE_BUILD_TYPE Debug)

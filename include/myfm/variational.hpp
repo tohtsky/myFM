@@ -1,5 +1,8 @@
 #pragma once
+
+#include <exception>
 #include <sstream>
+#include <stdexcept>
 #include <string>
 #include <tuple>
 
@@ -15,23 +18,113 @@
 
 namespace myFM {
 
+namespace variational {
+
+template <typename Real>
+struct VariationalFMHyperParameters : public FMHyperParameters<Real> {
+public:
+  using BaseType = FMHyperParameters<Real>;
+  using Vector = typename BaseType::Vector;
+  using DenseMatrix = typename BaseType::DenseMatrix;
+  Real alpha_rate;
+  Vector mu_w_var;
+  Vector lambda_w_rate;
+
+  DenseMatrix mu_V_var;
+  DenseMatrix lambda_V_rate;
+  inline VariationalFMHyperParameters(size_t n_factors, size_t n_groups)
+      : BaseType(n_factors, n_groups), mu_w_var(n_groups),
+        lambda_w_rate(n_groups), mu_V_var(n_groups, n_factors),
+        lambda_V_rate(n_groups, n_factors) {}
+
+  inline VariationalFMHyperParameters(size_t n_factors)
+      : VariationalFMHyperParameters(n_factors, 1) {}
+
+  inline VariationalFMHyperParameters(
+      Real alpha, Real alpha_rate, const Vector &mu_w, const Vector &mu_w_var,
+      const Vector &lambda_w, const Vector &lambda_w_rate,
+      const DenseMatrix &mu_V, const DenseMatrix &mu_V_var,
+      const DenseMatrix &lambda_V, const DenseMatrix &lambda_V_rate)
+      : BaseType(alpha, mu_w, lambda_w, mu_V, lambda_V), alpha_rate(alpha_rate),
+        mu_w_var(mu_w_var), lambda_w_rate(lambda_w_rate), mu_V_var(mu_V_var),
+        lambda_V_rate(lambda_V_rate) {}
+
+  inline VariationalFMHyperParameters(const VariationalFMHyperParameters &other)
+      : BaseType(other.alpha, other.mu_w, other.lambda_w, other.mu_V,
+                 other.lambda_V),
+        alpha_rate(other.alpha_rate), mu_w_var(other.mu_w_var),
+        lambda_w_rate(other.lambda_w_rate), mu_V_var(other.mu_V_var),
+        lambda_V_rate(other.lambda_V_rate) {}
+};
+
+template <typename Real> struct VariationalFM : public FM<Real> {
+  using BaseType = FM<Real>;
+  using typename BaseType::DenseMatrix;
+  using typename BaseType::SparseMatrix;
+  using typename BaseType::Vector;
+
+  using BaseType::BaseType;
+  inline void initialize_weight(int n_features, Real init_std, mt19937 &gen) {
+    this->initialized = false;
+    normal_distribution<Real> nd;
+
+    auto get_rand = [&gen, &nd, init_std](Real dummy) {
+      return nd(gen) * init_std;
+    };
+    this->V = DenseMatrix{n_features, this->n_factors}.unaryExpr(get_rand);
+    this->w = Vector{n_features}.unaryExpr(get_rand);
+    this->w0 = get_rand(1);
+    this->V_var = DenseMatrix{n_features, this->n_factors};
+    this->V_var.array() = init_std * init_std;
+    this->w_var = Vector{n_features};
+    this->w_var.array() = init_std * init_std;
+    this->w0 = 1;
+
+    this->initialized = true;
+  }
+
+  inline VariationalFM(const VariationalFM &other)
+      : BaseType(other.w0, other.w, other.V), w0_var(other.w0_var),
+        w_var(other.w_var), V_var(other.V_var) {}
+
+  inline VariationalFM(Real w0, Real w0_var, const Vector &w,
+                       const Vector &w_var, const DenseMatrix &V,
+                       const DenseMatrix &V_var)
+      : BaseType(w0, w, V), w0_var(w0_var), w_var(w_var), V_var(V_var) {}
+
+  inline VariationalFM(Real w0, Real w0_var, const Vector &w,
+                       const Vector &w_var, const DenseMatrix &V,
+                       const DenseMatrix &V_var,
+                       const vector<Vector> &cutpoints)
+      : BaseType(w0, w, V, cutpoints), w0_var(w0_var), w_var(w_var),
+        V_var(V_var) {}
+
+  Real w0_var;
+  Vector w_var;
+  DenseMatrix V_var;
+};
+
+template <typename Real>
+using VariationalPredictor = Predictor<Real, VariationalFM<Real>>;
+
 template <typename Real>
 using GibbsRelationWiseCache = relational::RelationWiseCache<Real>;
 
 template <typename RealType>
-struct GibbsFMTrainer
-    : public BaseFMTrainer<RealType, class GibbsFMTrainer<RealType>,
-                           FM<RealType>, FMHyperParameters<RealType>,
+struct VariationalFMTrainer
+    : public BaseFMTrainer<RealType, class VariationalFMTrainer<RealType>,
+                           VariationalFM<RealType>,
+                           VariationalFMHyperParameters<RealType>,
                            GibbsRelationWiseCache<RealType>> {
 
   typedef RealType Real;
 
-  typedef FM<Real> FMType;
-  typedef FMHyperParameters<Real> HyperType;
+  typedef VariationalFM<Real> FMType;
+  typedef VariationalFMHyperParameters<Real> HyperType;
   typedef GibbsRelationWiseCache<Real> RelationWiseCache;
 
-  typedef BaseFMTrainer<RealType, GibbsFMTrainer<RealType>, FMType, HyperType,
-                        RelationWiseCache>
+  typedef BaseFMTrainer<RealType, VariationalFMTrainer<RealType>, FMType,
+                        HyperType, RelationWiseCache>
       BaseType;
 
   using BaseType::BaseType;
@@ -46,8 +139,8 @@ struct GibbsFMTrainer
   using TASKTYPE = typename BaseType::TASKTYPE;
 
 public:
-  inline pair<Predictor<Real>, vector<HyperType>> learn(FMType &fm,
-                                                        HyperType &hyper) {
+  inline pair<VariationalPredictor<Real>, HyperType> learn(FMType &fm,
+                                                           HyperType &hyper) {
     return learn_with_callback(
         fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
   }
@@ -55,70 +148,52 @@ public:
   /**
    *  Main routine for Gibbs sampling.
    */
-  inline pair<Predictor<Real>, vector<HyperType>>
+  inline pair<VariationalPredictor<Real>, HyperType>
   learn_with_callback(FMType &fm, HyperType &hyper,
                       std::function<bool(int, FMType *, HyperType *)> cb) {
-    pair<Predictor<Real>, vector<HyperType>> result{
-        {static_cast<size_t>(fm.n_factors), this->dim_all,
-         this->learning_config.task_type},
-        {}};
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
 
-    result.first.samples.reserve(this->learning_config.n_kept_samples);
-    for (int mcmc_iteration = 0; mcmc_iteration < this->learning_config.n_iter;
-         mcmc_iteration++) {
+    for (int iteration = 0; iteration < this->learning_config.n_iter;
+         iteration++) {
       this->update_all(fm, hyper);
-      if (this->learning_config.n_iter <=
-          (mcmc_iteration + this->learning_config.n_kept_samples)) {
-        result.first.samples.emplace_back(fm);
-      }
-      // for tracing
-      result.second.emplace_back(hyper);
 
-      bool should_stop = cb(mcmc_iteration, &fm, &hyper);
+      bool should_stop = cb(iteration, &fm, &hyper);
       if (should_stop) {
         break;
       }
     }
+    pair<VariationalPredictor<Real>, HyperType> result{
+        {static_cast<size_t>(fm.n_factors), this->dim_all,
+         this->learning_config.task_type},
+        hyper};
+    result.first.samples.emplace_back(fm);
     return result;
   }
 
   inline void initialize_hyper(FMType &fm, HyperType &hyper) {
     hyper.alpha = static_cast<Real>(1);
+    hyper.alpha_rate = this->n_train * .5;
 
     hyper.mu_w.array() = static_cast<Real>(0);
+    hyper.mu_w_var.array() = 1;
     hyper.lambda_w.array() = static_cast<Real>(1e-5);
+    hyper.lambda_w_rate.array() = 1;
 
     hyper.mu_V.array() = static_cast<Real>(0);
+    hyper.mu_V_var.array() = 1;
     hyper.lambda_V.array() = static_cast<Real>(1e-5);
+    hyper.lambda_V_rate.array() = 1;
   }
 
   inline void initialize_e(FMType &fm, const HyperType &hyper) {
     fm.predict_score_write_target(this->e_train, this->X, this->relations);
-    if (this->learning_config.task_type == TASKTYPE::ORDERED) {
-      int i = 0;
-      for (auto &config : this->learning_config.cutpoint_groups()) {
-        fm.cutpoints.emplace_back(config.first - 1);
-        cutpoint_sampler.emplace_back(this->e_train, this->y, config.first,
-                                      config.second, this->gen_);
-        cutpoint_sampler[i].start_sample();
-        cutpoint_sampler[i].alpha_to_gamma(fm.cutpoints[i],
-                                           cutpoint_sampler[i].alpha_now);
-
-        cutpoint_sampler[i].sample_z_given_cutpoint();
-        i++;
-      }
-
-      return;
-    }
     this->e_train -= this->y;
   }
 
   // sample from quad x ^2 - 2 * first x + ... = quad (x - first / quad) ^2
   inline Real sample_normal(const Real &quad, const Real &first) {
-    return (first / quad) +
-           normal_distribution<Real>(0, 1)(this->gen_) / std::sqrt(quad);
+    return (first / quad);
   }
 
   inline void update_alpha(FMType &fm, HyperType &hyper) {
@@ -127,25 +202,29 @@ public:
       hyper.alpha = static_cast<Real>(1);
       return;
     }
-    if ((this->learning_config.task_type == TASKTYPE::ORDERED)) {
-      hyper.alpha = static_cast<Real>(1);
-      return;
+    if (fm.V.cols() > 0) {
+      throw std::runtime_error("not implemented");
     }
 
-    Real e_all = this->e_train.array().square().sum();
+    Real e_all = fm.w0_var * fm.w0_var * this->n_train +
+                 this->e_train.array().square().sum();
+    e_all += (this->X.cwiseAbs2() * fm.w_var).sum();
 
     Real exponent = (this->learning_config.alpha_0 + this->X.rows()) / 2;
-    Real variance = (this->learning_config.beta_0 + e_all) / 2;
-    Real new_alpha =
-        gamma_distribution<Real>(exponent, 1 / variance)(this->gen_);
+    Real rate = (this->learning_config.beta_0 + e_all) / 2;
+    Real new_alpha = gamma_distribution<Real>(exponent, 1 / rate)(this->gen_);
     hyper.alpha = new_alpha;
+    hyper.alpha_rate = rate;
   }
 
   /*
  The sampling method for both $\lambda _g ^{(w)}$ and $\lambda _{g,r} ^{(v)}$.
  */
-  inline void update_lambda_generic(const Vector &mu, Eigen::Ref<Vector> lambda,
-                                    const Vector &weight) {
+  inline void update_lambda_generic(const Vector &mu, const Vector &mu_var,
+                                    Eigen::Ref<Vector> lambda,
+                                    Eigen::Ref<Vector> lambda_rate,
+                                    const Vector &weight,
+                                    const Vector &weight_var) {
     const vector<vector<size_t>> &group_vs_feature_index =
         this->learning_config.group_vs_feature_index();
     size_t group_index = 0;
@@ -156,19 +235,22 @@ public:
 
       for (auto feature_index : group_feature_indices) {
         auto dev = weight(feature_index) - mean;
-        beta += dev * dev;
+        beta += dev * dev + mu_var(group_index) + weight_var(feature_index);
       }
-      Real new_lambda =
-          gamma_distribution<Real>(alpha / 2, 2 / beta)(this->gen_);
+      Real new_lambda = alpha / beta;
+      Real new_rate = beta / 2;
       lambda(group_index) = new_lambda;
+      lambda_rate(group_index) = new_rate;
       group_index++;
     }
   }
 
+private:
   /*
  The sampling method for both $\mu _g ^{(w)}$ and $\mu _{g,r} ^{(v)}$.
  */
-  inline void update_mu_generic(Eigen::Ref<Vector> mu, const Vector &lambda,
+  inline void update_mu_generic(Eigen::Ref<Vector> mu,
+                                Eigen::Ref<Vector> mu_var, const Vector &lambda,
                                 const Vector &weight) {
     const vector<vector<size_t>> &group_vs_feature_index =
         this->learning_config.group_vs_feature_index();
@@ -184,31 +266,36 @@ public:
       linear *= lambda(group_index);
       Real new_mu = sample_normal(square, linear);
       mu(group_index) = new_mu;
+      mu_var(group_index) = 1 / square;
       group_index++;
     }
   }
 
+public:
   inline void update_lambda_w(FMType &fm, HyperType &hyper) {
-    update_lambda_generic(hyper.mu_w, hyper.lambda_w, fm.w);
+    this->update_lambda_generic(hyper.mu_w, hyper.mu_w_var, hyper.lambda_w,
+                                hyper.lambda_w_rate, fm.w, fm.w_var);
   }
 
   inline void update_mu_w(FMType &fm, HyperType &hyper) {
-    update_mu_generic(hyper.mu_w, hyper.lambda_w, fm.w);
+    this->update_mu_generic(hyper.mu_w, hyper.mu_w_var, hyper.lambda_w, fm.w);
   }
 
   inline void update_lambda_V(FMType &fm, HyperType &hyper) {
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
-      update_lambda_generic(hyper.mu_V.col(factor_index),
-                            hyper.lambda_V.col(factor_index),
-                            fm.V.col(factor_index));
+      this->update_lambda_generic(
+          hyper.mu_V.col(factor_index), hyper.mu_V_var.col(factor_index),
+          hyper.lambda_V.col(factor_index),
+          hyper.lambda_V_rate.col(factor_index), fm.V.col(factor_index),
+          fm.V_var.col(factor_index));
     }
   }
 
   inline void update_mu_V(FMType &fm, HyperType &hyper) {
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
-      update_mu_generic(hyper.mu_V.col(factor_index),
-                        hyper.lambda_V.col(factor_index),
-                        fm.V.col(factor_index));
+      this->update_mu_generic(
+          hyper.mu_V.col(factor_index), hyper.mu_V_var.col(factor_index),
+          hyper.lambda_V.col(factor_index), fm.V.col(factor_index));
     }
   }
 
@@ -222,9 +309,10 @@ public:
     Real w0_lin_term = hyper.alpha * (fm.w0 - this->e_train.array()).sum();
     Real w0_quad_term =
         hyper.alpha * this->n_train + this->learning_config.reg_0;
-    Real w0_new = sample_normal(w0_quad_term, w0_lin_term);
+    Real w0_new = w0_lin_term / w0_quad_term;
     this->e_train.array() += (w0_new - fm.w0);
     fm.w0 = w0_new;
+    fm.w0_var = 1 / w0_quad_term;
   }
 
   inline void update_w(FMType &fm, HyperType &hyper) {
@@ -246,6 +334,7 @@ public:
       Real w_new = sample_normal(square_term, linear_term);
       this->e_train.array() += this->X_t.row(feature_index) * w_new;
       fm.w(feature_index) = w_new;
+      fm.w_var(feature_index) = 1 / square_term;
     }
 
     // relational blocks
@@ -290,6 +379,8 @@ public:
 
         Real w_new = sample_normal(square_term, linear_term);
         fm.w(offset + inner_feature_index) = w_new;
+        fm.w_var(offset + inner_feature_index) = 1 / square_term;
+
         relation_cache.e += relation_cache.X_t.row(inner_feature_index)
                                 .transpose()
                                 .cwiseProduct(relation_cache.cardinality) *
@@ -312,6 +403,8 @@ public:
     using itertype = typename SparseMatrix::InnerIterator;
 
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
+
+      throw std::runtime_error("not implemented");
       this->q_train = this->X * fm.V.col(factor_index).head(this->X.cols());
 
       // compute contribution of blocks
@@ -480,17 +573,14 @@ public:
     // relations
   }
 
-  inline void sample_cutpoint_z_marginalized(FMType &fm) {
-    cutpoint_sampler->step();
-    cutpoint_sampler->alpha_to_gamma(fm.cutpoint, cutpoint_sampler->alpha_now);
-  }
-
   inline void update_e(FMType &fm, HyperType &hyper) {
     fm.predict_score_write_target(this->e_train, this->X, this->relations);
 
     if (this->learning_config.task_type == TASKTYPE::REGRESSION) {
       this->e_train -= this->y;
     } else if (this->learning_config.task_type == TASKTYPE::CLASSIFICATION) {
+      throw std::runtime_error("not implemented");
+
       Real zero = static_cast<Real>(0);
       Real std = static_cast<Real>(1); // 1/ sqrt(hyper.alpha);
       for (int train_data_index = 0; train_data_index < this->X.rows();
@@ -506,16 +596,11 @@ public:
         this->e_train(train_data_index) -= n;
       }
     } else if (this->learning_config.task_type == TASKTYPE::ORDERED) {
-      int i = 0;
-      for (auto &sampler_ : cutpoint_sampler) {
-        sampler_.step();
-        sampler_.alpha_to_gamma(fm.cutpoints[i], sampler_.alpha_now);
-        sampler_.sample_z_given_cutpoint();
-        i++;
-      }
+      throw std::runtime_error("not implemented");
     }
   }
-  std::vector<OprobitSamplerType> cutpoint_sampler;
 };
+
+} // namespace variational
 
 } // namespace myFM
