@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <exception>
 #include <sstream>
 #include <stdexcept>
@@ -228,10 +229,55 @@ public:
     Real e_all = fm.w0_var * fm.w0_var * this->n_train +
                  this->e_train.array().square().sum();
     e_all += (this->X.cwiseAbs2() * fm.w_var).sum();
+    size_t offset = this->X.cols();
+    for (size_t relation_index = 0; relation_index < this->relations.size();
+         relation_index++) {
+      RelationBlock &relation_data = this->relations[relation_index];
+      RelationWiseCache &relation_cache = this->relation_caches[relation_index];
+      relation_cache.x2s = relation_data.X.cwiseAbs2() *
+                           fm.w_var.segment(offset, relation_data.feature_size);
+      e_all += (relation_cache.x2s.array() * relation_cache.cardinality.array())
+                   .sum();
+      offset += relation_data.feature_size;
+    }
 
     for (int r = 0; r < fm.n_factors; r++) {
       const Vector &V_ref = fm.V.col(r);
       const Vector &V_var_ref = fm.V_var.col(r);
+
+      {
+        size_t offset = this->X.cols();
+        for (size_t relation_index = 0; relation_index < this->relations.size();
+             relation_index++) {
+          RelationBlock &relation_data = this->relations[relation_index];
+          RelationWiseCache &relation_cache =
+              this->relation_caches[relation_index];
+          relation_cache.q.array() = 0;
+          relation_cache.x2s.array() = 0;
+          relation_cache.x3sv.array() = 0;
+          relation_cache.x4s2.array() = 0;
+          relation_cache.x4sv2.array() = 0;
+          for (int inner_data_index = 0;
+               inner_data_index < relation_data.X.rows(); inner_data_index++) {
+            for (itertype it(relation_data.X, inner_data_index); it; ++it) {
+              Real x = it.value();
+              Real x2 = x * x;
+              Real x4 = x2 * x2;
+              int col = it.col() + offset;
+              relation_cache.q(inner_data_index) += x * V_ref(col);
+              relation_cache.x2s(inner_data_index) += x2 * V_var_ref(col);
+              relation_cache.x3sv(inner_data_index) +=
+                  x2 * x * V_var_ref(col) * V_ref(col);
+              relation_cache.x4s2(inner_data_index) +=
+                  x4 * V_var_ref(col) * V_var_ref(col);
+              relation_cache.x4sv2(inner_data_index) +=
+                  x4 * V_var_ref(col) * V_ref(col) * V_ref(col);
+            }
+          }
+          offset += relation_data.feature_size;
+        }
+      }
+
       for (int train_index = 0; train_index < this->n_train; train_index++) {
         Real x2s = 0;
         Real x3sv = 0;
@@ -244,15 +290,20 @@ public:
           Real x4 = x2 * x2;
           int col = it.col();
           q += x * V_ref(col);
-          x2s += x * V_var_ref(col);
+          x2s += x2 * V_var_ref(col);
           x3sv += x2 * x * V_var_ref(col) * V_ref(col);
           x4s2 += x4 * V_var_ref(col) * V_var_ref(col);
           x4sv2 += x4 * V_var_ref(col) * V_ref(col) * V_ref(col);
         }
-        size_t offset = this->X.cols();
         for (size_t relation_index = 0; relation_index < this->relations.size();
              relation_index++) {
-          throw std::runtime_error("not implemented");
+          size_t block_index =
+              this->relations[relation_index].original_to_block[train_index];
+          q += this->relation_caches[relation_index].q(block_index);
+          x2s += this->relation_caches[relation_index].x2s(block_index);
+          x3sv += this->relation_caches[relation_index].x3sv(block_index);
+          x4s2 += this->relation_caches[relation_index].x4s2(block_index);
+          x4sv2 += this->relation_caches[relation_index].x4sv2(block_index);
         }
         e_all +=
             (q * q * x2s + 0.5 * x2s * x2s - 2 * x3sv * q - 0.5 * x4s2 + x4sv2);
@@ -262,6 +313,7 @@ public:
     Real exponent = (this->learning_config.alpha_0 + this->X.rows()) / 2;
     Real rate = (this->learning_config.beta_0 + e_all) / 2;
     Real new_alpha = gamma_distribution<Real>(exponent, 1 / rate)(this->gen_);
+    // throw std::runtime_error(print_to_string("alpha=", new_alpha)); // check
     hyper.alpha = new_alpha;
     hyper.alpha_rate = rate;
   }
