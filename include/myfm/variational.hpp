@@ -72,14 +72,16 @@ template <typename Real> struct VariationalFM : public FM<Real> {
     auto get_rand = [&gen, &nd, init_std](Real dummy) {
       return nd(gen) * init_std;
     };
-    this->V = DenseMatrix{n_features, this->n_factors}.unaryExpr(get_rand);
-    this->w = Vector{n_features}.unaryExpr(get_rand);
     this->w0 = get_rand(1);
-    this->V_var = DenseMatrix{n_features, this->n_factors};
-    this->V_var.array() = init_std * init_std;
+    this->w0_var = 1;
+
+    this->w = Vector{n_features}.unaryExpr(get_rand);
     this->w_var = Vector{n_features};
     this->w_var.array() = init_std * init_std;
-    this->w0 = 1;
+
+    this->V = DenseMatrix{n_features, this->n_factors}.unaryExpr(get_rand);
+    this->V_var = DenseMatrix{n_features, this->n_factors};
+    this->V_var.array() = init_std * init_std;
 
     this->initialized = true;
   }
@@ -116,11 +118,20 @@ struct VariationalRelationWiseCache
   using RelationBlock = relational::RelationBlock<Real>;
   inline VariationalRelationWiseCache(const RelationBlock &source)
       : BaseType(source), x2s(source.X.rows()), x3sv(source.X.rows()),
-        x4s2(source.X.rows()), x4sv2(source.X.rows()) {}
+        cache_vector_1(source.X.rows()), cache_vector_2(source.X.rows()),
+        cache_vector_3(source.X.rows()) {}
+
+  inline Vector &x4s2() { return cache_vector_1; }
+  inline Vector &x4sv2() { return cache_vector_2; }
+  inline Vector &c_x2s() { return cache_vector_1; }
+  inline Vector &c_x3sv() { return cache_vector_2; }
+  inline Vector &c_x2s_q() { return cache_vector_3; }
+
   Vector x2s;
   Vector x3sv;
-  Vector x4s2;
-  Vector x4sv2;
+  Vector cache_vector_1;
+  Vector cache_vector_2;
+  Vector cache_vector_3;
 };
 
 template <typename RealType>
@@ -208,12 +219,15 @@ public:
   }
 
   inline void initialize_e(FMType &fm, const HyperType &hyper) {
+    if (this->learning_config.task_type == TASKTYPE::ORDERED)
+      throw std::runtime_error(
+          "Ordered Probit Regression  for Variational FM not implemented");
     fm.predict_score_write_target(this->e_train, this->X, this->relations);
     this->e_train -= this->y;
   }
 
   // sample from quad x ^2 - 2 * first x + ... = quad (x - first / quad) ^2
-  inline Real sample_normal(const Real &quad, const Real &first) {
+  inline Real normal_mean(const Real &quad, const Real &first) {
     return (first / quad);
   }
 
@@ -229,6 +243,7 @@ public:
     Real e_all = fm.w0_var * fm.w0_var * this->n_train +
                  this->e_train.array().square().sum();
     e_all += (this->X.cwiseAbs2() * fm.w_var).sum();
+    e_all += fm.w0_var * fm.w0_var;
     size_t offset = this->X.cols();
     for (size_t relation_index = 0; relation_index < this->relations.size();
          relation_index++) {
@@ -255,8 +270,8 @@ public:
           relation_cache.q.array() = 0;
           relation_cache.x2s.array() = 0;
           relation_cache.x3sv.array() = 0;
-          relation_cache.x4s2.array() = 0;
-          relation_cache.x4sv2.array() = 0;
+          relation_cache.x4s2().array() = 0;
+          relation_cache.x4sv2().array() = 0;
           for (int inner_data_index = 0;
                inner_data_index < relation_data.X.rows(); inner_data_index++) {
             for (itertype it(relation_data.X, inner_data_index); it; ++it) {
@@ -268,9 +283,9 @@ public:
               relation_cache.x2s(inner_data_index) += x2 * V_var_ref(col);
               relation_cache.x3sv(inner_data_index) +=
                   x2 * x * V_var_ref(col) * V_ref(col);
-              relation_cache.x4s2(inner_data_index) +=
+              relation_cache.x4s2()(inner_data_index) +=
                   x4 * V_var_ref(col) * V_var_ref(col);
-              relation_cache.x4sv2(inner_data_index) +=
+              relation_cache.x4sv2()(inner_data_index) +=
                   x4 * V_var_ref(col) * V_ref(col) * V_ref(col);
             }
           }
@@ -302,8 +317,8 @@ public:
           q += this->relation_caches[relation_index].q(block_index);
           x2s += this->relation_caches[relation_index].x2s(block_index);
           x3sv += this->relation_caches[relation_index].x3sv(block_index);
-          x4s2 += this->relation_caches[relation_index].x4s2(block_index);
-          x4sv2 += this->relation_caches[relation_index].x4sv2(block_index);
+          x4s2 += this->relation_caches[relation_index].x4s2()(block_index);
+          x4sv2 += this->relation_caches[relation_index].x4sv2()(block_index);
         }
         e_all +=
             (q * q * x2s + 0.5 * x2s * x2s - 2 * x3sv * q - 0.5 * x4s2 + x4sv2);
@@ -312,8 +327,7 @@ public:
 
     Real exponent = (this->learning_config.alpha_0 + this->X.rows()) / 2;
     Real rate = (this->learning_config.beta_0 + e_all) / 2;
-    Real new_alpha = gamma_distribution<Real>(exponent, 1 / rate)(this->gen_);
-    // throw std::runtime_error(print_to_string("alpha=", new_alpha)); // check
+    Real new_alpha = exponent / rate;
     hyper.alpha = new_alpha;
     hyper.alpha_rate = rate;
   }
@@ -365,7 +379,7 @@ private:
         linear += weight(f);
       }
       linear *= lambda(group_index);
-      Real new_mu = sample_normal(square, linear);
+      Real new_mu = normal_mean(square, linear);
       mu(group_index) = new_mu;
       mu_var(group_index) = 1 / square;
       group_index++;
@@ -432,7 +446,7 @@ public:
           -hyper.alpha * this->X_t.row(feature_index) * this->e_train +
           lambda * mu;
 
-      Real w_new = sample_normal(square_term, linear_term);
+      Real w_new = normal_mean(square_term, linear_term);
       this->e_train.array() += this->X_t.row(feature_index) * w_new;
       fm.w(feature_index) = w_new;
       fm.w_var(feature_index) = 1 / square_term;
@@ -478,7 +492,7 @@ public:
         square_term = lambda + hyper.alpha * square_term;
         linear_term = hyper.alpha * linear_term + lambda * mu;
 
-        Real w_new = sample_normal(square_term, linear_term);
+        Real w_new = normal_mean(square_term, linear_term);
         fm.w(offset + inner_feature_index) = w_new;
         fm.w_var(offset + inner_feature_index) = 1 / square_term;
 
@@ -525,16 +539,31 @@ public:
         for (size_t relation_index = 0; relation_index < this->relations.size();
              relation_index++) {
 
-          throw std::runtime_error("not implemented");
           const RelationBlock &relation_data = this->relations[relation_index];
           RelationWiseCache &relation_cache =
               this->relation_caches[relation_index];
-          relation_cache.q = relation_data.X *
-                             (fm.V.col(factor_index)
-                                  .segment(offset, relation_data.feature_size));
+          relation_cache.q.array() = 0;
+          relation_cache.x2s.array() = 0;
+          relation_cache.x3sv.array() = 0;
+          // relation_cache.x4sv2().array() = 0;
+          for (int inner_data_index = 0;
+               inner_data_index < relation_data.X.rows(); inner_data_index++) {
+            for (itertype it(relation_data.X, inner_data_index); it; ++it) {
+              Real x = it.value();
+              Real x2 = x * x;
+              int col = it.col() + offset;
+              relation_cache.q(inner_data_index) += x * V_ref(col);
+              relation_cache.x2s(inner_data_index) += x2 * V_var_ref(col);
+              relation_cache.x3sv(inner_data_index) +=
+                  x2 * x * V_var_ref(col) * V_ref(col);
+            }
+          }
           size_t train_data_index = 0;
           for (auto i : relation_data.original_to_block) {
-            this->q_train(train_data_index++) += relation_cache.q(i);
+            this->q_train(train_data_index) += relation_cache.q(i);
+            this->x2s(train_data_index) += relation_cache.x2s(i);
+            this->x3sv(train_data_index) += relation_cache.x3sv(i);
+            train_data_index++;
           }
           offset += relation_data.feature_size;
         }
@@ -576,7 +605,7 @@ public:
         linear_coeff +=
             hyper.lambda_V(g, factor_index) * hyper.mu_V(g, factor_index);
 
-        Real v_new = sample_normal(square_coeff, linear_coeff);
+        Real v_new = normal_mean(square_coeff, linear_coeff);
         Real v_var_new = 1 / square_coeff;
         fm.V(feature_index, factor_index) = v_new;
         fm.V_var(feature_index, factor_index) = v_var_new;
@@ -598,7 +627,6 @@ public:
       // initialize caches
       for (size_t relation_index = 0; relation_index < this->relations.size();
            relation_index++) {
-        throw std::runtime_error("not implemented");
 
         const RelationBlock &relation_data = this->relations[relation_index];
         RelationWiseCache &relation_cache =
@@ -617,15 +645,29 @@ public:
         relation_cache.c_S.array() = 0;
         relation_cache.e.array() = 0;
         relation_cache.e_q.array() = 0;
+        relation_cache.c_x2s().array() = 0;
+        relation_cache.c_x3sv().array() = 0;
+        relation_cache.c_x2s_q().array() = 0;
 
         for (auto i : relation_data.original_to_block) {
-          Real temp = (this->q_train(train_data_index) - relation_cache.q(i));
-          relation_cache.c(i) += temp;
-          relation_cache.c_S(i) += temp * temp;
+          // un-synchronization
+          Real &q_orig = this->q_train(train_data_index);
+          Real &x2s_orig = this->x2s(train_data_index);
+          Real &x3sv_orig = this->x3sv(train_data_index);
+
+          q_orig -= relation_cache.q(i);
+          x2s_orig -= relation_cache.x2s(i);
+          x3sv_orig -= relation_cache.x3sv(i);
+
+          relation_cache.c(i) += q_orig;
+          relation_cache.c_S(i) += q_orig * q_orig;
           relation_cache.e(i) += this->e_train(train_data_index);
-          relation_cache.e_q(i) += this->e_train(train_data_index) * temp;
-          // un-synchronization of q and e
-          this->q_train(train_data_index) -= relation_cache.q(i);
+          relation_cache.e_q(i) += this->e_train(train_data_index) * q_orig;
+          relation_cache.c_x2s()(i) += x2s_orig;
+          relation_cache.c_x3sv()(i) += x3sv_orig;
+          relation_cache.c_x2s_q()(i) += x2s_orig * q_orig;
+          // un-synchronization of q, x2s  x3sv, e, x3sv_sum, x2sv_sum
+
           // q_B
           // 1/ 2 ( (q_B + q_other) **2 - (q_B_S + other) )
           // q_B * q_other + 0.5 q_B **2 - 0.5 * q_B_S
@@ -642,34 +684,62 @@ public:
           auto g =
               this->learning_config.group_index(offset + inner_feature_index);
           Real v_old = fm.V(offset + inner_feature_index, factor_index);
+          Real v_var_old = fm.V_var(offset + inner_feature_index, factor_index);
           Real square_coeff = 0;
           Real linear_coeff = 0;
+
+          Real square_coeff_var = 0;
+          Real linear_coeff_var = 0;
 
           Real x_il;
           for (itertype it(relation_cache.X_t, inner_feature_index); it; ++it) {
             auto block_data_index = it.col();
+
+            auto card = relation_cache.cardinality(block_data_index);
             x_il = it.value();
+            auto x2 = x_il * x_il;
+
+            relation_cache.x2s(block_data_index) -= x2 * v_var_old;
+            relation_cache.x3sv(block_data_index) -=
+                (x_il * x2 * v_old * v_var_old);
             auto h_B = (relation_cache.q(block_data_index) - x_il * v_old);
-            auto h_squared =
-                h_B * h_B * relation_cache.cardinality(block_data_index) +
-                2 * relation_cache.c(block_data_index) * h_B +
-                relation_cache.c_S(block_data_index);
+            auto h_squared = h_B * h_B * card +
+                             2 * relation_cache.c(block_data_index) * h_B +
+                             relation_cache.c_S(block_data_index);
             h_squared = x_il * x_il * h_squared;
             square_coeff += h_squared;
             linear_coeff += (-relation_cache.e(block_data_index) * h_B -
                              relation_cache.e_q(block_data_index)) *
                             x_il;
+
+            square_coeff_var += (relation_cache.c_x2s()(block_data_index) +
+                                 relation_cache.x2s(block_data_index) * card) *
+                                x_il * x_il;
+            linear_coeff_var +=
+                (relation_cache.c_x2s_q()(block_data_index) +
+                 relation_cache.x2s(block_data_index) *
+                     relation_cache.c(block_data_index) +
+                 relation_cache.c_x2s()(block_data_index) * h_B +
+                 relation_cache.x2s(block_data_index) * h_B * card -
+                 relation_cache.c_x3sv()(block_data_index) -
+                 relation_cache.x3sv(block_data_index) * card) *
+                x_il;
           }
           linear_coeff += square_coeff * v_old;
+          linear_coeff -= linear_coeff_var;
+          square_coeff += square_coeff_var;
+
           square_coeff *= hyper.alpha;
           linear_coeff *= hyper.alpha;
           square_coeff += hyper.lambda_V(g, factor_index);
           linear_coeff +=
               hyper.lambda_V(g, factor_index) * hyper.mu_V(g, factor_index);
 
-          Real v_new = sample_normal(square_coeff, linear_coeff);
+          Real v_new = normal_mean(square_coeff, linear_coeff);
+          Real v_var_new = 1 / square_coeff;
           Real delta = v_new - v_old;
           fm.V(offset + inner_feature_index, factor_index) = v_new;
+          fm.V_var(offset + inner_feature_index, factor_index) = v_var_new;
           for (itertype it(relation_cache.X_t, inner_feature_index); it; ++it) {
             auto block_data_index = it.col();
             const Real x_il = it.value();
@@ -686,9 +756,12 @@ public:
                 x_il * delta *
                 (h_B * relation_cache.c(block_data_index) +
                  relation_cache.c_S(block_data_index));
+            relation_cache.x3sv(block_data_index) +=
+                x_il * x_il * x_il * v_new * v_var_new;
+            relation_cache.x2s(block_data_index) += x_il * x_il * v_var_new;
           }
         }
-        // resync
+        // re-sync
         train_data_index = 0;
         for (auto i : relation_data.original_to_block) {
           this->e_train(train_data_index) +=
@@ -696,6 +769,8 @@ public:
                0.5 * relation_cache.q(i) * relation_cache.q(i) -
                0.5 * relation_cache.q_S(i));
           this->q_train(train_data_index) += relation_cache.q(i);
+          this->x2s(train_data_index) += relation_cache.x2s(i);
+          this->x3sv(train_data_index) += relation_cache.x3sv(i);
           train_data_index++;
         }
         offset += relation_data.feature_size;
@@ -711,7 +786,6 @@ public:
     if (this->learning_config.task_type == TASKTYPE::REGRESSION) {
       this->e_train -= this->y;
     } else if (this->learning_config.task_type == TASKTYPE::CLASSIFICATION) {
-      throw std::runtime_error("not implemented");
 
       Real zero = static_cast<Real>(0);
       Real std = static_cast<Real>(1); // 1/ sqrt(hyper.alpha);
@@ -721,17 +795,18 @@ public:
         Real pred = this->e_train(train_data_index);
         Real n;
         if (gt > 0) {
-          n = sample_truncated_normal_left(this->gen_, pred, std, zero);
+          n = mean_truncated_normal_left(pred);
         } else {
-          n = sample_truncated_normal_right(this->gen_, pred, std, zero);
+          n = mean_truncated_normal_right(pred);
         }
         this->e_train(train_data_index) -= n;
       }
     } else if (this->learning_config.task_type == TASKTYPE::ORDERED) {
-      throw std::runtime_error("not implemented");
+      throw std::runtime_error(
+          "Ordered Probit Regression  for Variational FM not implemented");
     }
   }
-};
+}; // namespace variational
 
 } // namespace variational
 

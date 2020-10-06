@@ -1,4 +1,5 @@
 #pragma once
+#include "Faddeeva/Faddeeva.hh"
 #include "definitions.hpp"
 #include <random>
 #include <sstream>
@@ -76,6 +77,38 @@ inline Real sample_truncated_normal_right(mt19937 &gen, Real mean, Real std,
          std * sample_truncated_normal_right(gen, (mu_plus - mean) / std);
 }
 
+template <typename Real> inline Real mean_truncated_normal_left(Real mu) {
+  static constexpr Real SQRT2 = 1.4142135623730951;
+  static constexpr Real SQRTPI = 1.7724538509055159;
+  static constexpr Real SQRT2PI = SQRT2 * SQRTPI;
+  static constexpr Real PI = 3.141592653589793;
+
+  /*
+  q(z)  = 1{z > 0} exp( - frac{1}{2}(z-mu)^2) / Z
+  Z = 1 - \Phi(-mu)
+  E_q[z] = \mu + 1/\sqrt{2\pi} exp(-\mu^2/2) / (1 - \Phi(-mu))
+  */
+  if (mu > 0) {
+    return mu +
+           std::exp(-mu * mu / 2) / (1 - Faddeeva::erf(-mu / SQRT2)) / SQRT2PI;
+  } else {
+    return mu + 1 / (Faddeeva::erfcx(-mu / SQRT2)) / SQRT2PI;
+  }
+}
+
+template <typename Real> inline Real mean_truncated_normal_right(Real mu) {
+  static constexpr Real SQRT2 = 1.4142135623730951;
+  static constexpr Real SQRTPI = 1.7724538509055159;
+  static constexpr Real SQRT2PI = SQRT2 * SQRTPI;
+  static constexpr Real PI = 3.141592653589793;
+
+  /*
+  q(z)  = 1{z < 0} exp( - \frac{1}{2}(z-mu)^2) / Z
+  q(z') = 1 {z' >0} exp(- \frac{1}{2}(z + mu)^2) /Z
+  */
+  return -mean_truncated_normal_left(-mu);
+}
+
 struct StringBuilder {
   inline StringBuilder() : oss_() {}
 
@@ -126,24 +159,20 @@ inline size_t check_row_consistency_return_column(
   return col;
 }
 
-template<typename... Cs >
-void print_to_stream(std::ostream & ss, Cs&&... args);
+template <typename... Cs> void print_to_stream(std::ostream &ss, Cs &&... args);
 
-template<typename C, typename... Cs >
-inline void print_to_stream(std::ostream & ss, C && c0, Cs&&... args){
+template <typename C, typename... Cs>
+inline void print_to_stream(std::ostream &ss, C &&c0, Cs &&... args) {
   ss << c0;
   print_to_stream(ss, std::forward<Cs>(args)...);
 }
 
-template<>
-inline void print_to_stream(std::ostream & ss){
-}
+template <> inline void print_to_stream(std::ostream &ss) {}
 
-template<typename ... Cs>
-std::string print_to_string(Cs&&... args) {
+template <typename... Cs> std::string print_to_string(Cs &&... args) {
   std::stringstream ss;
   print_to_stream(ss, std::forward<Cs>(args)...);
-  return ss.str(); 
+  return ss.str();
 }
 
 } // namespace myFM
