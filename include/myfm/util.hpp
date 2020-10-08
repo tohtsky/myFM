@@ -81,7 +81,6 @@ template <typename Real> inline Real mean_truncated_normal_left(Real mu) {
   static constexpr Real SQRT2 = 1.4142135623730951;
   static constexpr Real SQRTPI = 1.7724538509055159;
   static constexpr Real SQRT2PI = SQRT2 * SQRTPI;
-  static constexpr Real PI = 3.141592653589793;
 
   /*
   q(z)  = 1{z > 0} exp( - frac{1}{2}(z-mu)^2) / Z
@@ -89,19 +88,14 @@ template <typename Real> inline Real mean_truncated_normal_left(Real mu) {
   E_q[z] = \mu + 1/\sqrt{2\pi} exp(-\mu^2/2) / (1 - \Phi(-mu))
   */
   if (mu > 0) {
-    return mu +
-           std::exp(-mu * mu / 2) / (1 - Faddeeva::erf(-mu / SQRT2)) / SQRT2PI;
+    return mu + 2 * std::exp(-mu * mu / 2) / (1 - Faddeeva::erf(-mu / SQRT2)) /
+                    SQRT2PI;
   } else {
-    return mu + 1 / (Faddeeva::erfcx(-mu / SQRT2)) / SQRT2PI;
+    return mu + 2 / (Faddeeva::erfcx(-mu / SQRT2)) / SQRT2PI;
   }
 }
 
 template <typename Real> inline Real mean_truncated_normal_right(Real mu) {
-  static constexpr Real SQRT2 = 1.4142135623730951;
-  static constexpr Real SQRTPI = 1.7724538509055159;
-  static constexpr Real SQRT2PI = SQRT2 * SQRTPI;
-  static constexpr Real PI = 3.141592653589793;
-
   /*
   q(z)  = 1{z < 0} exp( - \frac{1}{2}(z-mu)^2) / Z
   q(z') = 1 {z' >0} exp(- \frac{1}{2}(z + mu)^2) /Z

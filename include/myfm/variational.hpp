@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <cstddef>
 #include <exception>
 #include <sstream>
 #include <stdexcept>
@@ -159,17 +160,19 @@ struct VariationalFMTrainer
   typedef FMLearningConfig<Real> Config;
 
   using TASKTYPE = typename BaseType::TASKTYPE;
+  using itertype = typename SparseMatrix::InnerIterator;
 
 public:
   Vector x2s;
   Vector x3sv;
+  Vector e_var;
 
   inline VariationalFMTrainer(const SparseMatrix &X,
                               const vector<RelationBlock> &relations,
                               const Vector &y, int random_seed,
                               Config learning_config)
       : BaseType(X, relations, y, random_seed, learning_config), x2s(X.rows()),
-        x3sv(X.rows()) {}
+        x3sv(X.rows()), e_var(X.rows()) {}
 
   inline pair<VariationalPredictor<Real>, HyperType> learn(FMType &fm,
                                                            HyperType &hyper) {
@@ -222,7 +225,8 @@ public:
     if (this->learning_config.task_type == TASKTYPE::ORDERED)
       throw std::runtime_error(
           "Ordered Probit Regression  for Variational FM not implemented");
-    fm.predict_score_write_target(this->e_train, this->X, this->relations);
+    // fm.predict_score_write_target(this->e_train, this->X, this->relations);
+    this->update_e_and_var(fm, hyper);
     this->e_train -= this->y;
   }
 
@@ -233,97 +237,13 @@ public:
 
   inline void update_alpha(FMType &fm, HyperType &hyper) {
     // If the task is classification, take alpha = 1.
-    using itertype = typename SparseMatrix::InnerIterator;
-
     if ((this->learning_config.task_type == TASKTYPE::CLASSIFICATION)) {
       hyper.alpha = static_cast<Real>(1);
       return;
     }
 
-    Real e_all = fm.w0_var * fm.w0_var * this->n_train +
-                 this->e_train.array().square().sum();
-    e_all += (this->X.cwiseAbs2() * fm.w_var).sum();
-    e_all += fm.w0_var * fm.w0_var;
-    size_t offset = this->X.cols();
-    for (size_t relation_index = 0; relation_index < this->relations.size();
-         relation_index++) {
-      RelationBlock &relation_data = this->relations[relation_index];
-      RelationWiseCache &relation_cache = this->relation_caches[relation_index];
-      relation_cache.x2s = relation_data.X.cwiseAbs2() *
-                           fm.w_var.segment(offset, relation_data.feature_size);
-      e_all += (relation_cache.x2s.array() * relation_cache.cardinality.array())
-                   .sum();
-      offset += relation_data.feature_size;
-    }
-
-    for (int r = 0; r < fm.n_factors; r++) {
-      const Vector &V_ref = fm.V.col(r);
-      const Vector &V_var_ref = fm.V_var.col(r);
-
-      {
-        size_t offset = this->X.cols();
-        for (size_t relation_index = 0; relation_index < this->relations.size();
-             relation_index++) {
-          RelationBlock &relation_data = this->relations[relation_index];
-          RelationWiseCache &relation_cache =
-              this->relation_caches[relation_index];
-          relation_cache.q.array() = 0;
-          relation_cache.x2s.array() = 0;
-          relation_cache.x3sv.array() = 0;
-          relation_cache.x4s2().array() = 0;
-          relation_cache.x4sv2().array() = 0;
-          for (int inner_data_index = 0;
-               inner_data_index < relation_data.X.rows(); inner_data_index++) {
-            for (itertype it(relation_data.X, inner_data_index); it; ++it) {
-              Real x = it.value();
-              Real x2 = x * x;
-              Real x4 = x2 * x2;
-              int col = it.col() + offset;
-              relation_cache.q(inner_data_index) += x * V_ref(col);
-              relation_cache.x2s(inner_data_index) += x2 * V_var_ref(col);
-              relation_cache.x3sv(inner_data_index) +=
-                  x2 * x * V_var_ref(col) * V_ref(col);
-              relation_cache.x4s2()(inner_data_index) +=
-                  x4 * V_var_ref(col) * V_var_ref(col);
-              relation_cache.x4sv2()(inner_data_index) +=
-                  x4 * V_var_ref(col) * V_ref(col) * V_ref(col);
-            }
-          }
-          offset += relation_data.feature_size;
-        }
-      }
-
-      for (int train_index = 0; train_index < this->n_train; train_index++) {
-        Real x2s = 0;
-        Real x3sv = 0;
-        Real x4s2 = 0;
-        Real x4sv2 = 0;
-        Real q = 0;
-        for (itertype it(this->X, train_index); it; ++it) {
-          Real x = it.value();
-          Real x2 = x * x;
-          Real x4 = x2 * x2;
-          int col = it.col();
-          q += x * V_ref(col);
-          x2s += x2 * V_var_ref(col);
-          x3sv += x2 * x * V_var_ref(col) * V_ref(col);
-          x4s2 += x4 * V_var_ref(col) * V_var_ref(col);
-          x4sv2 += x4 * V_var_ref(col) * V_ref(col) * V_ref(col);
-        }
-        for (size_t relation_index = 0; relation_index < this->relations.size();
-             relation_index++) {
-          size_t block_index =
-              this->relations[relation_index].original_to_block[train_index];
-          q += this->relation_caches[relation_index].q(block_index);
-          x2s += this->relation_caches[relation_index].x2s(block_index);
-          x3sv += this->relation_caches[relation_index].x3sv(block_index);
-          x4s2 += this->relation_caches[relation_index].x4s2()(block_index);
-          x4sv2 += this->relation_caches[relation_index].x4sv2()(block_index);
-        }
-        e_all +=
-            (q * q * x2s + 0.5 * x2s * x2s - 2 * x3sv * q - 0.5 * x4s2 + x4sv2);
-      }
-    }
+    Real e_all = +this->e_train.array().square().sum();
+    e_all += this->e_var.sum();
 
     Real exponent = (this->learning_config.alpha_0 + this->X.rows()) / 2;
     Real rate = (this->learning_config.beta_0 + e_all) / 2;
@@ -515,7 +435,6 @@ public:
   }
 
   inline void update_V(FMType &fm, HyperType &hyper) {
-    using itertype = typename SparseMatrix::InnerIterator;
 
     for (int factor_index = 0; factor_index < fm.n_factors; factor_index++) {
       this->q_train.array() = 0;
@@ -780,15 +699,141 @@ public:
     // relations
   }
 
+  inline void update_e_and_var(const FMType &fm, const HyperType &hyper) {
+    this->e_train.array() = fm.w0;
+    this->e_var.array() = fm.w0_var;
+    for (int train_index = 0; train_index < this->n_train; train_index++) {
+      Real &e_ref = this->e_train(train_index);
+      Real &e_var_ref = this->e_var(train_index);
+      for (itertype it(this->X, train_index); it; ++it) {
+        Real x = it.value();
+        auto col = it.col();
+        e_ref += x * fm.w(col);
+        e_var_ref += x * x * fm.w_var(col);
+      }
+    }
+
+    { // add contirbution of relations
+      size_t offset = this->X.cols();
+      for (size_t relation_index = 0; relation_index < this->relations.size();
+           relation_index++) {
+        RelationBlock &relation_data = this->relations[relation_index];
+        RelationWiseCache &relation_cache =
+            this->relation_caches[relation_index];
+        relation_cache.x2s =
+            relation_data.X.cwiseAbs2() *
+            fm.w_var.segment(offset, relation_data.feature_size);
+        relation_cache.q.array() = 0;
+        relation_cache.x2s.array() = 0;
+        for (int inner_index = 0; inner_index < relation_data.X.rows();
+             inner_index++) {
+          Real &e_ref = relation_cache.q(inner_index);
+          Real &e_var_ref = relation_cache.x2s(inner_index);
+          for (itertype it(relation_data.X, inner_index); it; ++it) {
+            Real x = it.value();
+            auto col = offset + it.col();
+            e_ref += x * fm.w(col);
+            e_var_ref += x * x * fm.w_var(col);
+          }
+        }
+        offset += relation_data.feature_size;
+        size_t train_index = 0;
+        for (auto i : relation_data.original_to_block) {
+          this->e_train(train_index) += relation_cache.q(i);
+          this->e_var(train_index) += relation_cache.x2s(i);
+          train_index++;
+        }
+      }
+    }
+
+    for (int r = 0; r < fm.n_factors; r++) {
+      const Vector &V_ref = fm.V.col(r);
+      const Vector &V_var_ref = fm.V_var.col(r);
+
+      { // fill caches
+        size_t offset = this->X.cols();
+        for (size_t relation_index = 0; relation_index < this->relations.size();
+             relation_index++) {
+          RelationBlock &relation_data = this->relations[relation_index];
+          RelationWiseCache &relation_cache =
+              this->relation_caches[relation_index];
+          relation_cache.q.array() = 0;
+          relation_cache.q_S.array() = 0;
+          relation_cache.x2s.array() = 0;
+          relation_cache.x3sv.array() = 0;
+          relation_cache.x4s2().array() = 0;
+          relation_cache.x4sv2().array() = 0;
+          for (int inner_data_index = 0;
+               inner_data_index < relation_data.X.rows(); inner_data_index++) {
+            for (itertype it(relation_data.X, inner_data_index); it; ++it) {
+              Real x = it.value();
+              Real x2 = x * x;
+              Real x4 = x2 * x2;
+              int col = it.col() + offset;
+              relation_cache.q(inner_data_index) += x * V_ref(col);
+              relation_cache.q_S(inner_data_index) +=
+                  x2 * V_ref(col) * V_ref(col);
+              relation_cache.x2s(inner_data_index) += x2 * V_var_ref(col);
+              relation_cache.x3sv(inner_data_index) +=
+                  x2 * x * V_var_ref(col) * V_ref(col);
+              relation_cache.x4s2()(inner_data_index) +=
+                  x4 * V_var_ref(col) * V_var_ref(col);
+              relation_cache.x4sv2()(inner_data_index) +=
+                  x4 * V_var_ref(col) * V_ref(col) * V_ref(col);
+            }
+          }
+          offset += relation_data.feature_size;
+        }
+      }
+
+      for (int train_index = 0; train_index < this->n_train; train_index++) {
+        Real x2s = 0;
+        Real x3sv = 0;
+        Real x4s2 = 0;
+        Real x4sv2 = 0;
+        Real q = 0;
+        Real q_s = 0;
+        for (itertype it(this->X, train_index); it; ++it) {
+          Real x = it.value();
+          Real x2 = x * x;
+          Real x4 = x2 * x2;
+          int col = it.col();
+          q += x * V_ref(col);
+          q_s += x2 * V_ref(col) * V_ref(col);
+          x2s += x2 * V_var_ref(col);
+          x3sv += x2 * x * V_var_ref(col) * V_ref(col);
+          x4s2 += x4 * V_var_ref(col) * V_var_ref(col);
+          x4sv2 += x4 * V_var_ref(col) * V_ref(col) * V_ref(col);
+        }
+        for (size_t relation_index = 0; relation_index < this->relations.size();
+             relation_index++) {
+          size_t block_index =
+              this->relations[relation_index].original_to_block[train_index];
+          q_s += this->relation_caches[relation_index].q_S(block_index);
+          q += this->relation_caches[relation_index].q(block_index);
+          x2s += this->relation_caches[relation_index].x2s(block_index);
+          x3sv += this->relation_caches[relation_index].x3sv(block_index);
+          x4s2 += this->relation_caches[relation_index].x4s2()(block_index);
+          x4sv2 += this->relation_caches[relation_index].x4sv2()(block_index);
+        }
+        this->e_train(train_index) += 0.5 * (q * q - q_s);
+        this->e_var(train_index) +=
+            (q * q * x2s + 0.5 * x2s * x2s - 2 * x3sv * q - 0.5 * x4s2 + x4sv2);
+      }
+    }
+  }
+
   inline void update_e(FMType &fm, HyperType &hyper) {
-    fm.predict_score_write_target(this->e_train, this->X, this->relations);
+    if (this->learning_config.task_type == TASKTYPE::REGRESSION) {
+      this->update_e_and_var(fm, hyper);
+    } else {
+      fm.predict_score_write_target(this->e_train, this->X, this->relations);
+    }
 
     if (this->learning_config.task_type == TASKTYPE::REGRESSION) {
       this->e_train -= this->y;
     } else if (this->learning_config.task_type == TASKTYPE::CLASSIFICATION) {
 
-      Real zero = static_cast<Real>(0);
-      Real std = static_cast<Real>(1); // 1/ sqrt(hyper.alpha);
       for (int train_data_index = 0; train_data_index < this->X.rows();
            train_data_index++) {
         Real gt = this->y(train_data_index);
