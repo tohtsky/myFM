@@ -77,30 +77,39 @@ inline Real sample_truncated_normal_right(mt19937 &gen, Real mean, Real std,
          std * sample_truncated_normal_right(gen, (mu_plus - mean) / std);
 }
 
-template <typename Real> inline Real mean_truncated_normal_left(Real mu) {
+template <typename Real>
+inline std::tuple<Real, Real, Real> mean_var_truncated_normal_left(Real mu) {
   static constexpr Real SQRT2 = 1.4142135623730951;
   static constexpr Real SQRTPI = 1.7724538509055159;
   static constexpr Real SQRT2PI = SQRT2 * SQRTPI;
+
+  // mean, variance, log(Z)
 
   /*
   q(z)  = 1{z > 0} exp( - frac{1}{2}(z-mu)^2) / Z
   Z = 1 - \Phi(-mu)
   E_q[z] = \mu + 1/\sqrt{2\pi} exp(-\mu^2/2) / (1 - \Phi(-mu))
   */
+  Real phi_Z;
+  Real lnZ;
+  Real mu_square = mu * mu / 2;
   if (mu > 0) {
-    return mu + 2 * std::exp(-mu * mu / 2) / (1 - Faddeeva::erf(-mu / SQRT2)) /
-                    SQRT2PI;
+    Real Z = (1 - Faddeeva::erf(-mu / SQRT2));
+    phi_Z = 2 * std::exp(-mu_square) / SQRT2PI / Z;
+    lnZ = std::log(Z);
   } else {
-    return mu + 2 / (Faddeeva::erfcx(-mu / SQRT2)) / SQRT2PI;
+    Real Z = (Faddeeva::erfcx(-mu / SQRT2));
+    phi_Z = 2 / Z / SQRT2PI;
+    lnZ = std::log(Z) - mu_square;
   }
+  return {mu + phi_Z, 1 - mu * phi_Z - phi_Z * phi_Z, lnZ};
 }
 
-template <typename Real> inline Real mean_truncated_normal_right(Real mu) {
-  /*
-  q(z)  = 1{z < 0} exp( - \frac{1}{2}(z-mu)^2) / Z
-  q(z') = 1 {z' >0} exp(- \frac{1}{2}(z + mu)^2) /Z
-  */
-  return -mean_truncated_normal_left(-mu);
+template <typename Real>
+inline std::tuple<Real, Real, Real> mean_var_truncated_normal_right(Real mu) {
+  auto result = mean_var_truncated_normal_left(-mu);
+  std::get<0>(result) *= -1;
+  return result;
 }
 
 struct StringBuilder {

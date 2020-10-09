@@ -46,8 +46,8 @@ struct GibbsFMTrainer
 
 public:
   using BaseType::BaseType;
-  inline pair<Predictor<Real>, vector<HyperType>> learn(FMType &fm,
-                                                        HyperType &hyper) {
+  inline tuple<Predictor<Real>, vector<HyperType>, vector<Real>>
+  learn(FMType &fm, HyperType &hyper) {
     return learn_with_callback(
         fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
   }
@@ -55,26 +55,27 @@ public:
   /**
    *  Main routine for Gibbs sampling.
    */
-  inline pair<Predictor<Real>, vector<HyperType>>
+  inline tuple<Predictor<Real>, vector<HyperType>, vector<Real>>
   learn_with_callback(FMType &fm, HyperType &hyper,
                       std::function<bool(int, FMType *, HyperType *)> cb) {
-    pair<Predictor<Real>, vector<HyperType>> result{
+    tuple<Predictor<Real>, vector<HyperType>, vector<Real>> result{
         {static_cast<size_t>(fm.n_factors), this->dim_all,
          this->learning_config.task_type},
+        {},
         {}};
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
 
-    result.first.samples.reserve(this->learning_config.n_kept_samples);
+    std::get<0>(result).samples.reserve(this->learning_config.n_kept_samples);
     for (int mcmc_iteration = 0; mcmc_iteration < this->learning_config.n_iter;
          mcmc_iteration++) {
       this->update_all(fm, hyper);
       if (this->learning_config.n_iter <=
           (mcmc_iteration + this->learning_config.n_kept_samples)) {
-        result.first.samples.emplace_back(fm);
+        std::get<0>(result).samples.emplace_back(fm);
       }
       // for tracing
-      result.second.emplace_back(hyper);
+      std::get<1>(result).emplace_back(hyper);
 
       bool should_stop = cb(mcmc_iteration, &fm, &hyper);
       if (should_stop) {

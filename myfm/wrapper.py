@@ -37,6 +37,7 @@ class MyFMRegressor(object):
     r"""Bayesian Factorization Machines for regression tasks.
     """
     _create_function = core.create_train_fm
+
     def __init__(
         self, rank,
         init_stdev=0.1, random_seed=42,
@@ -224,9 +225,9 @@ class MyFMRegressor(object):
                 return False
 
         try:
-            self.predictor_, self.hypers_ = \
+            self.predictor_, self.hypers_, self.history_ = \
                 self._create_function(self.rank, self.init_stdev, X, X_rel,
-                                     y, self.random_seed, config, callback)
+                                      y, self.random_seed, config, callback)
             return self
         finally:
             if pbar is not None:
@@ -312,6 +313,12 @@ class MyFMRegressor(object):
             ]
 
 
+class VariationalFMRegressor(MyFMRegressor):
+    r"""Bayesian Factorization Machines for regression tasks.
+    """
+    _create_function = core.create_train_vfm
+
+
 class MyFMClassifier(MyFMRegressor):
     r"""Bayesian Factorization Machines for binary classification tasks."""
 
@@ -365,6 +372,12 @@ class MyFMClassifier(MyFMRegressor):
         """
 
         return super().predict(*args, **kwargs)
+
+
+class VariationalFMClassifier(MyFMClassifier):
+    r"""Bayesian Factorization Machines for regression tasks.
+    """
+    _create_function = core.create_train_vfm
 
 
 class MyFMOrderedProbit(MyFMRegressor):

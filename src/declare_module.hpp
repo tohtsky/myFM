@@ -26,7 +26,8 @@ namespace py = pybind11;
 template <typename Real> using FMTrainer = myFM::GibbsFMTrainer<Real>;
 
 template <typename Real>
-std::pair<myFM::Predictor<Real>, std::vector<myFM::FMHyperParameters<Real>>>
+std::tuple<myFM::Predictor<Real>, std::vector<myFM::FMHyperParameters<Real>>,
+           std::vector<Real>>
 create_train_fm(
     size_t n_factor, Real init_std,
     const typename myFM::FM<Real>::SparseMatrix &X,
@@ -42,8 +43,9 @@ create_train_fm(
 }
 
 template <typename Real>
-std::pair<myFM::variational::VariationalPredictor<Real>,
-          myFM::variational::VariationalFMHyperParameters<Real>>
+std::tuple<myFM::variational::VariationalPredictor<Real>,
+           myFM::variational::VariationalFMHyperParameters<Real>,
+           std::vector<Real>>
 create_train_vfm(
     size_t n_factor, Real init_std,
     const typename myFM::FM<Real>::SparseMatrix &X,
@@ -311,7 +313,6 @@ template <typename Real> void declare_functional(py::module &m) {
           }));
 
   py::class_<VPredictor>(m, "VariationalPredictor")
-      .def_readonly("samples", &VPredictor::samples)
       .def("predict", &VPredictor::predict)
       .def(py::pickle(
           [](const VPredictor &predictor) {
@@ -328,7 +329,11 @@ template <typename Real> void declare_functional(py::module &m) {
                                static_cast<TASKTYPE>(t[2].cast<int>()));
             // p->set_samples(std::move(t[3].cast<vector<VFM>>()));
             return p;
-          }));
+          }))
+      .def("weights", [](VPredictor &predictor) {
+        VFM returned = predictor.samples.at(0);
+        return returned;
+      });
 
   py::class_<FMTrainer>(m, "FMTrainer")
       .def(py::init<const SparseMatrix &, const vector<RelationBlock> &,
@@ -351,4 +356,8 @@ template <typename Real> void declare_functional(py::module &m) {
         py::arg("X"), py::arg("relations"), py::arg("y"),
         py::arg("random_seed"), py::arg("learning_config"),
         py::arg("callback"));
+  m.def("mean_var_truncated_normal_left",
+        &myFM::mean_var_truncated_normal_left<Real>);
+  m.def("mean_var_truncated_normal_right",
+        &myFM::mean_var_truncated_normal_right<Real>);
 }

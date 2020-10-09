@@ -28,7 +28,7 @@ public:
   using BaseType = FMHyperParameters<Real>;
   using Vector = typename BaseType::Vector;
   using DenseMatrix = typename BaseType::DenseMatrix;
-  Real alpha_rate;
+  Real alpha_rate = 1;
   Vector mu_w_var;
   Vector lambda_w_rate;
 
@@ -165,17 +165,18 @@ struct VariationalFMTrainer
 public:
   Vector x2s;
   Vector x3sv;
-  Vector e_var;
+  Real e_var_sum;
+  std::vector<Real> elbos;
 
   inline VariationalFMTrainer(const SparseMatrix &X,
                               const vector<RelationBlock> &relations,
                               const Vector &y, int random_seed,
                               Config learning_config)
       : BaseType(X, relations, y, random_seed, learning_config), x2s(X.rows()),
-        x3sv(X.rows()), e_var(X.rows()) {}
+        x3sv(X.rows()), e_var_sum(0), elbos() {}
 
-  inline pair<VariationalPredictor<Real>, HyperType> learn(FMType &fm,
-                                                           HyperType &hyper) {
+  inline std::tuple<VariationalPredictor<Real>, HyperType, std::vector<Real>>
+  learn(FMType &fm, HyperType &hyper) {
     return learn_with_callback(
         fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
   }
@@ -183,7 +184,7 @@ public:
   /**
    *  Main routine for Variational update.
    */
-  inline pair<VariationalPredictor<Real>, HyperType>
+  inline std::tuple<VariationalPredictor<Real>, HyperType, vector<Real>>
   learn_with_callback(FMType &fm, HyperType &hyper,
                       std::function<bool(int, FMType *, HyperType *)> cb) {
     initialize_hyper(fm, hyper);
@@ -198,11 +199,12 @@ public:
         break;
       }
     }
-    pair<VariationalPredictor<Real>, HyperType> result{
+    std::tuple<VariationalPredictor<Real>, HyperType, std::vector<Real>> result{
         {static_cast<size_t>(fm.n_factors), this->dim_all,
          this->learning_config.task_type},
-        hyper};
-    result.first.samples.emplace_back(fm);
+        hyper,
+        this->elbos};
+    std::get<0>(result).samples.emplace_back(fm);
     return result;
   }
 
@@ -235,17 +237,18 @@ public:
     return (first / quad);
   }
 
-  inline void update_alpha(FMType &fm, HyperType &hyper) {
+  inline void update_alpha(const FMType &fm, HyperType &hyper) {
     // If the task is classification, take alpha = 1.
     if ((this->learning_config.task_type == TASKTYPE::CLASSIFICATION)) {
       hyper.alpha = static_cast<Real>(1);
+      hyper.alpha_rate = static_cast<Real>(1);
       return;
     }
 
-    Real e_all = +this->e_train.array().square().sum();
-    e_all += this->e_var.sum();
+    Real e_all = this->e_train.array().square().sum();
+    e_all += this->e_var_sum;
 
-    Real exponent = (this->learning_config.alpha_0 + this->X.rows()) / 2;
+    Real exponent = (this->learning_config.alpha_0 + this->n_train) / 2;
     Real rate = (this->learning_config.beta_0 + e_all) / 2;
     Real new_alpha = exponent / rate;
     hyper.alpha = new_alpha;
@@ -701,15 +704,14 @@ public:
 
   inline void update_e_and_var(const FMType &fm, const HyperType &hyper) {
     this->e_train.array() = fm.w0;
-    this->e_var.array() = fm.w0_var;
+    this->e_var_sum = fm.w0_var * this->n_train;
     for (int train_index = 0; train_index < this->n_train; train_index++) {
       Real &e_ref = this->e_train(train_index);
-      Real &e_var_ref = this->e_var(train_index);
       for (itertype it(this->X, train_index); it; ++it) {
         Real x = it.value();
         auto col = it.col();
         e_ref += x * fm.w(col);
-        e_var_ref += x * x * fm.w_var(col);
+        e_var_sum += x * x * fm.w_var(col);
       }
     }
 
@@ -728,19 +730,18 @@ public:
         for (int inner_index = 0; inner_index < relation_data.X.rows();
              inner_index++) {
           Real &e_ref = relation_cache.q(inner_index);
-          Real &e_var_ref = relation_cache.x2s(inner_index);
           for (itertype it(relation_data.X, inner_index); it; ++it) {
             Real x = it.value();
             auto col = offset + it.col();
             e_ref += x * fm.w(col);
-            e_var_ref += x * x * fm.w_var(col);
+            this->e_var_sum += x * x * fm.w_var(col);
           }
         }
         offset += relation_data.feature_size;
         size_t train_index = 0;
         for (auto i : relation_data.original_to_block) {
           this->e_train(train_index) += relation_cache.q(i);
-          this->e_var(train_index) += relation_cache.x2s(i);
+          this->e_var_sum += relation_cache.x2s(i);
           train_index++;
         }
       }
@@ -817,19 +818,16 @@ public:
           x4sv2 += this->relation_caches[relation_index].x4sv2()(block_index);
         }
         this->e_train(train_index) += 0.5 * (q * q - q_s);
-        this->e_var(train_index) +=
+        this->e_var_sum +=
             (q * q * x2s + 0.5 * x2s * x2s - 2 * x3sv * q - 0.5 * x4s2 + x4sv2);
       }
     }
   }
 
   inline void update_e(FMType &fm, HyperType &hyper) {
-    if (this->learning_config.task_type == TASKTYPE::REGRESSION) {
-      this->update_e_and_var(fm, hyper);
-    } else {
-      fm.predict_score_write_target(this->e_train, this->X, this->relations);
-    }
+    this->update_e_and_var(fm, hyper);
 
+    Real elbo = 0;
     if (this->learning_config.task_type == TASKTYPE::REGRESSION) {
       this->e_train -= this->y;
     } else if (this->learning_config.task_type == TASKTYPE::CLASSIFICATION) {
@@ -838,18 +836,76 @@ public:
            train_data_index++) {
         Real gt = this->y(train_data_index);
         Real pred = this->e_train(train_data_index);
-        Real n;
+        std::tuple<Real, Real, Real> n;
         if (gt > 0) {
-          n = mean_truncated_normal_left(pred);
+          n = mean_var_truncated_normal_left(pred);
         } else {
-          n = mean_truncated_normal_right(pred);
+          n = mean_var_truncated_normal_right(pred);
         }
-        this->e_train(train_data_index) -= n;
+        this->e_train(train_data_index) -= std::get<0>(n);
+        elbo += std::get<2>(n) +
+                (std::get<0>(n) - pred) * (std::get<0>(n) - pred) / 2;
       }
     } else if (this->learning_config.task_type == TASKTYPE::ORDERED) {
       throw std::runtime_error(
           "Ordered Probit Regression  for Variational FM not implemented");
     }
+    elbo += -hyper.alpha *
+            (this->learning_config.beta_0 +
+             this->e_train.array().square().sum() + this->e_var_sum) /
+            2;
+    // - E[log e^{- alpha * alpha_rate}]
+    elbo += hyper.alpha * hyper.alpha_rate * (1 - std::log(hyper.alpha_rate));
+
+    /**
+    weights
+    */
+    elbo += -this->learning_config.gamma_0 * (fm.w0 * fm.w0 + fm.w0_var) +
+            0.5 * std::log(fm.w0_var);
+
+    const vector<vector<size_t>> &group_vs_feature_index =
+        this->learning_config.group_vs_feature_index();
+    size_t group_index = 0;
+    for (const auto &group_feature_indices : group_vs_feature_index) {
+      elbo += 0.5 * std::log(hyper.mu_w_var(group_index));
+      Real mean = hyper.mu_w(group_index);
+      Real rate = this->learning_config.beta_0;
+      for (auto feature_index : group_feature_indices) {
+        auto dev = fm.w(feature_index) - mean;
+        elbo += 0.5 * std::log(fm.w_var(feature_index));
+        rate +=
+            dev * dev + hyper.mu_w_var(group_index) + fm.w_var(feature_index);
+      }
+      elbo += hyper.lambda_w(group_index) *
+              (-rate / 2 + hyper.lambda_w_rate(group_index));
+      elbo -= hyper.lambda_w(group_index) * hyper.lambda_w_rate(group_index) *
+              std::log(hyper.lambda_w_rate(group_index));
+      {
+        auto dev = (hyper.mu_w(group_index) - this->learning_config.mu_0);
+        elbo += -(dev * dev) / 2; // variance cancells out?
+      }
+      for (int r = 0; r < fm.n_factors; r++) {
+        elbo += 0.5 * std::log(hyper.mu_V_var(group_index, r));
+        mean = hyper.mu_V(group_index, r);
+        rate = this->learning_config.beta_0;
+        for (auto feature_index : group_feature_indices) {
+          auto dev = fm.V(feature_index, r) - mean;
+          elbo += 0.5 * std::log(fm.V_var(feature_index, r));
+
+          rate += dev * dev + hyper.mu_V_var(group_index, r) +
+                  fm.V_var(feature_index, r);
+        }
+        elbo += hyper.lambda_V(group_index, r) *
+                (-rate / 2 + hyper.lambda_V_rate(group_index, r));
+        elbo -= hyper.lambda_V(group_index, r) *
+                hyper.lambda_V_rate(group_index, r) *
+                std::log(hyper.lambda_V_rate(group_index, r));
+      }
+      group_index++;
+    }
+
+    std::cout << elbo << std::endl;
+    this->elbos.push_back(elbo);
   }
 }; // namespace variational
 
