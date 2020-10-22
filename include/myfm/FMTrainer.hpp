@@ -6,6 +6,7 @@
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
 #include "HyperParams.hpp"
+#include "LearningHistory.hpp"
 #include "OProbitSampler.hpp"
 #include "definitions.hpp"
 #include "predictor.hpp"
@@ -22,16 +23,18 @@ template <typename RealType>
 struct GibbsFMTrainer
     : public BaseFMTrainer<RealType, class GibbsFMTrainer<RealType>,
                            FM<RealType>, FMHyperParameters<RealType>,
-                           GibbsRelationWiseCache<RealType>> {
+                           GibbsRelationWiseCache<RealType>,
+                           GibbsLearningHistory<RealType>> {
 
   typedef RealType Real;
 
   typedef FM<Real> FMType;
   typedef FMHyperParameters<Real> HyperType;
   typedef GibbsRelationWiseCache<Real> RelationWiseCache;
+  typedef GibbsLearningHistory<Real> LearningHistory;
 
   typedef BaseFMTrainer<RealType, GibbsFMTrainer<RealType>, FMType, HyperType,
-                        RelationWiseCache>
+                        RelationWiseCache, LearningHistory>
       BaseType;
 
   typedef typename BaseType::RelationBlock RelationBlock;
@@ -46,8 +49,8 @@ struct GibbsFMTrainer
 
 public:
   using BaseType::BaseType;
-  inline tuple<Predictor<Real>, vector<HyperType>, vector<Real>>
-  learn(FMType &fm, HyperType &hyper) {
+  inline pair<Predictor<Real>, LearningHistory> learn(FMType &fm,
+                                                      HyperType &hyper) {
     return learn_with_callback(
         fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
   }
@@ -55,27 +58,27 @@ public:
   /**
    *  Main routine for Gibbs sampling.
    */
-  inline tuple<Predictor<Real>, vector<HyperType>, vector<Real>>
+  inline pair<Predictor<Real>, LearningHistory>
   learn_with_callback(FMType &fm, HyperType &hyper,
                       std::function<bool(int, FMType *, HyperType *)> cb) {
-    tuple<Predictor<Real>, vector<HyperType>, vector<Real>> result{
+    std::pair<Predictor<Real>, LearningHistory> result{
         {static_cast<size_t>(fm.n_factors), this->dim_all,
          this->learning_config.task_type},
         {},
-        {}};
+    };
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
 
-    std::get<0>(result).samples.reserve(this->learning_config.n_kept_samples);
+    result.first.samples.reserve(this->learning_config.n_kept_samples);
     for (int mcmc_iteration = 0; mcmc_iteration < this->learning_config.n_iter;
          mcmc_iteration++) {
       this->update_all(fm, hyper);
       if (this->learning_config.n_iter <=
           (mcmc_iteration + this->learning_config.n_kept_samples)) {
-        std::get<0>(result).samples.emplace_back(fm);
+        result.first.samples.emplace_back(fm);
       }
       // for tracing
-      std::get<1>(result).emplace_back(hyper);
+      result.second.hypers.emplace_back(hyper);
 
       bool should_stop = cb(mcmc_iteration, &fm, &hyper);
       if (should_stop) {

@@ -135,21 +135,31 @@ struct VariationalRelationWiseCache
   Vector cache_vector_3;
 };
 
+template <typename Real> struct VariationalLearningHistory {
+  inline VariationalLearningHistory(FMHyperParameters<Real> hyper,
+                                    std::vector<Real> elbos)
+      : hyper(hyper), elbos(elbos) {}
+  FMHyperParameters<Real> hyper;
+  std::vector<Real> elbos;
+};
+
 template <typename RealType>
 struct VariationalFMTrainer
     : public BaseFMTrainer<RealType, class VariationalFMTrainer<RealType>,
                            VariationalFM<RealType>,
                            VariationalFMHyperParameters<RealType>,
-                           VariationalRelationWiseCache<RealType>> {
+                           VariationalRelationWiseCache<RealType>,
+                           VariationalLearningHistory<RealType>> {
 
   typedef RealType Real;
 
   typedef VariationalFM<Real> FMType;
   typedef VariationalFMHyperParameters<Real> HyperType;
   typedef VariationalRelationWiseCache<Real> RelationWiseCache;
+  typedef VariationalLearningHistory<Real> LearningHistory;
 
   typedef BaseFMTrainer<RealType, VariationalFMTrainer<RealType>, FMType,
-                        HyperType, RelationWiseCache>
+                        HyperType, RelationWiseCache, LearningHistory>
       BaseType;
 
   typedef typename BaseType::RelationBlock RelationBlock;
@@ -175,7 +185,7 @@ public:
       : BaseType(X, relations, y, random_seed, learning_config), x2s(X.rows()),
         x3sv(X.rows()), e_var_sum(0), elbos() {}
 
-  inline std::tuple<VariationalPredictor<Real>, HyperType, std::vector<Real>>
+  inline std::pair<VariationalPredictor<Real>, LearningHistory>
   learn(FMType &fm, HyperType &hyper) {
     return learn_with_callback(
         fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
@@ -184,7 +194,7 @@ public:
   /**
    *  Main routine for Variational update.
    */
-  inline std::tuple<VariationalPredictor<Real>, HyperType, vector<Real>>
+  inline std::pair<VariationalPredictor<Real>, LearningHistory>
   learn_with_callback(FMType &fm, HyperType &hyper,
                       std::function<bool(int, FMType *, HyperType *)> cb) {
     initialize_hyper(fm, hyper);
@@ -199,11 +209,10 @@ public:
         break;
       }
     }
-    std::tuple<VariationalPredictor<Real>, HyperType, std::vector<Real>> result{
+    std::pair<VariationalPredictor<Real>, LearningHistory> result{
         {static_cast<size_t>(fm.n_factors), this->dim_all,
          this->learning_config.task_type},
-        hyper,
-        this->elbos};
+        {hyper, this->elbos}};
     std::get<0>(result).samples.emplace_back(fm);
     return result;
   }

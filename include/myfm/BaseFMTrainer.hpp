@@ -14,7 +14,7 @@
 
 namespace myFM {
 template <typename Real, class Derived, class FMType, class HyperType,
-          class RelationWiseCache>
+          class RelationWiseCache, class HistoryType>
 struct BaseFMTrainer {
   // typedef typename Derived::FMType FMType;
   // typedef typename Derived::HyperType HyperType;
@@ -29,7 +29,7 @@ struct BaseFMTrainer {
   typedef FMLearningConfig<Real> Config;
   typedef typename Config::TASKTYPE TASKTYPE;
 
-  typedef pair<Predictor<Real>, vector<HyperType>> learn_result_type;
+  typedef pair<Predictor<Real>, HistoryType> learn_result_type;
 
   typedef OprobitSampler<Real> OprobitSamplerType;
 
@@ -51,7 +51,6 @@ struct BaseFMTrainer {
 
   size_t n_nan_occurred = 0;
 
-public:
   inline BaseFMTrainer(const SparseMatrix &X,
                        const vector<RelationBlock> &relations, int random_seed,
                        Config learning_config) {}
@@ -156,7 +155,6 @@ public:
     update_e_(fm, hyper);
   }
 
-public:
   inline void update_alpha_(FMType &fm, HyperType &hyper) {
     static_cast<Derived &>(*this).update_alpha(fm, hyper);
   }
@@ -194,6 +192,8 @@ public:
   }
 
   const int random_seed;
+
+protected:
   mt19937 gen_;
   // std::vector<OprobitSamplerType> cutpoint_sampler;
 

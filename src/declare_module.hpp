@@ -26,8 +26,7 @@ namespace py = pybind11;
 template <typename Real> using FMTrainer = myFM::GibbsFMTrainer<Real>;
 
 template <typename Real>
-std::tuple<myFM::Predictor<Real>, std::vector<myFM::FMHyperParameters<Real>>,
-           std::vector<Real>>
+std::pair<myFM::Predictor<Real>, myFM::GibbsLearningHistory<Real>>
 create_train_fm(
     size_t n_factor, Real init_std,
     const typename myFM::FM<Real>::SparseMatrix &X,
@@ -43,9 +42,8 @@ create_train_fm(
 }
 
 template <typename Real>
-std::tuple<myFM::variational::VariationalPredictor<Real>,
-           myFM::variational::VariationalFMHyperParameters<Real>,
-           std::vector<Real>>
+std::pair<myFM::variational::VariationalPredictor<Real>,
+          myFM::variational::VariationalLearningHistory<Real>>
 create_train_vfm(
     size_t n_factor, Real init_std,
     const typename myFM::FM<Real>::SparseMatrix &X,
