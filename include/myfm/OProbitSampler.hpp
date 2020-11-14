@@ -1,15 +1,15 @@
-#pragma once 
+#pragma once
 
-#include <iostream>
-#include "util.hpp"
-#include <random>
 #include "Faddeeva/Faddeeva.hh"
+#include "util.hpp"
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
+#include <iostream>
 #include <memory>
+#include <random>
 
-#include <sstream>
 #include <fstream>
+#include <sstream>
 
 namespace myFM {
 template <typename Real> struct OprobitSampler {
@@ -22,6 +22,31 @@ template <typename Real> struct OprobitSampler {
   static constexpr Real SQRT2PI = SQRT2 * SQRTPI;
   static constexpr Real PI = 3.141592653589793;
 
+  OprobitSampler(DenseVector &x, const DenseVector &y, int K,
+                 const std::vector<size_t> &indices, std::mt19937 &rng,
+                 Real reg, Real nu)
+      : x_(x), y_(y), K(K), indices_(indices), reg(reg), nu(nu), rng(rng),
+        zmins(K), zmaxs(K), histogram(K), accept_count(0) {
+    this->alpha_now = DenseVector::Zero(K - 1);
+    this->gamma_now = DenseVector::Zero(K - 1);
+    this->alpha_to_gamma(gamma_now, alpha_now);
+    this->H = DenseMatrix::Zero(K - 1, K - 1);
+    for (auto i : indices_) {
+      int y_label = static_cast<int>(y_(i));
+      if (std::abs(y_label - y(i)) > 1e-3) {
+        throw std::invalid_argument("y has a floating-point element.");
+      }
+      if (y_label < 0) {
+        throw std::invalid_argument("y has a negative element.");
+      }
+      if (y_label >= K) {
+        std::stringstream ss;
+        ss << "y[ " << i << "] is greater than " << (K - 1) << ".";
+        throw std::invalid_argument(ss.str());
+      }
+      histogram[y_label]++;
+    }
+  }
 
   inline Real log_p_mvt(const DenseMatrix &SigmaInverse, const DenseVector mu,
                         Real nu, const DenseVector &x) {
@@ -40,18 +65,19 @@ template <typename Real> struct OprobitSampler {
     Eigen::LLT<DenseMatrix, Eigen::Upper> L(SigmaInverse);
     result = L.matrixU().solve(result);
     result /= std::sqrt(chi_gen(rng) * 2 / nu);
-    if(fix_gamma0){
+    if (fix_gamma0) {
       result(0) = 0;
     }
     return result;
   }
 
-  static inline void jacobian_dgamma_dalpha(DenseMatrix &J, const DenseVector &alpha) {
+  static inline void jacobian_dgamma_dalpha(DenseMatrix &J,
+                                            const DenseVector &alpha) {
     /*
     J_{ij} with i=> alpha, j=>gamma
     */
     J.array() = 0;
-    J(0,0)=1;
+    J(0, 0) = 1;
     if (!fix_gamma0) {
       for (int j = 1; j < alpha.rows(); j++) {
         J(0, j) = 1;
@@ -66,14 +92,16 @@ template <typename Real> struct OprobitSampler {
     // d f / d alpha_0 = (df / d gamma_i) (d gamma_i / d alpha_0 )
   }
 
-  static inline void alpha_to_gamma(DenseVector &target, const DenseVector &alpha) {
+  static inline void alpha_to_gamma(DenseVector &target,
+                                    const DenseVector &alpha) {
     target(0) = alpha(0);
     for (int i = 1; i < alpha.rows(); i++) {
       target(i) = target(i - 1) + std::exp(alpha(i));
     }
   }
 
-  static inline void gamma_to_alpha(DenseVector &target, const DenseVector &gamma) {
+  static inline void gamma_to_alpha(DenseVector &target,
+                                    const DenseVector &gamma) {
     target(0) = gamma(0);
     for (int i = 1; i < gamma.rows(); i++) {
       target(i) = std::log(gamma(i) - gamma(i - 1));
@@ -81,7 +109,8 @@ template <typename Real> struct OprobitSampler {
   }
 
   static inline void safe_ldiff(Real x, Real y, Real &loss, Real &dx, Real &dy,
-                         DenseMatrix *HessianTarget = nullptr, int label = 0) {
+                                DenseMatrix *HessianTarget = nullptr,
+                                int label = 0) {
     // assert(x >= y);
     Real denominator;
     Real exp_factor;
@@ -152,7 +181,8 @@ template <typename Real> struct OprobitSampler {
   }
 
   static inline void safe_lcdf(Real x, Real &loss, Real &dx,
-                        DenseMatrix *HessianTarget = nullptr, int label = 0) {
+                               DenseMatrix *HessianTarget = nullptr,
+                               int label = 0) {
     Real denominator;
     Real exp_factor;
     if (x > 1) {
@@ -217,20 +247,23 @@ template <typename Real> struct OprobitSampler {
 
       if (class_index == 0) {
         z_new = deviation * sample_truncated_normal_right(
-                                rng, (gamma_now(class_index) - pred_score) / deviation) +
+                                rng, (gamma_now(class_index) - pred_score) /
+                                         deviation) +
                 pred_score;
         zmaxs(0) = std::max(zmaxs(0), z_new);
       } else if (class_index == (K - 1)) {
-        z_new = deviation * sample_truncated_normal_left(
-                                rng, (gamma_now(K - 2) - pred_score) / deviation ) +
-                pred_score;
+        z_new =
+            deviation * sample_truncated_normal_left(
+                            rng, (gamma_now(K - 2) - pred_score) / deviation) +
+            pred_score;
         zmins(K - 1) = std::min(zmins(K - 1), z_new);
       } else {
-        z_new = deviation * sample_truncated_normal_twoside(
-                                rng,
-                                (gamma_now(class_index - 1) - pred_score) / deviation,
-                                (gamma_now(class_index) - pred_score ) / deviation) +
-                pred_score;
+        z_new =
+            deviation *
+                sample_truncated_normal_twoside(
+                    rng, (gamma_now(class_index - 1) - pred_score) / deviation,
+                    (gamma_now(class_index) - pred_score) / deviation) +
+            pred_score;
         zmins(class_index) = std::min(zmins(class_index), z_new);
         zmaxs(class_index) = std::max(zmaxs(class_index), z_new);
       }
@@ -238,33 +271,8 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  OprobitSampler(DenseVector &x, const DenseVector &y, int K,
-                 const std::vector<size_t> &indices, std::mt19937 &rng)
-      : x_(x), y_(y), K(K), indices_(indices), rng(rng), zmins(K), zmaxs(K),
-      histogram(K){
-    this->alpha_now = DenseVector::Zero(K - 1);
-    this->gamma_now = DenseVector::Zero(K - 1);
-    this->alpha_to_gamma(gamma_now, alpha_now);
-    this->H = DenseMatrix::Zero(K - 1, K - 1);
-    for (auto i : indices_) {
-      int y_label = static_cast<int>(y_(i));
-      if (std::abs(y_label - y(i)) > 1e-3) {
-        throw std::invalid_argument("y has a floating-point element.");
-      }
-      if (y_label < 0) {
-        throw std::invalid_argument("y has a negative element.");
-      }
-      if (y_label >= K) {
-        std::stringstream ss;
-        ss << "y[ " << i << "] is greater than " << (K - 1) << ".";
-        throw std::invalid_argument(ss.str());
-      }
-      histogram[y_label]++;
-    }
-  }
-
   inline void start_sample() {
-    DenseVector alpha_hat = DenseVector::Zero(K-1);
+    DenseVector alpha_hat = DenseVector::Zero(K - 1);
     find_minimum(alpha_hat);
     alpha_now = alpha_hat;
     alpha_to_gamma(gamma_now, alpha_now);
@@ -278,9 +286,7 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-
-
-  inline void find_minimum(DenseVector & alpha_hat, bool verbose=false) {
+  inline void find_minimum(DenseVector &alpha_hat, bool verbose = false) {
     int max_iter = 10000;
     Real epsilon = 1e-5;
     Real epsilon_rel = 1e-5;
@@ -296,10 +302,10 @@ template <typename Real> struct OprobitSampler {
     while (true) {
       if (first) {
         ll_current = (*this)(alpha_hat, dalpha, &H);
-        if(verbose){
-          print_to_stream(std::cout, "ll_current = ",
-           ll_current, "\ndalpha = ", dalpha);
-           std::cout << std::endl;
+        if (verbose) {
+          print_to_stream(std::cout, "ll_current = ", ll_current,
+                          "\ndalpha = ", dalpha);
+          std::cout << std::endl;
         }
       }
       {
@@ -307,7 +313,8 @@ template <typename Real> struct OprobitSampler {
         Real alpha2 = alpha_hat.norm();
         Real dalpha2 = dalpha.norm();
         if (verbose) {
-          print_to_stream(std::cout, "ll = ", ll_current, "\nalpha_hat =",  alpha_hat);
+          print_to_stream(std::cout, "ll = ", ll_current,
+                          "\nalpha_hat =", alpha_hat);
           std::cout << std::endl;
 
           print_to_stream(std::cout, "dalpha2 = ", dalpha2);
@@ -320,13 +327,12 @@ template <typename Real> struct OprobitSampler {
       }
 
       direction = -H.llt().solve(dalpha);
-      if(verbose){
+      if (verbose) {
         print_to_stream(std::cout, "H = ", H);
-           std::cout << std::endl;
+        std::cout << std::endl;
 
         print_to_stream(std::cout, "direction = ", direction);
-           std::cout << std::endl;
-
+        std::cout << std::endl;
       }
 
       Real step_size = 1;
@@ -336,7 +342,7 @@ template <typename Real> struct OprobitSampler {
         Real ll_new;
         try {
           ll_new = (*this)(alpha_new, dalpha, &H);
-        } catch(std::runtime_error){
+        } catch (std::runtime_error) {
           step_size /= 2;
           continue;
         }
@@ -393,6 +399,7 @@ template <typename Real> struct OprobitSampler {
     if (u < test_ratio) {
       alpha_now = alpha_candidate;
       alpha_to_gamma(gamma_now, alpha_now);
+      accept_count++;
       return true;
     } else {
       return false;
@@ -442,20 +449,20 @@ template <typename Real> struct OprobitSampler {
           }
         }
       }
-      H(0, 0) -= alpha_0_reg;
-      for(int m = 1; m < (K-1); m++){
-        H(m, m) -= alpha_reg;
+      H(0, 0) -= reg;
+      for (int m = 1; m < (K - 1); m++) {
+        H(m, m) -= reg;
       }
       H.array() *= -1;
       if (H.hasNaN()) {
         fail_dump();
-        throw std::runtime_error(
-            print_to_string(__FILE__, ":", __LINE__, " H has NaN, alpha = ", alpha));
+        throw std::runtime_error(print_to_string(
+            __FILE__, ":", __LINE__, " H has NaN, alpha = ", alpha));
       }
     }
-    if(fix_gamma0){
+    if (fix_gamma0) {
       dalpha(0) = 0;
-      if(HessianTarget!=nullptr){
+      if (HessianTarget != nullptr) {
         (*HessianTarget).row(0).array() = 0;
         (*HessianTarget).col(0).array() = 0;
         (*HessianTarget)(0, 0) = 1;
@@ -464,16 +471,16 @@ template <typename Real> struct OprobitSampler {
     dalpha = -dGammadAlpha * dalpha;
     if (dalpha.hasNaN()) {
       fail_dump();
-      throw std::runtime_error(
-          print_to_string(__FILE__, ":", __LINE__, " dalpha has NaN, alpha = ", alpha));
+      throw std::runtime_error(print_to_string(
+          __FILE__, ":", __LINE__, " dalpha has NaN, alpha = ", alpha));
     }
 
-    dalpha(0) += alpha_0_reg * alpha(0);
-    ll -= 0.5 * alpha_0_reg * alpha(0) * alpha(0);
-    for(int m = 1; m < (K-1); m++){
-      dalpha(m) += alpha_reg * alpha(m);
-      ll -= 0.5 * alpha_reg * alpha(m) * alpha(m);
-    } 
+    dalpha(0) += reg * alpha(0);
+    ll -= 0.5 * reg * alpha(0) * alpha(0);
+    for (int m = 1; m < (K - 1); m++) {
+      dalpha(m) += reg * alpha(m);
+      ll -= 0.5 * reg * alpha(m) * alpha(m);
+    }
     return -ll;
   }
 
@@ -502,22 +509,22 @@ template <typename Real> struct OprobitSampler {
     show_info(fail_log);
   }
 
-  DenseVector& x_;
-  const DenseVector & y_;
+  DenseVector &x_;
+  const DenseVector &y_;
 
   int K;
   const std::vector<size_t> indices_;
   Real tune = 1;
-  Real nu = 5;
-  Real alpha_0_reg = .01;
-  Real alpha_reg = .01;
-  std::mt19937& rng;
+  Real nu;
+  Real reg;
+  std::mt19937 &rng;
   DenseVector alpha_now;
   DenseVector gamma_now;
   DenseMatrix H;
   static constexpr bool fix_gamma0 = false;
   DenseVector zmins, zmaxs;
   std::vector<size_t> histogram;
+  size_t accept_count;
 };
 
-} // namespace myfm
+} // namespace myFM

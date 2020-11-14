@@ -85,6 +85,9 @@ public:
         break;
       }
     }
+    for (OprobitSamplerType &cs : cutpoint_sampler) {
+      result.second.n_mh_accept.emplace_back(cs.accept_count);
+    }
     return result;
   }
 
@@ -104,8 +107,9 @@ public:
       int i = 0;
       for (auto &config : this->learning_config.cutpoint_groups()) {
         fm.cutpoints.emplace_back(config.first - 1);
-        cutpoint_sampler.emplace_back(this->e_train, this->y, config.first,
-                                      config.second, this->gen_);
+        cutpoint_sampler.emplace_back(
+            this->e_train, this->y, config.first, config.second, this->gen_,
+            this->learning_config.reg_0, this->learning_config.nu_oprobit);
         cutpoint_sampler[i].start_sample();
         cutpoint_sampler[i].alpha_to_gamma(fm.cutpoints[i],
                                            cutpoint_sampler[i].alpha_now);
@@ -217,12 +221,10 @@ public:
   }
 
   inline void update_w0(FMType &fm, HyperType &hyper) {
-    /*
-    if ( (learning_config.task_type == TASKTYPE::ORDERED) &&
-    (learning_config.cutpoint_sample_method ==
-    CutpointSampleMethod::AlbertChib01)) { fm.w0 = 0; return;
+    if (this->learning_config.task_type == TASKTYPE::ORDERED) {
+      fm.w0 = 0;
+      return;
     }
-    */
     Real w0_lin_term = hyper.alpha * (fm.w0 - this->e_train.array()).sum();
     Real w0_quad_term =
         hyper.alpha * this->n_train + this->learning_config.reg_0;

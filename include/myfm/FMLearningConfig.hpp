@@ -3,6 +3,7 @@
 #include "OProbitSampler.hpp"
 #include "definitions.hpp"
 #include "util.hpp"
+#include <cstddef>
 #include <set>
 #include <tuple>
 #include <vector>
@@ -14,14 +15,15 @@ public:
   using CutpointGroupType = vector<pair<size_t, vector<size_t>>>;
 
   inline FMLearningConfig(Real alpha_0, Real beta_0, Real gamma_0, Real mu_0,
-                          Real reg_0, TASKTYPE task_type,
+                          Real reg_0, TASKTYPE task_type, Real nu_oprobit,
                           const vector<size_t> &group_index, int n_iter,
                           int n_kept_samples, Real cutpoint_scale,
                           const CutpointGroupType &cutpoint_groups)
       : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0),
-        reg_0(reg_0), task_type(task_type), n_iter(n_iter),
-        n_kept_samples(n_kept_samples), cutpoint_scale(cutpoint_scale),
-        group_index_(group_index), cutpoint_groups_(cutpoint_groups) {
+        reg_0(reg_0), task_type(task_type), nu_oprobit(nu_oprobit),
+        n_iter(n_iter), n_kept_samples(n_kept_samples),
+        cutpoint_scale(cutpoint_scale), group_index_(group_index),
+        cutpoint_groups_(cutpoint_groups) {
 
     /* check group_index consistency */
     set<size_t> all_index(group_index.begin(), group_index.end());
@@ -60,6 +62,7 @@ public:
   const Real reg_0;
 
   const TASKTYPE task_type;
+  const Real nu_oprobit;
 
   const int n_iter, n_kept_samples;
 
@@ -93,6 +96,7 @@ public:
     int n_iter = 100;
     int n_kept_samples = 10;
     TASKTYPE task_type = TASKTYPE::REGRESSION;
+    Real nu_oprobit = 5;
     vector<size_t> group_index;
     Real cutpoint_scale = 10;
     CutpointGroupType cutpoint_groups;
@@ -152,6 +156,11 @@ public:
       return set_group_index(default_group_index);
     }
 
+    inline Builder &set_nu_oprobit(size_t nu_oprobit) {
+      this->nu_oprobit = nu_oprobit;
+      return *this;
+    }
+
     inline Builder &set_cutpoint_scale(Real cutpoint_scale) {
       this->cutpoint_scale = cutpoint_scale;
       return *this;
@@ -165,7 +174,7 @@ public:
 
     FMLearningConfig build() {
       return FMLearningConfig(alpha_0, beta_0, gamma_0, mu_0, reg_0, task_type,
-                              group_index, n_iter, n_kept_samples,
+                              nu_oprobit, group_index, n_iter, n_kept_samples,
                               cutpoint_scale, this->cutpoint_groups);
     }
 

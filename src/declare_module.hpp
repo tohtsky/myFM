@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <functional>
 #include <iostream>
 #include <random>
@@ -14,6 +15,7 @@
 #include "myfm/FM.hpp"
 #include "myfm/FMLearningConfig.hpp"
 #include "myfm/FMTrainer.hpp"
+#include "myfm/LearningHistory.hpp"
 #include "myfm/OProbitSampler.hpp"
 #include "myfm/definitions.hpp"
 #include "myfm/util.hpp"
@@ -66,6 +68,8 @@ template <typename Real> void declare_functional(py::module &m) {
   using VFM = myFM::variational::VariationalFM<Real>;
   using Hyper = myFM::FMHyperParameters<Real>;
   using VHyper = myFM::variational::VariationalFMHyperParameters<Real>;
+  using History = myFM::GibbsLearningHistory<Real>;
+  using VHistory = myFM::variational::VariationalLearningHistory<Real>;
   using SparseMatrix = typename FM::SparseMatrix;
   using FMLearningConfig = typename myFM::FMLearningConfig<Real>;
   using Vector = typename FM::Vector;
@@ -128,6 +132,7 @@ template <typename Real> void declare_functional(py::module &m) {
                 t[0].cast<vector<size_t>>(),
                 t[1].cast<typename RelationBlock::SparseMatrix>());
           }));
+
   py::class_<ConfigBuilder>(m, "ConfigBuilder")
       .def(py::init<>())
       .def("set_alpha_0", &ConfigBuilder::set_alpha_0)
@@ -138,6 +143,7 @@ template <typename Real> void declare_functional(py::module &m) {
       .def("set_n_iter", &ConfigBuilder::set_n_iter)
       .def("set_n_kept_samples", &ConfigBuilder::set_n_kept_samples)
       .def("set_task_type", &ConfigBuilder::set_task_type)
+      .def("set_nu_oprobit", &ConfigBuilder::set_nu_oprobit)
       .def("set_group_index", &ConfigBuilder::set_group_index)
       .def("set_identical_groups", &ConfigBuilder::set_identical_groups)
       .def("set_cutpoint_scale", &ConfigBuilder::set_cutpoint_scale)
@@ -347,6 +353,39 @@ template <typename Real> void declare_functional(py::module &m) {
       .def("create_Hyper", &VFMTrainer::create_Hyper)
       .def("learn", &VFMTrainer::learn);
 
+  py::class_<History>(m, "LearningHistory")
+      .def_readonly("hypers", &History::hypers)
+      .def_readonly("train_log_losses", &History::train_log_losses)
+      .def_readonly("n_mh_accept", &History::n_mh_accept)
+      .def(py::pickle(
+          [](const History &h) {
+            return py::make_tuple(h.hypers, h.train_log_losses, h.n_mh_accept);
+          },
+          [](py::tuple t) {
+            if (t.size() != 3) {
+              throw std::runtime_error("invalid state for LearningHistory.");
+            }
+            History *result = new History();
+            result->hypers = t[0].cast<vector<Hyper>>();
+            result->train_log_losses = t[1].cast<vector<Real>>();
+            result->n_mh_accept = t[2].cast<vector<size_t>>();
+            return result;
+          }));
+
+  py::class_<VHistory>(m, "VLearningHistory")
+      .def_readonly("hypers", &VHistory::hyper)
+      .def_readonly("elbos", &VHistory::elbos)
+      .def(py::pickle(
+          [](const VHistory &h) { return py::make_tuple(h.hyper, h.elbos); },
+          [](py::tuple t) {
+            if (t.size() != 2) {
+              throw std::runtime_error(
+                  "invalid state for VariationalLearningHistory.");
+            }
+            VHistory *result =
+                new VHistory(t[0].cast<Hyper>(), t[1].cast<vector<Real>>());
+            return result;
+          }));
   m.def("create_train_fm", &create_train_fm<Real>, "create and train fm.",
         py::return_value_policy::move);
   m.def("create_train_vfm", &create_train_vfm<Real>, "create and train fm.",
