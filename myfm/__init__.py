@@ -8,6 +8,8 @@ MyFMRegressor = MyFMGibbsRegressor
 MyFMClassifier = MyFMGibbsClassifier
 
 __all__ = [
+    "core",
+    "RelationBlock",
     "MyFMOrderedProbit",
     "MyFMRegressor",
     "MyFMClassifier",
