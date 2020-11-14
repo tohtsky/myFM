@@ -21,7 +21,7 @@ def train_test_split_with_kfold(
     if not ((0 <= fold) and (fold < K)):
         raise ValueError("0 <= fold < K")
     kf = KFold(K, shuffle=True, random_state=random_state)
-    for i, (tr, te) in kf.split(df):
+    for i, (tr, te) in enumerate(kf.split(df)):
         if i == fold:
             return df.iloc[tr], df.iloc[te]
     raise RuntimeError("should not reach here.")
@@ -37,10 +37,6 @@ class DataLoaderBase(ABC):
     @abstractproperty
     def DEFAULT_PATH(self) -> str:
         raise NotImplementedError("must be implemented")
-
-    @abstractmethod
-    def _read_interaction(self, byte_stream: bytes) -> pd.DataFrame:
-        raise NotImplementedError("must me implemented")
 
     def __init__(self, zippath: Optional[str] = None):
         if zippath is None:

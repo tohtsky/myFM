@@ -1,17 +1,24 @@
+from abc import ABC, abstractmethod, abstractproperty
 from collections import OrderedDict
+from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, Union
+
 import numpy as np
-from scipy import sparse as sps
 from tqdm import tqdm
-from ._myfm import RelationBlock, FMLearningConfig, TaskType, ConfigBuilder
+from scipy import sparse as sps
+
 from . import _myfm
-from abc import ABC, abstractclassmethod, abstractproperty
-
-from typing import Union, List, Optional, Callable, Tuple, Any, TypeVar, Generic
-
+from ._myfm import ConfigBuilder, FMLearningConfig, RelationBlock, TaskType
 
 REAL = np.float64
 
 ArrayLike = Union[np.ndarray, sps.csr_matrix]
+
+
+def _infinite_int_generator():
+    i: int = 0
+    while True:
+        yield i
+        i += 1
 
 
 def check_data_consistency(
@@ -142,7 +149,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         )
 
     def _create_default_callback(
-        cls,
+        self,
         pbar: tqdm,
         callback_default_freq: int,
         do_test: float,
@@ -152,16 +159,17 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
     ) -> Callable[[int, FM, Hyper], bool]:
         def callback(i: int, fm: FM, hyper: Hyper) -> bool:
             pbar.update(1)
+
             if i % callback_default_freq:
                 return False
 
-            log_str = cls._status_report(fm, hyper)
+            log_str = self._status_report(fm, hyper)
 
             if do_test:
-                pred_this = cls._process_score(
+                pred_this = self._process_score(
                     fm.predict_score(X_test, X_rel_test or [])
                 )
-                val_results = cls._measure_score(pred_this, y_test)
+                val_results = self._measure_score(pred_this, y_test)
                 for key, metric in val_results.items():
                     log_str += " {}_this: {:.2f}".format(key, metric)
 
@@ -184,7 +192,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         group_shapes: Optional[List[int]] = None,
         callback: Optional[Callable[[int, FM, Hyper], bool]] = None,
         config_builder: Optional[ConfigBuilder] = None,
-        callback_default_freq: int = 5,
+        callback_default_freq: int = 10,
     ) -> "MyFMBase":
         """Performs Gibbs sampling to fit the data.
 
@@ -296,21 +304,17 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
                 y_test=y_test,
             )
 
-        try:
-            self.predictor_, self.history_ = self.__class__._create_function(
-                self.rank,
-                self.init_stdev,
-                X,
-                X_rel,
-                y,
-                self.random_seed,
-                config,
-                callback,
-            )
-            return self
-        finally:
-            if pbar is not None:
-                pbar.close()
+        self.predictor_, self.history_ = self.__class__._create_function(
+            self.rank,
+            self.init_stdev,
+            X,
+            X_rel,
+            y,
+            self.random_seed,
+            config,
+            callback,
+        )
+        return self
 
     def _set_tasktype(self, config_builder: ConfigBuilder) -> None:
         config_builder.set_task_type(self._task_type)
@@ -355,18 +359,16 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         else:
             return self.predictor_.predict(X, X_rel)
 
-    @abstractclassmethod
+    @abstractmethod
     def _status_report(cls, fm: FM, hyper: Hyper):
         raise NotImplementedError("must implement status report")
 
-    @classmethod
     def _process_score(cls, y):
         return y
 
-    @classmethod
     def _process_y(cls, y):
         return y.astype(np.float64)
 
-    @classmethod
+    @abstractmethod
     def _measure_score(cls, prediction: np.ndarray, y: np.ndarray):
         raise NotImplementedError("")

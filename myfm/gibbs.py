@@ -152,14 +152,12 @@ class MyFMGibbsRegressor(MyFMGibbsBase):
             config_builder=config_builder,
         )
 
-    @classmethod
-    def _status_report(cls, fm: FM, hyper: FMHyperParameters):
+    def _status_report(self, fm: FM, hyper: FMHyperParameters):
         log_str = "alpha = {:.2f} ".format(hyper.alpha)
         log_str += "w0 = {:.2f} ".format(fm.w0)
         return log_str
 
-    @classmethod
-    def _measure_score(cls, prediction: np.ndarray, y: np.ndarray):
+    def _measure_score(self, prediction: np.ndarray, y: np.ndarray):
         result = OrderedDict()
         result["rmse"] = ((y - prediction) ** 2).mean() ** 0.5
         result["mae"] = np.abs(y - prediction).mean()
@@ -173,16 +171,13 @@ class MyFMGibbsClassifier(MyFMGibbsBase):
     def _task_type(self) -> TaskType:
         return TaskType.CLASSIFICATION
 
-    @classmethod
-    def _process_score(cls, score):
+    def _process_score(self, score):
         return std_cdf(score)
 
-    @classmethod
-    def _process_y(cls, y):
+    def _process_y(self, y):
         return y.astype(np.float64) * 2 - 1
 
-    @classmethod
-    def _measure_score(cls, prediction, y):
+    def _measure_score(self, prediction, y):
         result = OrderedDict()
         lp = np.log(prediction + 1e-15)
         l1mp = np.log(1 - prediction + 1e-15)
@@ -191,8 +186,7 @@ class MyFMGibbsClassifier(MyFMGibbsBase):
         result["accuracy"] = np.mean((prediction >= 0.5) == gt)
         return result
 
-    @classmethod
-    def _status_report(cls, fm, hyper):
+    def _status_report(self, fm, hyper):
         log_str = "w0 = {:.2f} ".format(fm.w0)
         return log_str
 
@@ -337,23 +331,18 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             callback_default_freq=callback_default_freq,
         )
 
-    @classmethod
-    def _process_score(cls, score):
+    def _process_score(self, score):
         return (1 + special.erf(score * np.sqrt(0.5))) / 2
 
-    @classmethod
-    def _process_y(cls, y):
+    def _process_y(self, y):
         y_as_float = y.astype(np.float64)
         assert y.min() >= 0
         return y_as_float
 
-    @classmethod
-    def _measure_score(cls, prediction, y):
+    def _measure_score(self, prediction, y):
         raise NotImplementedError("not implemented")
 
-    @classmethod
-    def _status_report(cls, fm, hyper):
-
+    def _status_report(cls, fm: FM, hyper: FMHyperParameters):
         log_str = "w0= {:2f}".format(fm.w0)
         if len(fm.cutpoints) == 1:
             log_str += ", cutpoint = {} ".format(

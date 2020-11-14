@@ -1,16 +1,14 @@
-from myfm.gibbs import MyFMOrderedProbit
-from typing import List, Dict, Union
-import pandas as pd
+import json
 import argparse
-import pickle
-import numpy as np
+from myfm.gibbs import MyFMGibbsRegressor, MyFMOrderedProbit
+from typing import Dict, List, Union
+
 import myfm
-from myfm import RelationBlock, MyFMOrderedProbit, MyFMRegressor
-from myfm.utils.benchmark_data import MovieLens10MDataManager
-from myfm.utils.callbacks.libfm import (
-    LibFMLikeCallbackBase,
-    OrderedProbitCallback,
-    RegressionCallback,
+import numpy as np
+import pandas as pd
+from myfm import RelationBlock
+from myfm.utils.benchmark_data.movielens100k_data import (
+    MovieLens100kDataManager,
 )
 from myfm.utils.encoders import CategoryValueToSparseEncoder
 from scipy import sparse as sps
@@ -20,7 +18,7 @@ if __name__ == "__main__":
         description="""
     This script apply the method and evaluation protocal proposed in
     "On the Difficulty of Evaluating Baselines" paper by Rendle et al,
-    against smaller Movielens 1M dataset, using myFM.
+    against smaller Movielens 100K dataset, using myFM.
     """,
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
@@ -28,7 +26,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "fold_index",
         type=int,
-        help="which index set to use as a test within 10-fold CV.",
+        help="which index set to use as a test within 5-fold predefined CV.",
+        default=1,
     )
     parser.add_argument(
         "-a",
@@ -42,14 +41,16 @@ if __name__ == "__main__":
         "-i", "--iteration", type=int, help="mcmc iteration", default=512
     )
     parser.add_argument(
-        "-d", "--dimension", type=int, help="fm embedding dimension", default=128
+        "-d", "--dimension", type=int, help="fm embedding dimension", default=10
     )
+
     parser.add_argument(
         "--stricter_protocol",
         action="store_true",
         help="Whether to use the \"stricter\" protocol (i.e., don't include the test set implicit information) stated in [Rendle, '19].",
-        default=False,
+        default=True,
     )
+
     parser.add_argument(
         "-f",
         "--feature",
@@ -58,6 +59,7 @@ if __name__ == "__main__":
         help="feature set used in the experiment.",
         default="timesvdpp_flipped",
     )
+
     args = parser.parse_args()
 
     random_seed = 42
@@ -93,12 +95,12 @@ if __name__ == "__main__":
     FOLD_INDEX = args.fold_index
     ITERATION = args.iteration
     DIMENSION = args.dimension
-    if FOLD_INDEX < 0 or FOLD_INDEX >= 10:
-        raise ValueError("fold_index must be in the range(10).")
+    if FOLD_INDEX < 1 or FOLD_INDEX >= 6:
+        raise ValueError("fold_index must be in the range(1, 6).")
     ALGORITHM = args.algorithm
-    data_manager = MovieLens10MDataManager()
-    df_train, df_test = data_manager.load_rating_kfold_split(
-        10, FOLD_INDEX, random_seed
+    data_manager = MovieLens100kDataManager()
+    df_train, df_test = data_manager.load_rating_predifined_split(
+        fold=FOLD_INDEX
     )
 
     if ALGORITHM == "oprobit":
@@ -129,15 +131,15 @@ if __name__ == "__main__":
         implicit_data_source.timestamp.dt.date.values
     )
 
-    def categorize_date(df):
+    def categorize_date(df: pd.DataFrame):
         return date_encoder.to_sparse(df.timestamp.dt.date.values)
 
     movie_vs_watched: Dict[int, List[int]] = dict()
     user_vs_watched: Dict[int, List[int]] = dict()
 
     for row in implicit_data_source.itertuples():
-        user_id = row.user_id
-        movie_id = row.movie_id
+        user_id: int = row.user_id
+        movie_id: int = row.movie_id
         movie_vs_watched.setdefault(movie_id, list()).append(user_id)
         user_vs_watched.setdefault(user_id, list()).append(movie_id)
 
@@ -171,6 +173,7 @@ if __name__ == "__main__":
         i for i, size in enumerate(feature_group_sizes) for _ in range(size)
     ]
 
+    # given user/movie ids, add additional infos and return it as sparse
     def augment_user_id(user_ids: List[int]) -> sps.csr_matrix:
         X = user_to_internal.to_sparse(user_ids)
         if not use_iu:
@@ -235,41 +238,33 @@ if __name__ == "__main__":
 
     trace_path = "rmse_{0}_fold_{1}.csv".format(ALGORITHM, FOLD_INDEX)
 
-    callback: LibFMLikeCallbackBase
-    fm: Union[MyFMRegressor, MyFMOrderedProbit]
+    fm: Union[MyFMGibbsRegressor, MyFMOrderedProbit]
     if ALGORITHM == "regression":
         fm = myfm.MyFMRegressor(rank=DIMENSION)
-        callback = RegressionCallback(
-            ITERATION,
-            X_date_test,
-            df_test.rating.values,
-            X_rel_test=test_blocks,
-            clip_min=0.5,
-            clip_max=5.0,
-            trace_path=trace_path,
-        )
     else:
         fm = myfm.MyFMOrderedProbit(rank=DIMENSION)
-        callback = OrderedProbitCallback(
-            ITERATION,
-            X_date_test,
-            df_test.rating.values,
-            n_class=5,
-            X_rel_test=test_blocks,
-            trace_path=trace_path,
-        )
 
-    with callback:
-        fm.fit(
-            X_date_train,
-            df_train.rating.values,
-            X_rel=train_blocks,
-            grouping=grouping,
-            n_iter=callback.n_iter,
-            callback=callback,
-            n_kept_samples=1,
+    fm.fit(
+        X_date_train,
+        df_train.rating.values,
+        X_rel=train_blocks,
+        grouping=grouping,
+        n_iter=ITERATION,
+        n_kept_samples=ITERATION,
+    )
+    if isinstance(fm, MyFMGibbsRegressor):
+        rmse = (
+            (df_test.rating.values - fm.predict(X_date_test, test_blocks)) ** 2
+        ).mean() ** 0.5
+    else:
+        # mean rating
+        prediction = fm.predict_proba(X_date_test, test_blocks).dot(
+            np.arange(5)
         )
+        rmse = ((df_test.rating.values - prediction) ** 2).mean() ** 0.5
+
+    print("RMSE = {rmse}".format(rmse=rmse))
     with open(
-        "callback_result_{0}_fold_{1}.pkl".format(ALGORITHM, FOLD_INDEX), "wb"
+        "rmse_result_{0}_fold_{1}.json".format(ALGORITHM, FOLD_INDEX), "w"
     ) as ofs:
-        pickle.dump(callback, ofs)
+        json.dump(dict(rmse=rmse), ofs)

@@ -10,17 +10,6 @@ class MovieLens1MDataManager(MovieLens100kDataManager):
     DOWNLOAD_URL = "http://files.grouplens.org/datasets/movielens/ml-1m.zip"
     DEFAULT_PATH = os.path.expanduser("~/.ml-1m.zip")
 
-    def _read_interaction(self, byte_stream: bytes) -> pd.DataFrame:
-        with BytesIO(byte_stream) as ifs:
-            data = pd.read_csv(
-                ifs,
-                sep="\t",
-                header=None,
-                names=["user_id", "movie_id", "rating", "timestamp"],
-            )
-            data["timestamp"] = pd.to_datetime(data["timestamp"], unit="s")
-            return data
-
     def load_rating_all(self) -> pd.DataFrame:
         """Read all (1M) interactions.
 

@@ -1,113 +1,139 @@
+from myfm.gibbs import MyFMOrderedProbit
+from typing import List, Dict, Union
 import pandas as pd
 import argparse
 import pickle
 import numpy as np
-from sklearn.preprocessing import OneHotEncoder
-from sklearn.model_selection import KFold
 import myfm
-from myfm import RelationBlock
+from myfm import RelationBlock, MyFMOrderedProbit, MyFMRegressor
 from myfm.utils.benchmark_data import MovieLens1MDataManager
-from myfm.utils.callbacks.libfm import OrderedProbitCallback, RegressionCallback
+from myfm.utils.callbacks.libfm import (
+    LibFMLikeCallbackBase,
+    OrderedProbitCallback,
+    RegressionCallback,
+)
+from myfm.utils.encoders import CategoryValueToSparseEncoder
 from scipy import sparse as sps
-from mapper import DefaultMapper
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description="""
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="""
     This script apply the method and evaluation protocal proposed in
     "On the Difficulty of Evaluating Baselines" paper by Rendle et al,
     against smaller Movielens 1M dataset, using myFM.
     """,
-    formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
 
-    parser.add_argument('fold_index', type=int, help="which index set to use as a test within 10-fold CV.")
-    parser.add_argument('-a', '--algorithm', type=str, choices=["regression", "oprobit"], default="regression", help="specify the output type.")
-    parser.add_argument('-i', '--iteration', type=int, help="mcmc iteration", default=512)
-    parser.add_argument('-d', '--dimension', type=int, help="fm embedding dimension", default=32)
-    parser.add_argument('--stricter_protocol', action="store_true", help="Whether to use the \"stricter\" protocol (i.e., don't include the test set implicit information) stated in [Rendle, '19].", default=True)
     parser.add_argument(
-        '-f', '--feature', type=str,
-        choices=['mf', 'svdpp', 'timesvd', 'timesvdpp', 'timesvdpp_flipped'],
+        "fold_index",
+        type=int,
+        help="which index set to use as a test within 10-fold CV.",
+    )
+    parser.add_argument(
+        "-a",
+        "--algorithm",
+        type=str,
+        choices=["regression", "oprobit"],
+        default="regression",
+        help="specify the output type.",
+    )
+    parser.add_argument(
+        "-i", "--iteration", type=int, help="mcmc iteration", default=512
+    )
+    parser.add_argument(
+        "-d", "--dimension", type=int, help="fm embedding dimension", default=32
+    )
+    parser.add_argument(
+        "--stricter_protocol",
+        action="store_true",
+        help="Whether to use the \"stricter\" protocol (i.e., don't include the test set implicit information) stated in [Rendle, '19].",
+        default=True,
+    )
+    parser.add_argument(
+        "-f",
+        "--feature",
+        type=str,
+        choices=["mf", "svdpp", "timesvd", "timesvdpp", "timesvdpp_flipped"],
         help="feature set used in the experiment.",
-        default='timesvdpp_flipped'
+        default="timesvdpp_flipped",
     )
     args = parser.parse_args()
 
     random_seed = 42
 
     # Additional features.
-    # We add 
+    # We add
     # 1. date of evaluation as categorical variables
     # 2. "all users who have evaluated a movie in the train set" or
     # 3. "all movies rated by a user" as a feature of user/movie.
-    if args.feature == 'mf':
+    if args.feature == "mf":
         use_date = False
         use_iu = False
         use_ii = False
-    elif args.feature == 'svdpp':
+    elif args.feature == "svdpp":
         use_date = False
         use_iu = True
         use_ii = False
-    elif args.feature == 'timesvd':
+    elif args.feature == "timesvd":
         use_date = True
         use_iu = False
         use_ii = False
-    elif args.feature == 'timesvdpp':
+    elif args.feature == "timesvdpp":
         use_date = True
         use_iu = True
         use_ii = False
-    elif args.feature == 'timesvdpp_flipped':
+    elif args.feature == "timesvdpp_flipped":
         use_date = True  # use date info or not
         use_iu = True  # use implicit user feature
         use_ii = True  # use implicit item feature
     else:
-        raise ValueError('unknown feature set specified.')
+        raise ValueError("unknown feature set specified.")
 
     FOLD_INDEX = args.fold_index
     ITERATION = args.iteration
     DIMENSION = args.dimension
     if FOLD_INDEX < 0 or FOLD_INDEX >= 10:
-        raise ValueError('fold_index must be in the range(10).')
+        raise ValueError("fold_index must be in the range(10).")
     ALGORITHM = args.algorithm
     data_manager = MovieLens1MDataManager()
-    df = pd.concat(data_manager.load_rating())
+    df_train, df_test = data_manager.load_rating_kfold_split(
+        10, FOLD_INDEX, random_seed
+    )
 
     if ALGORITHM == "oprobit":
         # interpret the rating (1, 2, 3, 4, 5) as class (0, 1, 2, 3, 4).
-        df.rating -= 1
-        df.rating = df.rating.astype(np.int32)
-
-    train_index = None
-    test_index = None
-    kf = KFold(n_splits=10, shuffle=True, random_state=random_seed)
-    for i, (train_index, test_index) in enumerate(kf.split(df)):
-        if i == FOLD_INDEX:
-            break
-    df_train = df.iloc[train_index].copy()
-    df_test = df.iloc[test_index].copy()
+        for df_ in [df_train, df_test]:
+            df_["rating"] -= 1
+            df_["rating"] = df_.rating.astype(np.int32)
 
     if args.stricter_protocol:
         implicit_data_source = df_train
     else:
-        implicit_data_source = df
+        implicit_data_source = pd.concat([df_train, df_test])
 
+    user_to_internal = CategoryValueToSparseEncoder[int](
+        implicit_data_source.user_id.values
+    )
+    movie_to_internal = CategoryValueToSparseEncoder[int](
+        implicit_data_source.movie_id.values
+    )
 
-    user_to_internal = DefaultMapper(implicit_data_source.user_id.values)
-    movie_to_internal = DefaultMapper(implicit_data_source.movie_id.values)
-
-
-    print('df_train.shape = {}, df_test.shape = {}'.format(df_train.shape, df_test.shape))
+    print(
+        "df_train.shape = {}, df_test.shape = {}".format(
+            df_train.shape, df_test.shape
+        )
+    )
     # treat the days of events as categorical variable
-    date_be = OneHotEncoder(handle_unknown='ignore').fit(
-        implicit_data_source.timestamp.dt.date.values.reshape(-1, 1)
+    date_encoder = CategoryValueToSparseEncoder[pd.Timestamp](
+        implicit_data_source.timestamp.dt.date.values
     )
 
     def categorize_date(df):
-        return date_be.transform(df.timestamp.dt.date.values[:, np.newaxis])
+        return date_encoder.to_sparse(df.timestamp.dt.date.values)
 
-
-    movie_vs_watched = dict()
-    user_vs_watched = dict()
+    movie_vs_watched: Dict[int, List[int]] = dict()
+    user_vs_watched: Dict[int, List[int]] = dict()
 
     for row in implicit_data_source.itertuples():
         user_id = row.user_id
@@ -125,7 +151,7 @@ if __name__ == '__main__':
     feature_group_sizes = []
     if use_date:
         feature_group_sizes.append(
-            len(date_be.categories_[0]),  # date
+            len(date_encoder),  # date
         )
 
     feature_group_sizes.append(len(user_to_internal))  # user ids
@@ -141,73 +167,109 @@ if __name__ == '__main__':
             len(user_to_internal)  # all the users who watched a movies
         )
 
-    grouping = [i for i, size in enumerate(
-        feature_group_sizes) for _ in range(size)]
+    grouping = [
+        i for i, size in enumerate(feature_group_sizes) for _ in range(size)
+    ]
 
-    # given user/movie ids, add additional infos and return it as sparse
-    def augment_user_id(user_ids):
-        X = sps.lil_matrix((len(user_ids), len(
-            user_to_internal) + (len(movie_to_internal) if use_iu else 0)))
+    def augment_user_id(user_ids: List[int]) -> sps.csr_matrix:
+        X = user_to_internal.to_sparse(user_ids)
+        if not use_iu:
+            return X
+        data: List[float] = []
+        row: List[int] = []
+        col: List[int] = []
         for index, user_id in enumerate(user_ids):
-            X[index, user_to_internal[user_id]] = 1
-            if not use_iu:
-                continue
             watched_movies = user_vs_watched.get(user_id, [])
             normalizer = 1 / max(len(watched_movies), 1) ** 0.5
             for mid in watched_movies:
-                X[index, movie_to_internal[mid] +
-                    len(user_to_internal)] = normalizer
-        return X.tocsr()
+                data.append(normalizer)
+                col.append(movie_to_internal[mid])
+                row.append(index)
+        return sps.hstack(
+            [
+                X,
+                sps.csr_matrix(
+                    (data, (row, col)),
+                    shape=(len(user_ids), len(movie_to_internal)),
+                ),
+            ],
+            format="csr",
+        )
 
-    def augment_movie_id(movie_ids):
-        X = sps.lil_matrix((len(movie_ids), len(
-            movie_to_internal) + (len(user_to_internal) if use_ii else 0)))
+    def augment_movie_id(movie_ids: List[int]):
+        X = movie_to_internal.to_sparse(movie_ids)
+        if not use_ii:
+            return X
+
+        data: List[float] = []
+        row: List[int] = []
+        col: List[int] = []
+
         for index, movie_id in enumerate(movie_ids):
-            X[index, movie_to_internal[movie_id]] = 1
-            if not use_ii:
-                continue
             watched_users = movie_vs_watched.get(movie_id, [])
             normalizer = 1 / max(len(watched_users), 1) ** 0.5
             for uid in watched_users:
-                X[index, user_to_internal[uid] +
-                    len(movie_to_internal)] = normalizer
-        return X.tocsr()
+                data.append(normalizer)
+                row.append(index)
+                col.append(user_to_internal[uid])
+        return sps.hstack(
+            [
+                X,
+                sps.csr_matrix(
+                    (data, (row, col)),
+                    shape=(len(movie_ids), len(user_to_internal)),
+                ),
+            ]
+        )
 
     # Create RelationBlock.
-    train_blocks = []
-    test_blocks = []
+    train_blocks: List[RelationBlock] = []
+    test_blocks: List[RelationBlock] = []
     for source, target in [(df_train, train_blocks), (df_test, test_blocks)]:
         unique_users, user_map = np.unique(source.user_id, return_inverse=True)
-        target.append(
-            RelationBlock(user_map, augment_user_id(unique_users))
-        )
+        target.append(RelationBlock(user_map, augment_user_id(unique_users)))
         unique_movies, movie_map = np.unique(
-            source.movie_id, return_inverse=True)
-        target.append(
-            RelationBlock(movie_map, augment_movie_id(unique_movies))
+            source.movie_id, return_inverse=True
         )
+        target.append(RelationBlock(movie_map, augment_movie_id(unique_movies)))
 
-    trace_path="rmse_{0}_fold_{1}.csv".format(ALGORITHM, FOLD_INDEX)
+    trace_path = "rmse_{0}_fold_{1}.csv".format(ALGORITHM, FOLD_INDEX)
+
+    callback: LibFMLikeCallbackBase
+    fm: Union[MyFMRegressor, MyFMOrderedProbit]
     if ALGORITHM == "regression":
         fm = myfm.MyFMRegressor(rank=DIMENSION)
         callback = RegressionCallback(
-            ITERATION, X_date_test, df_test.rating.values, X_rel_test=test_blocks,
-            clip_min=0.5, clip_max=5.0, trace_path=trace_path
+            ITERATION,
+            X_date_test,
+            df_test.rating.values,
+            X_rel_test=test_blocks,
+            clip_min=0.5,
+            clip_max=5.0,
+            trace_path=trace_path,
         )
     else:
         fm = myfm.MyFMOrderedProbit(rank=DIMENSION)
         callback = OrderedProbitCallback(
-            ITERATION, X_date_test, df_test.rating.values, n_class=5, X_rel_test=test_blocks,
-            trace_path=trace_path
+            ITERATION,
+            X_date_test,
+            df_test.rating.values,
+            n_class=5,
+            X_rel_test=test_blocks,
+            trace_path=trace_path,
         )
 
     with callback:
         fm.fit(
-            X_date_train, df_train.rating.values, X_rel=train_blocks,
+            X_date_train,
+            df_train.rating.values,
+            X_rel=train_blocks,
             grouping=grouping,
             n_iter=callback.n_iter,
             callback=callback,
-            n_kept_samples=1 
+            n_kept_samples=1,
         )
-    with open("callback_result_{0}_fold_{1}.pkl".format(ALGORITHM, FOLD_INDEX), 'wb') as ofs:
+    with open(
+        "callback_result_{0}_fold_{1}.pkl".format(ALGORITHM, FOLD_INDEX), "wb"
+    ) as ofs:
         pickle.dump(callback, ofs)
