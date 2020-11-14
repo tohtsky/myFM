@@ -372,7 +372,7 @@ template <typename Real> void declare_functional(py::module &m) {
             return result;
           }));
 
-  py::class_<VHistory>(m, "VLearningHistory")
+  py::class_<VHistory>(m, "VariationalLearningHistory")
       .def_readonly("hypers", &VHistory::hyper)
       .def_readonly("elbos", &VHistory::elbos)
       .def(py::pickle(

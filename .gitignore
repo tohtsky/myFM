@@ -16,3 +16,6 @@ dist/
 *-checkpoint.ipynb
 doc/_build/*
 eigen-3.3.7/
+doc/source/_build
+
+stubs/*
