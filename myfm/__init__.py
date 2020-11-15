@@ -3,7 +3,7 @@ from ._myfm import RelationBlock
 
 # from .wrapper import MyFMRegressor, MyFMClassifier, MyFMOrderedProbit
 from .gibbs import MyFMGibbsClassifier, MyFMGibbsRegressor, MyFMOrderedProbit
-from .variational import VariationalFMRegressor
+from .variational import VariationalFMRegressor, VariationalFMClassifier
 
 MyFMRegressor = MyFMGibbsRegressor
 MyFMClassifier = MyFMGibbsClassifier
@@ -17,4 +17,5 @@ __all__ = [
     "MyFMGibbsRegressor",
     "MyFMGibbsClassifier",
     "VariationalFMRegressor",
+    "VariationalFMClassifier",
 ]

@@ -12,7 +12,7 @@ Currently this supports most options for libFM MCMC engine, such as
 - Grouping of input variables (`-meta` option of [libFM](https://github.com/srendle/libfm))
 - Relation Data format (See the paper ["Scaling Factorization Machines to relational data"](https://dl.acm.org/citation.cfm?id=2488340))
 
-Functionalities not present in libFM, like
+There are also functionalities not present in libFM:
 
 - The gibbs sampler for Ordered probit regression [5] implementing Metropolis-within-Gibbs scheme of [6].
 - Variational inference for regression and binary classification.
@@ -84,7 +84,7 @@ import myfm
 
 from movielens100k_data import MovieLens100kDataManager
 data_manager = MovieLens100kDataManager()
-df_train, df_test = data_manager.load_rating(fold=3) # Note the dependence on the fold
+df_train, df_test = data_manager.load_rating_predefined_split(fold=3) # Note the dependence on the fold
 
 def test_myfm(df_train, df_test, rank=8, grouping=None, n_iter=100, samples=95):
     explanation_columns = ['user_id', 'movie_id']
