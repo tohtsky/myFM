@@ -8,28 +8,33 @@ The goal of this project is to
 2. Use modern technology like [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page) and [pybind11](https://github.com/pybind/pybind11) for simpler and faster implementation.
 
 Currently this supports most options for libFM MCMC engine, such as
- - Grouping of input variables (`-meta` option of [libFM](https://github.com/srendle/libfm))
- - Relation Data format (See the paper ["Scaling Factorization Machines to relational data"](https://dl.acm.org/citation.cfm?id=2488340))
+
+- Grouping of input variables (`-meta` option of [libFM](https://github.com/srendle/libfm))
+- Relation Data format (See the paper ["Scaling Factorization Machines to relational data"](https://dl.acm.org/citation.cfm?id=2488340))
+
+Functionalities not present in libFM, like
+
+- The gibbs sampler for Ordered probit regression [5] implementing Metropolis-within-Gibbs scheme of [6].
+- Variational inference for regression and binary classification.
 
 Tutorial and reference doc is provided at https://myfm.readthedocs.io/en/latest/.
 
-## \[Version 0.2 update\]
-It now supports the Gibbs sampler for ordered probit regression. The cutpoint sampler is implemented following the Metropolis-within-Gibbs scheme of [6], for which I have used the `erfcx` function of [Faddeeva package](http://ab-initio.mit.edu/wiki/index.php/Faddeeva_Package) to find the optimal cutpoint values at each iteration with numerical stability. See `examples/ml-100k.ipynb` and `examples/ml-1m-extended.ipynb` for a Movielens example where the ratings are treated as ordinal categorical variables.
-
-We have also confirmed that a slight performance boost can be obtained for Movielens 10M rating prediction following the protocol of [\[Rendle, et. al., 2019\]](https://arxiv.org/abs/1905.01395). See `examples/ml-10m-regression.py`.
-
 # Requirements
-Recent version of gcc/clang with C++ 11 support.
+
+Python >= 3.5 and recent version of gcc/clang with C++ 11 support.
 
 # Installation
 
 For Linux / Mac OSX, type
+
 ```
 pip install myfm
 ```
-In addition to installing python dependencies (`numpy`, `scipy`, `pybind11`, ...),  the above command will automatically download eigen (ver 3.3.7) to its build directory and use it for the build.
+
+In addition to installing python dependencies (`numpy`, `scipy`, `pybind11`, ...), the above command will automatically download eigen (ver 3.3.7) to its build directory and use it for the build.
 
 If you want to use another version of eigen, you can also do
+
 ```
 EIGEN3_INCLUDE_DIR=/path/to/eigen pip install git+https://github.com/tohtsky/myFM
 ```
@@ -37,7 +42,9 @@ EIGEN3_INCLUDE_DIR=/path/to/eigen pip install git+https://github.com/tohtsky/myF
 # Examples
 
 ## A Toy example
+
 This example is taken from [pyfm](https://github.com/coreylynch/pyFM) with some modification.
+
 ```Python
 import myfm
 from sklearn.feature_extraction import DictVectorizer
@@ -50,7 +57,7 @@ train = [
 ]
 v = DictVectorizer()
 X = v.fit_transform(train)
-print(X.toarray()) 
+print(X.toarray())
 # print
 # [[ 19.   0.   0.   0.   1.   1.   0.   0.   0.]
 #  [ 33.   0.   0.   1.   0.   0.   1.   0.   0.]
@@ -63,9 +70,11 @@ fm.predict(v.transform({"user": "1", "item": "10", "age": 24}))
 ```
 
 ## A Movielens-100k Example
+
 This example will require `pandas` and `scikit-learn`. `movielens100k_loader` is present in `examples/movielens100k_loader.py`.
 
 You will be able to obtain a result comparable to SOTA algorithms like GC-MC. See `examples/ml-100k.ipynb` for the detailed version.
+
 ```Python
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
@@ -85,7 +94,7 @@ def test_myfm(df_train, df_test, rank=8, grouping=None, n_iter=100, samples=95):
     y_train = df_train.rating.values
     y_test = df_test.rating.values
     fm = myfm.MyFMRegressor(rank=rank, random_seed=114514)
-    
+
     if grouping:
         # assign group index for each column of X_train.
         grouping = [ i for i, category in enumerate(ohe.categories_) for _ in category]
@@ -107,10 +116,11 @@ fm = test_myfm(df_train, df_test, rank=8, grouping=True)
 # rmse=0.89594, mae=0.70481
 ```
 
-## Examples for Relational Data format 
-Below is a toy movielens-like example which utilizes relational data format proposed in [3].  
+## Examples for Relational Data format
 
-This example, however, is too simplistic to exhibit the computational advantage of this data format. For an example with drastically reduced computational complexity, see `examples/ml-100k-extended.ipynb`; 
+Below is a toy movielens-like example which utilizes relational data format proposed in [3].
+
+This example, however, is too simplistic to exhibit the computational advantage of this data format. For an example with drastically reduced computational complexity, see `examples/ml-100k-extended.ipynb`;
 
 ```Python
 import pandas as pd
@@ -174,8 +184,8 @@ print(
 )
 ```
 
-
 # References
+
 1. Rendle, Steffen. "Factorization machines." 2010 IEEE International Conference on Data Mining. IEEE, 2010.
 1. Rendle, Steffen. "Factorization machines with libfm." ACM Transactions on Intelligent Systems and Technology (TIST) 3.3 (2012): 57.
 1. Rendle, Steffen. "Scaling factorization machines to relational data." Proceedings of the VLDB Endowment. Vol. 6. No. 5. VLDB Endowment, 2013.

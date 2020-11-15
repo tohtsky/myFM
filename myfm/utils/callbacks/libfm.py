@@ -28,12 +28,12 @@ class LibFMLikeCallbackBase(ABC):
         all posterior samples."""
         self.n_test_data = check_data_consistency(X_test, X_rel_test)
 
-        self.n_iter: int = n_iter
+        self.n_iter = n_iter
         if X_test is not None:
             self.X_test: ArrayLike = X_test
         else:
             self.X_test = sps.csr_matrix((self.n_test_data, 0), dtype=REAL)
-        self.X_rel_test: List[RelationBlock] = X_rel_test
+        self.X_rel_test = X_rel_test
         self.y_test: np.ndarray = y_test
         self.result_trace: List[Dict[str, float]] = []
         self.pbar: Optional[tqdm] = None
