@@ -13,4 +13,5 @@ API References
     MyFMRegressor
     MyFMClassifier
     MyFMOrderedProbit
-
+    MyFMGibbsRegressor
+    MyFMGibbsClassifier

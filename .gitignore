@@ -19,3 +19,5 @@ eigen-3.3.7/
 doc/source/_build
 
 stubs/*
+
+doc/source/api_reference/*.rst
