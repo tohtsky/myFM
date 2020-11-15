@@ -7,6 +7,8 @@ from .loader_base import MovieLensBase
 
 
 class MovieLens100kDataManager(MovieLensBase):
+    """The Data manager for MovieLens 100k dataset."""
+
     @property
     def DOWNLOAD_URL(self) -> str:
         "http://files.grouplens.org/datasets/movielens/ml-100k.zip"
@@ -27,9 +29,16 @@ class MovieLens100kDataManager(MovieLensBase):
             return data
 
     def load_rating_all(self) -> pd.DataFrame:
+        """Load the entire rating dataset.
+
+        Returns
+        -------
+        pd.DataFrame
+            all the available ratings.
+        """
         return self._read_interaction(self.zf.read("ml-100k/u.data"))
 
-    def load_rating_predifined_split(
+    def load_rating_predefined_split(
         self,
         fold: int,
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:

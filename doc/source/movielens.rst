@@ -42,7 +42,7 @@ to prepare the input matrix.
     FM_RANK = 10
 
     data_manager = MovieLens100kDataManager()
-    df_train, df_test = data_manager.load_rating(fold=3)
+    df_train, df_test = data_manager.load_rating_predefined_split(fold=3)
 
     FEATURE_COLUMNS = ['user_id', 'movie_id']
     ohe = OneHotEncoder(handle_unknown='ignore')

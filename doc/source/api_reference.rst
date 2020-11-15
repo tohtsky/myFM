@@ -15,3 +15,9 @@ API References
     MyFMOrderedProbit
     MyFMGibbsRegressor
     MyFMGibbsClassifier
+
+
+    utils.benchmark_data.MovieLens100kDataManager
+    utils.benchmark_data.MovieLens1MDataManager
+    utils.benchmark_data.MovieLens10MDataManager
+

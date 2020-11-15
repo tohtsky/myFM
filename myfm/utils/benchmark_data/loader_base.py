@@ -64,6 +64,28 @@ class MovieLensBase(DataLoaderBase, ABC):
     def load_rating_kfold_split(
         self, K: int, fold: int, random_state: Optional[RandomStateType] = 42
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """Load the entire dataset and split it into train/test set.
+        K-fold
+
+        Parameters
+        ----------
+        K : int
+            K in the K-fold splitting scheme.
+        fold : int
+            fold index.
+        random_state : Union[np.RandomState, int, None], optional
+            Controlls random state of the split.
+
+        Returns
+        -------
+        Tuple[pd.DataFrame, pd.DataFrame]
+            train and test dataframes.
+
+        Raises
+        ------
+        ValueError
+            When 0 <= fold < K  is not met.
+        """
         if not ((0 <= fold) and (fold < K)):
             raise ValueError("0 <= fold < K")
         df_all = self.load_rating_all()

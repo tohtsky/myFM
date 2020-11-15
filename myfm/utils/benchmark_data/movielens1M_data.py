@@ -1,12 +1,10 @@
-from typing import Tuple
 import os
 from io import BytesIO
-from .movielens100k_data import MovieLens100kDataManager
+from .movielens100k_data import MovieLensBase
 import pandas as pd
-from sklearn.model_selection import train_test_split
 
 
-class MovieLens1MDataManager(MovieLens100kDataManager):
+class MovieLens1MDataManager(MovieLensBase):
     DOWNLOAD_URL = "http://files.grouplens.org/datasets/movielens/ml-1m.zip"
     DEFAULT_PATH = os.path.expanduser("~/.ml-1m.zip")
 
