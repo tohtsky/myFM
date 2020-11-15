@@ -174,7 +174,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             log_str = self._status_report(fm, hyper)
 
             if do_test:
-                pred_this = self._process_score(
+                pred_this = self._prepare_prediction_for_test(
                     fm.predict_score(X_test, X_rel_test or [])
                 )
                 val_results = self._measure_score(pred_this, y_test)
@@ -202,43 +202,6 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         config_builder: Optional[ConfigBuilder] = None,
         callback_default_freq: int = 10,
     ) -> "MyFMBase":
-        """Performs Gibbs sampling to fit the data.
-
-        Parameters
-        ----------
-        X : 2D array-like.
-            Input variable.
-
-        y : 1D array-like.
-            Target variable.
-
-        X_rel: list of RelationBlock, optional (defalult=[])
-               Relation blocks which supplements X.
-
-        n_iter : int, optional (defalult = 100)
-            Iterations to perform.
-
-        n_kept_samples: int, optional (default = None)
-            The number of samples to store.
-            If `None`, the value is set to `n_iter` - 5.
-
-        grouping: Integer List, optional (default = None)
-            If not `None`, this specifies which column of X belongs to which group.
-            That is, if grouping[i] is g, then, :math:`w_i` and :math:`V_{i, r}`
-            will be distributed according to
-            :math:`\mathcal{N}(\mu_w[g], \lambda_w[g])` and :math:`\mathcal{N}(\mu_V[g, r], \lambda_V[g,r])`,
-            respectively.
-            If `None`, all the columns of X are assumed to belong to a single group, 0.
-
-        group_shapes: Integer array, optional (default = None)
-            If not `None`, this specifies each variable group's size.
-            Ignored if grouping is not None.
-            For example, if ``group_shapes = [n_1, n_2]``,
-            this is equivalent to ``grouping = [0] * n_1 + [1] * n_2``
-
-        callback: function(int, fm, hyper) -> bool, optional(default = None)
-            Called at the every end of each Gibbs iteration.
-        """
 
         if config_builder is None:
             config_builder = ConfigBuilder()
@@ -327,7 +290,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
     def _set_tasktype(self, config_builder: ConfigBuilder) -> None:
         config_builder.set_task_type(self._task_type)
 
-    def predict(
+    def _predict(
         self,
         X: ArrayLike,
         X_rel: List[RelationBlock] = [],
@@ -354,8 +317,10 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         shape = check_data_consistency(X, X_rel)
         if self.predictor_ is None:
             raise RuntimeError("MyFM instance not fit yet.")
+
         if X is None:
             X = sps.csr_matrix((shape, 0), dtype=np.float64)
+
         if n_workers is not None:
             if isinstance(self.predictor_, _myfm.Predictor):
                 return self.predictor_.predict_parallel(X, X_rel, n_workers)
@@ -371,7 +336,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
     def _status_report(cls, fm: FM, hyper: Hyper):
         raise NotImplementedError("must implement status report")
 
-    def _process_score(cls, y):
+    def _prepare_prediction_for_test(cls, y):
         return y
 
     def _process_y(cls, y):
@@ -383,6 +348,8 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
 
 class RegressorMixin(Generic[FM, Hyper]):
+    _predict: Callable
+
     @property
     def _task_type(self) -> TaskType:
         return TaskType.REGRESSION
@@ -398,13 +365,23 @@ class RegressorMixin(Generic[FM, Hyper]):
         result["mae"] = np.abs(y - prediction).mean()
         return result
 
+    def predict(
+        self,
+        X: ArrayLike,
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ):
+        return self._predict(X, X_rel, n_workers)
 
-class ClassifierBase(Generic[FM, Hyper]):
+
+class ClassifierMixin(Generic[FM, Hyper], ABC):
+    _predict: Callable
+
     @property
     def _task_type(self) -> TaskType:
         return TaskType.CLASSIFICATION
 
-    def _process_score(self, score):
+    def _prepare_prediction_for_test(self, score):
         return std_cdf(score)
 
     def _process_y(self, y) -> np.ndarray:
@@ -448,7 +425,7 @@ class ClassifierBase(Generic[FM, Hyper]):
         """
 
         return (
-            (self.predict_proba(X, X_rels=X_rel, n_workers=n_workers)) > 0.5
+            (self._predict(X, X_rel=X_rel, n_workers=n_workers)) > 0.5
         ).astype(np.int64)
 
     def predict_proba(
@@ -466,4 +443,4 @@ class ClassifierBase(Generic[FM, Hyper]):
             [description]
         """
 
-        return super().predict(X, X_rel, n_workers)
+        return self._predict(X, X_rel, n_workers)

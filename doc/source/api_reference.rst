@@ -15,6 +15,8 @@ API References
     MyFMOrderedProbit
     MyFMGibbsRegressor
     MyFMGibbsClassifier
+    VariationalFMRegressor
+    VariationalFMClassifier
 
 
     utils.benchmark_data.MovieLens100kDataManager

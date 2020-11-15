@@ -52,6 +52,7 @@ class LibFMLikeCallbackBase(ABC):
     def __exit__(self, *args):
         if self.pbar is not None:
             self.pbar.__exit__()
+        self.pbar = None
 
     def __call__(self, i: int, fm: FM, hyper: FMHyperParameters):
         description, trace_result = self._measure_score(i, fm, hyper)

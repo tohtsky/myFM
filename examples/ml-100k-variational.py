@@ -237,6 +237,7 @@ if __name__ == "__main__":
     rmse = (
         (df_test.rating.values - fm.predict(X_date_test, test_blocks)) ** 2
     ).mean() ** 0.5
+    print("ELBOs = {}".format(fm.history_.elbos))
 
     print("RMSE = {rmse}".format(rmse=rmse))
     with open(
