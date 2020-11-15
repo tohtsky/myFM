@@ -913,7 +913,6 @@ public:
       group_index++;
     }
 
-    std::cout << elbo << std::endl;
     this->elbos.push_back(elbo);
   }
 }; // namespace variational

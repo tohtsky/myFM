@@ -4,7 +4,6 @@ from scipy import (special, sparse as sps)
 from tqdm import tqdm
 from . import _myfm as core
 
-
 def std_cdf(x):
     return (1 + special.erf(x * np.sqrt(.5))) / 2
 
@@ -109,7 +108,7 @@ class MyFMRegressor(object):
             X_test=None, y_test=None, X_rel_test=None,
             n_iter=100, n_kept_samples=None, grouping=None,
             group_shapes=None,
-            callback=None, config_builder=None):
+            callback=None, config_builder=None, callback_default_freq=5):
         """Performs Gibbs sampling to fit the data.
 
         Parameters
@@ -178,7 +177,6 @@ class MyFMRegressor(object):
             self.n_groups_ = np.unique(grouping).shape[0]
             config_builder.set_group_index(grouping)
 
-        pbar = None
         if (X_test is not None or X_rel_test):
             if y_test is None:
                 raise RuntimeError(
@@ -204,12 +202,13 @@ class MyFMRegressor(object):
 
         config = config_builder.build()
 
+        pbar = None
         if callback is None:
             pbar = tqdm(total=n_iter)
 
             def callback(i, fm, hyper):
                 pbar.update(1)
-                if i % 5:
+                if i % callback_default_freq:
                     return False
 
                 log_str = self._status_report(fm, hyper)
@@ -225,7 +224,7 @@ class MyFMRegressor(object):
                 return False
 
         try:
-            self.predictor_, self.hypers_, self.history_ = \
+            self.predictor_, self.history_ = \
                 self._create_function(self.rank, self.init_stdev, X, X_rel,
                                       y, self.random_seed, config, callback)
             return self
@@ -295,7 +294,7 @@ class MyFMRegressor(object):
         )
 
         res = []
-        for hyper in self.hypers_:
+        for hyper in self.history_.hypers:
             res.append(np.concatenate([
                 [hyper.alpha], hyper.mu_w, hyper.lambda_w,
                 hyper.mu_V.ravel(), hyper.lambda_V.ravel()

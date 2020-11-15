@@ -1,6 +1,6 @@
 import json
 import argparse
-from myfm.gibbs import MyFMGibbsRegressor, MyFMOrderedProbit
+from myfm import VariationalFMRegressor
 from typing import Dict, List, Union
 
 import myfm
@@ -29,14 +29,7 @@ if __name__ == "__main__":
         help="which index set to use as a test within 5-fold predefined CV.",
         default=1,
     )
-    parser.add_argument(
-        "-a",
-        "--algorithm",
-        type=str,
-        choices=["regression", "oprobit"],
-        default="regression",
-        help="specify the output type.",
-    )
+
     parser.add_argument(
         "-i", "--iteration", type=int, help="mcmc iteration", default=512
     )
@@ -97,17 +90,10 @@ if __name__ == "__main__":
     DIMENSION = args.dimension
     if FOLD_INDEX < 1 or FOLD_INDEX >= 6:
         raise ValueError("fold_index must be in the range(1, 6).")
-    ALGORITHM = args.algorithm
     data_manager = MovieLens100kDataManager()
     df_train, df_test = data_manager.load_rating_predefined_split(
         fold=FOLD_INDEX
     )
-
-    if ALGORITHM == "oprobit":
-        # interpret the rating (1, 2, 3, 4, 5) as class (0, 1, 2, 3, 4).
-        for df_ in [df_train, df_test]:
-            df_["rating"] -= 1
-            df_["rating"] = df_.rating.astype(np.int32)
 
     if args.stricter_protocol:
         implicit_data_source = df_train
@@ -236,13 +222,9 @@ if __name__ == "__main__":
         )
         target.append(RelationBlock(movie_map, augment_movie_id(unique_movies)))
 
-    trace_path = "rmse_{0}_fold_{1}.csv".format(ALGORITHM, FOLD_INDEX)
+    trace_path = "rmse_variational_fold_{0}.csv".format(FOLD_INDEX)
 
-    fm: Union[MyFMGibbsRegressor, MyFMOrderedProbit]
-    if ALGORITHM == "regression":
-        fm = myfm.MyFMRegressor(rank=DIMENSION)
-    else:
-        fm = myfm.MyFMOrderedProbit(rank=DIMENSION)
+    fm = myfm.VariationalFMRegressor(rank=DIMENSION)
 
     fm.fit(
         X_date_train,
@@ -252,19 +234,12 @@ if __name__ == "__main__":
         n_iter=ITERATION,
         n_kept_samples=ITERATION,
     )
-    if isinstance(fm, MyFMGibbsRegressor):
-        rmse = (
-            (df_test.rating.values - fm.predict(X_date_test, test_blocks)) ** 2
-        ).mean() ** 0.5
-    else:
-        # mean rating
-        prediction = fm.predict_proba(X_date_test, test_blocks).dot(
-            np.arange(5)
-        )
-        rmse = ((df_test.rating.values - prediction) ** 2).mean() ** 0.5
+    rmse = (
+        (df_test.rating.values - fm.predict(X_date_test, test_blocks)) ** 2
+    ).mean() ** 0.5
 
     print("RMSE = {rmse}".format(rmse=rmse))
     with open(
-        "rmse_result_{0}_fold_{1}.json".format(ALGORITHM, FOLD_INDEX), "w"
+        "rmse_result_variational_fold_{0}.json".format(FOLD_INDEX), "w"
     ) as ofs:
         json.dump(dict(rmse=rmse), ofs)

@@ -1,30 +1,34 @@
+from collections import OrderedDict
 from typing import Callable, List, Optional, Tuple
 
-from collections import OrderedDict
 import numpy as np
 from scipy import sparse as sps
 from scipy import special
 
 from ._myfm import (
+    FM,
+    FMLearningConfig,
     ConfigBuilder,
+    FMHyperParameters,
+    LearningHistory,
+    Predictor,
     RelationBlock,
     TaskType,
-    FM,
-    FMHyperParameters,
-    Predictor,
-    LearningHistory,
     create_train_fm,
 )
-from .base import REAL, ArrayLike, MyFMBase, check_data_consistency
+from .base import (
+    REAL,
+    ArrayLike,
+    MyFMBase,
+    RegressorMixin,
+    ClassifierMixin,
+    std_cdf,
+)
 
 try:
     import pandas as pd
 except:
     pd = None
-
-
-def std_cdf(x: np.ndarray) -> np.ndarray:
-    return (1 + special.erf(x * np.sqrt(0.5))) / 2
 
 
 class MyFMGibbsBase(
@@ -35,7 +39,21 @@ class MyFMGibbsBase(
         LearningHistory,
     ]
 ):
-    _create_function = create_train_fm
+    @classmethod
+    def _train_core(
+        cls,
+        rank: int,
+        init_stdev: float,
+        X: sps.csr_matrix,
+        X_rel: List[RelationBlock],
+        y: np.ndarray,
+        random_seed: int,
+        config: FMLearningConfig,
+        callback: Callable[[int, FM, FMHyperParameters], bool],
+    ) -> Tuple[Predictor, LearningHistory]:
+        return create_train_fm(
+            rank, init_stdev, X, X_rel, y, random_seed, config, callback
+        )
 
     def get_hyper_trace(self) -> "pd.DataFrame":
         if pd is None:
@@ -80,11 +98,7 @@ class MyFMGibbsBase(
         return df
 
 
-class MyFMGibbsRegressor(MyFMGibbsBase):
-    @property
-    def _task_type(self) -> TaskType:
-        return TaskType.REGRESSION
-
+class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
     def fit(
         self,
         X: ArrayLike,
@@ -152,44 +166,12 @@ class MyFMGibbsRegressor(MyFMGibbsBase):
             config_builder=config_builder,
         )
 
-    def _status_report(self, fm: FM, hyper: FMHyperParameters):
-        log_str = "alpha = {:.2f} ".format(hyper.alpha)
-        log_str += "w0 = {:.2f} ".format(fm.w0)
-        return log_str
 
-    def _measure_score(self, prediction: np.ndarray, y: np.ndarray):
-        result = OrderedDict()
-        result["rmse"] = ((y - prediction) ** 2).mean() ** 0.5
-        result["mae"] = np.abs(y - prediction).mean()
-        return result
-
-
-class MyFMGibbsClassifier(MyFMGibbsBase):
+class MyFMGibbsClassifier(
+    ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase
+):
     r"""Bayesian Factorization Machines for binary classification tasks."""
 
-    @property
-    def _task_type(self) -> TaskType:
-        return TaskType.CLASSIFICATION
-
-    def _process_score(self, score):
-        return std_cdf(score)
-
-    def _process_y(self, y):
-        return y.astype(np.float64) * 2 - 1
-
-    def _measure_score(self, prediction, y):
-        result = OrderedDict()
-        lp = np.log(prediction + 1e-15)
-        l1mp = np.log(1 - prediction + 1e-15)
-        gt = y > 0
-        result["ll"] = -lp.dot(gt) - l1mp.dot(~gt)
-        result["accuracy"] = np.mean((prediction >= 0.5) == gt)
-        return result
-
-    def _status_report(self, fm, hyper):
-        log_str = "w0 = {:.2f} ".format(fm.w0)
-        return log_str
-
     def fit(
         self,
         X: ArrayLike,
@@ -256,31 +238,6 @@ class MyFMGibbsClassifier(MyFMGibbsBase):
             group_shapes=group_shapes,
             config_builder=config_builder,
         )
-
-    def predict(self, X, X_rels=[], **kwargs):
-        """Based on the class probability, return binary classified outcome based on threshold = 0.5.
-        If you want class probability instead, use `predict_proba` method.
-
-        Returns
-        -------
-        [np.ndarray]
-            predicted binary outcome.
-        """
-
-        return ((self.predict_proba(X, X_rels=X_rels, **kwargs)) > 0.5).astype(
-            np.int64
-        )
-
-    def predict_proba(self, *args, **kwargs):
-        """Returns the probability that the outcome = 1.
-
-        Returns
-        -------
-        np.float64
-            The probability that each row belongs to class = 1.
-        """
-
-        return super().predict(*args, **kwargs)
 
 
 class MyFMOrderedProbit(MyFMGibbsBase):

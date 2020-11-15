@@ -52,7 +52,8 @@ create_train_vfm(
     const vector<myFM::relational::RelationBlock<Real>> &relations,
     const typename myFM::FM<Real>::Vector &y, int random_seed,
     myFM::FMLearningConfig<Real> &config,
-    std::function<bool(int, myFM::FM<Real> *, myFM::FMHyperParameters<Real> *)>
+    std::function<bool(int, myFM::variational::VariationalFM<Real> *,
+                       myFM::variational::VariationalFMHyperParameters<Real> *)>
         cb) {
   myFM::variational::VariationalFMTrainer<Real> fm_trainer(X, relations, y,
                                                            random_seed, config);

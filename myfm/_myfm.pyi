@@ -618,7 +618,9 @@ def create_train_vfm(
     y: numpy.ndarray[float64, _Shape[m, 1]],
     random_seed: int,
     learning_config: FMLearningConfig,
-    callback: Callable[[int, FM, FMHyperParameters], bool],
+    callback: Callable[
+        [int, VariationalFM, VariationalFMHyperParameters], bool
+    ],
 ) -> Tuple[VariationalPredictor, VariationalLearningHistory]:
     """
     create and train fm.

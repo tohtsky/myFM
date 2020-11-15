@@ -1,10 +1,20 @@
-from abc import ABC, abstractmethod, abstractproperty
+from abc import ABC, abstractclassmethod, abstractmethod, abstractproperty
 from collections import OrderedDict
-from typing import Any, Callable, Generic, List, Optional, Tuple, TypeVar, Union
+from typing import (
+    Any,
+    Callable,
+    Generic,
+    List,
+    Optional,
+    Tuple,
+    TypeVar,
+    Union,
+    Dict,
+)
 
 import numpy as np
 from tqdm import tqdm
-from scipy import sparse as sps
+from scipy import sparse as sps, special
 
 from . import _myfm
 from ._myfm import ConfigBuilder, FMLearningConfig, RelationBlock, TaskType
@@ -14,11 +24,8 @@ REAL = np.float64
 ArrayLike = Union[np.ndarray, sps.csr_matrix]
 
 
-def _infinite_int_generator():
-    i: int = 0
-    while True:
-        yield i
-        i += 1
+def std_cdf(x: np.ndarray) -> np.ndarray:
+    return (1 + special.erf(x * np.sqrt(0.5))) / 2
 
 
 def check_data_consistency(
@@ -55,19 +62,20 @@ CallBackType = Callable[[int, FM, Hyper], bool]
 
 class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
     r"""Bayesian Factorization Machines for regression tasks."""
-    _create_function: Callable[
-        [
-            int,  # rank,
-            float,  # init_stdev
-            sps.csr_matrix,  # X
-            List[RelationBlock],  # X_rel
-            np.ndarray,  # y
-            int,  # random_seed
-            FMLearningConfig,  # config
-            Callable[[int, FM, Hyper], bool],  # callback
-        ],
-        Tuple[Any, Any],
-    ]
+
+    @abstractclassmethod
+    def _train_core(
+        cls,
+        rank: int,
+        init_stdev: float,
+        X: sps.csr_matrix,
+        X_rel: List[RelationBlock],
+        y: np.ndarray,
+        random_seed: int,
+        config: FMLearningConfig,
+        callback: Callable[[int, FM, Hyper], bool],
+    ) -> Tuple[Predictor, History]:
+        raise NotImplementedError("not implemented")
 
     @abstractproperty
     def _task_type(self) -> TaskType:
@@ -304,7 +312,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
                 y_test=y_test,
             )
 
-        self.predictor_, self.history_ = self.__class__._create_function(
+        self.predictor_, self.history_ = self._train_core(
             self.rank,
             self.init_stdev,
             X,
@@ -335,7 +343,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             Relation blocks that supplements X, by default []
         n_workers : [int], optional
             if not None, compute the prediction of each Gibbs sample on
-            different threads, by default None
+            different threads. Ignored for variational backend. By default None
 
         Returns
         -------
@@ -372,3 +380,90 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
     @abstractmethod
     def _measure_score(cls, prediction: np.ndarray, y: np.ndarray):
         raise NotImplementedError("")
+
+
+class RegressorMixin(Generic[FM, Hyper]):
+    @property
+    def _task_type(self) -> TaskType:
+        return TaskType.REGRESSION
+
+    def _status_report(self, fm: FM, hyper: Hyper):
+        log_str = "alpha = {:.2f} ".format(hyper.alpha)
+        log_str += "w0 = {:.2f} ".format(fm.w0)
+        return log_str
+
+    def _measure_score(self, prediction: np.ndarray, y: np.ndarray):
+        result = OrderedDict()
+        result["rmse"] = ((y - prediction) ** 2).mean() ** 0.5
+        result["mae"] = np.abs(y - prediction).mean()
+        return result
+
+
+class ClassifierBase(Generic[FM, Hyper]):
+    @property
+    def _task_type(self) -> TaskType:
+        return TaskType.CLASSIFICATION
+
+    def _process_score(self, score):
+        return std_cdf(score)
+
+    def _process_y(self, y) -> np.ndarray:
+        return y.astype(np.float64) * 2 - 1
+
+    def _measure_score(self, prediction, y) -> Dict[str, float]:
+        result = OrderedDict()
+        lp = np.log(prediction + 1e-15)
+        l1mp = np.log(1 - prediction + 1e-15)
+        gt = y > 0
+        result["ll"] = -lp.dot(gt) - l1mp.dot(~gt)
+        result["accuracy"] = np.mean((prediction >= 0.5) == gt)
+        return result
+
+    def _status_report(self, fm, hyper) -> str:
+        log_str = "w0 = {:.2f} ".format(fm.w0)
+        return log_str
+
+    def predict(
+        self,
+        X: ArrayLike,
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ) -> np.ndarray:
+        """Based on the class probability, return binary classified outcome based on threshold = 0.5.
+        If you want class probability instead, use `predict_proba` method.
+
+        Parameters
+        ----------
+        X : ArrayLike
+            The main table.
+        X_rel : List[RelationBlock], optional
+            Relation blocks, by default []
+        n_workers : Optional[int], optional
+            number of threads to compute. For variational inference, this will be ignored., by default None
+
+        Returns
+        -------
+        np.ndarray
+            the predicted outcome.
+        """
+
+        return (
+            (self.predict_proba(X, X_rels=X_rel, n_workers=n_workers)) > 0.5
+        ).astype(np.int64)
+
+    def predict_proba(
+        self,
+        X: ArrayLike,
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ):
+
+        """Compute the probability that the outcome will be 1 (positive)
+
+        Returns
+        -------
+        [type]
+            [description]
+        """
+
+        return super().predict(X, X_rel, n_workers)
