@@ -1,6 +1,13 @@
 from typing import Tuple, List, Callable, Optional
 import numpy as np
-from .base import MyFMBase, RegressorMixin, ClassifierMixin, ArrayLike
+from .base import (
+    MyFMBase,
+    RegressorMixin,
+    ClassifierMixin,
+    ArrayLike,
+    check_data_consistency,
+    REAL,
+)
 import scipy.sparse as sps
 from ._myfm import (
     ConfigBuilder,
@@ -32,13 +39,25 @@ class MyFMVariationalBase(
         y: np.ndarray,
         random_seed: int,
         config: FMLearningConfig,
-        callback: Callable[
-            [int, VariationalFM, VariationalFMHyperParameters], bool
-        ],
+        callback: Callable[[int, VariationalFM, VariationalFMHyperParameters], bool],
     ) -> Tuple[VariationalPredictor, VariationalLearningHistory]:
         return create_train_vfm(
             rank, init_stdev, X, X_rel, y, random_seed, config, callback
         )
+
+    def _predict_core(
+        self,
+        X: Optional[ArrayLike],
+        X_rel: List[RelationBlock] = [],
+    ) -> np.ndarray:
+        if self.predictor_ is None:
+            raise RuntimeError("Not fit yet.")
+        shape = check_data_consistency(X, X_rel)
+        if X is None:
+            X = sps.csr_matrix((shape, 0), dtype=REAL)
+        else:
+            X = sps.csr_matrix(X)
+        return self.predictor_.predict(X, X_rel)
 
 
 class VariationalFMRegressor(
@@ -114,6 +133,11 @@ class VariationalFMRegressor(
             config_builder=config_builder,
         )
 
+    def predict(
+        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
+    ) -> np.ndarray:
+        return self._predict(X, X_rel)
+
 
 class VariationalFMClassifier(
     ClassifierMixin[VariationalFM, VariationalFMHyperParameters],
@@ -187,3 +211,11 @@ class VariationalFMClassifier(
             group_shapes=group_shapes,
             config_builder=config_builder,
         )
+
+    def predict(
+        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
+    ) -> np.ndarray:
+        return self._predict(X, X_rel)
+
+    def predict_proba(self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []):
+        return self._predict_proba(X, X_rel)

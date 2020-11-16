@@ -14,11 +14,13 @@ Training API
     RelationBlock
     MyFMRegressor
     MyFMClassifier
-    MyFMOrderedProbit
     MyFMGibbsRegressor
     MyFMGibbsClassifier
+    MyFMOrderedProbit
     VariationalFMRegressor
     VariationalFMClassifier
+
+.. currentmodule:: myfm
 
 Benchmark Dataset
 -----------------
@@ -28,6 +30,7 @@ Benchmark Dataset
     utils.benchmark_data.MovieLens100kDataManager
     utils.benchmark_data.MovieLens1MDataManager
     utils.benchmark_data.MovieLens10MDataManager
+
 
 Utilities for Sparse Matrix Construction
 ----------------------------------------

@@ -22,6 +22,7 @@ from .base import (
     MyFMBase,
     RegressorMixin,
     ClassifierMixin,
+    check_data_consistency,
     std_cdf,
 )
 
@@ -39,6 +40,24 @@ class MyFMGibbsBase(
         LearningHistory,
     ]
 ):
+    def _predict_core(
+        self,
+        X: Optional[ArrayLike],
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ) -> np.ndarray:
+        if self.predictor_ is None:
+            raise RuntimeError("Not fit yet.")
+        shape = check_data_consistency(X, X_rel)
+        if X is None:
+            X = sps.csr_matrix((shape, 0), dtype=REAL)
+        else:
+            X = sps.csr_matrix(X)
+        if n_workers is None:
+            return self.predictor_.predict(X, X_rel)
+        else:
+            return self.predictor_.predict_parallel(X, X_rel, n_workers)
+
     @classmethod
     def _train_core(
         cls,
@@ -166,10 +185,32 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
             config_builder=config_builder,
         )
 
+    def predict(
+        self,
+        X: Optional[ArrayLike],
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ) -> np.ndarray:
+        """Make a prediction by compute the posterior predictive mean.
 
-class MyFMGibbsClassifier(
-    ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase
-):
+        Parameters
+        ----------
+        X : Optional[ArrayLike]
+            When None, treated as a matrix with no column.
+        X_rel : List[RelationBlock]
+            Relations.
+        n_workers : Optional[int], optional
+            The number of threads to compute the posterior predictive mean, by default None
+
+        Returns
+        -------
+        np.ndarray
+            One-dimensional array of predictions.
+        """
+        return self._predict(X, X_rel, n_workers=n_workers)
+
+
+class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase):
     r"""Bayesian Factorization Machines for binary classification tasks."""
 
     def fit(
@@ -239,6 +280,60 @@ class MyFMGibbsClassifier(
             config_builder=config_builder,
         )
 
+    def predict(
+        self,
+        X: Optional[ArrayLike],
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ) -> np.ndarray:
+        """Based on the class probability, return binary classified outcome based on threshold = 0.5.
+        If you want class probability instead, use `predict_proba` method.
+
+        Parameters
+        ----------
+        Parameters
+        ----------
+        X : Optional[ArrayLike]
+            When None, treated as a matrix with no column.
+        X_rel : List[RelationBlock]
+            Relations.
+        n_workers : Optional[int], optional
+            The number of threads to compute the posterior predictive mean, by default None
+
+        Returns
+        -------
+        np.ndarray
+            One-dimensional array of predicted outcomes.
+        """
+        return self._predict(X, X_rel, n_workers=n_workers)
+
+    def predict_proba(
+        self,
+        X: Optional[ArrayLike],
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ) -> np.ndarray:
+        """Compute the probability that the outcome will be 1 based on posterior predictive mean.
+
+        Parameters
+        ----------
+        Parameters
+        ----------
+        X : Optional[ArrayLike]
+            When None, treated as a matrix with no column.
+        X_rel : List[RelationBlock]
+            Relations.
+        n_workers : Optional[int], optional
+            The number of threads to compute the posterior predictive mean, by default None
+
+        Returns
+        -------
+        np.ndarray
+            One-dimensional array of probabilities.
+
+        """
+        return self._predict_proba(X, X_rel, n_workers=n_workers)
+
 
 class MyFMOrderedProbit(MyFMGibbsBase):
     """Bayesian Factorization Machines for Ordinal Regression Tasks."""
@@ -300,7 +395,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         raise NotImplementedError("not implemented")
 
     def _status_report(cls, fm: FM, hyper: FMHyperParameters):
-        log_str = "w0= {:2f}".format(fm.w0)
+        log_str = ""
         if len(fm.cutpoints) == 1:
             log_str += ", cutpoint = {} ".format(
                 ["{:.3f}".format(c) for c in list(fm.cutpoints[0])]
@@ -350,10 +445,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         for sample in self.predictor_.samples:
             score = sample.predict_score(X, X_rel)
             score = std_cdf(
-                (
-                    sample.cutpoints[cutpoint_index][np.newaxis, :]
-                    - score[:, np.newaxis]
-                )
+                (sample.cutpoints[cutpoint_index][np.newaxis, :] - score[:, np.newaxis])
             )
             score = np.hstack(
                 [
@@ -391,6 +483,6 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             The class prediction
         """
 
-        return self.predict_proba(
-            X, X_rel=X_rel, cutpoint_index=cutpoint_index
-        ).argmax(axis=1)
+        return self.predict_proba(X, X_rel=X_rel, cutpoint_index=cutpoint_index).argmax(
+            axis=1
+        )

@@ -28,9 +28,7 @@ def std_cdf(x: np.ndarray) -> np.ndarray:
     return (1 + special.erf(x * np.sqrt(0.5))) / 2
 
 
-def check_data_consistency(
-    X: Optional[ArrayLike], X_rel: List[RelationBlock]
-) -> int:
+def check_data_consistency(X: Optional[ArrayLike], X_rel: List[RelationBlock]) -> int:
     shape: Optional[int] = None
     if X_rel:
         shape_rel_all = {rel.mapper_size for rel in X_rel}
@@ -50,12 +48,8 @@ def check_data_consistency(
 
 FM = TypeVar("FM", _myfm.FM, _myfm.VariationalFM)
 Predictor = TypeVar("Predictor", _myfm.Predictor, _myfm.VariationalPredictor)
-History = TypeVar(
-    "History", _myfm.LearningHistory, _myfm.VariationalLearningHistory
-)
-Hyper = TypeVar(
-    "Hyper", _myfm.FMHyperParameters, _myfm.VariationalFMHyperParameters
-)
+History = TypeVar("History", _myfm.LearningHistory, _myfm.VariationalLearningHistory)
+Hyper = TypeVar("Hyper", _myfm.FMHyperParameters, _myfm.VariationalFMHyperParameters)
 
 CallBackType = Callable[[int, FM, Hyper], bool]
 
@@ -222,9 +216,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             getattr(config_builder, "set_{}".format(key))(value)
 
         if group_shapes is not None and grouping is None:
-            grouping = [
-                i for i, gsize in enumerate(group_shapes) for _ in range(gsize)
-            ]
+            grouping = [i for i, gsize in enumerate(group_shapes) for _ in range(gsize)]
 
         if grouping is None:
             self.n_groups_ = 1
@@ -247,9 +239,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
                 X_test = sps.csr_matrix(X_test)
             do_test = True
         elif y_test is not None:
-            raise RuntimeError(
-                "Must specify both (X_test or X_rel_test) and y_test."
-            )
+            raise RuntimeError("Must specify both (X_test or X_rel_test) and y_test.")
         else:
             do_test = False
 
@@ -263,7 +253,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
         config = config_builder.build()
 
-        pbar = None
+        pbar: Optional[tqdm] = None
         if callback is None:
             pbar = tqdm(total=n_iter)
             callback = self._create_default_callback(
@@ -275,66 +265,28 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
                 y_test=y_test,
             )
 
-        self.predictor_, self.history_ = self._train_core(
-            self.rank,
-            self.init_stdev,
-            X,
-            X_rel,
-            y,
-            self.random_seed,
-            config,
-            callback,
-        )
-        return self
+        try:
+            self.predictor_, self.history_ = self._train_core(
+                self.rank,
+                self.init_stdev,
+                X,
+                X_rel,
+                y,
+                self.random_seed,
+                config,
+                callback,
+            )
+            return self
+        finally:
+            if pbar is not None:
+                pbar.close()
 
     def _set_tasktype(self, config_builder: ConfigBuilder) -> None:
         config_builder.set_task_type(self._task_type)
 
-    def _predict(
-        self,
-        X: ArrayLike,
-        X_rel: List[RelationBlock] = [],
-        n_workers: Optional[int] = None,
-    ) -> np.ndarray:
-        """Predict the outcome by posterior mean.
-
-        Parameters
-        ----------
-        X : array-like
-            input matrix.
-        X_rel : list, optional
-            Relation blocks that supplements X, by default []
-        n_workers : [int], optional
-            if not None, compute the prediction of each Gibbs sample on
-            different threads. Ignored for variational backend. By default None
-
-        Returns
-        -------
-        np.float64
-            The prediction value.
-
-        """
-        shape = check_data_consistency(X, X_rel)
-        if self.predictor_ is None:
-            raise RuntimeError("MyFM instance not fit yet.")
-
-        if X is None:
-            X = sps.csr_matrix((shape, 0), dtype=np.float64)
-
-        if n_workers is not None:
-            if isinstance(self.predictor_, _myfm.Predictor):
-                return self.predictor_.predict_parallel(X, X_rel, n_workers)
-            else:
-                return self.predictor_.predict(
-                    X,
-                    X_rel,
-                )
-        else:
-            return self.predictor_.predict(X, X_rel)
-
     @abstractmethod
     def _status_report(cls, fm: FM, hyper: Hyper):
-        raise NotImplementedError("must implement status report")
+        raise NotImplementedError("must be implemented")
 
     def _prepare_prediction_for_test(cls, y):
         return y
@@ -348,7 +300,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
 
 class RegressorMixin(Generic[FM, Hyper]):
-    _predict: Callable
+    _predict_core: Callable
 
     @property
     def _task_type(self) -> TaskType:
@@ -365,17 +317,14 @@ class RegressorMixin(Generic[FM, Hyper]):
         result["mae"] = np.abs(y - prediction).mean()
         return result
 
-    def predict(
-        self,
-        X: ArrayLike,
-        X_rel: List[RelationBlock] = [],
-        n_workers: Optional[int] = None,
+    def _predict(
+        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
     ):
-        return self._predict(X, X_rel, n_workers)
+        return self._predict_core(X, X_rel, **kwargs)
 
 
 class ClassifierMixin(Generic[FM, Hyper], ABC):
-    _predict: Callable
+    _predict_core: Callable
 
     @property
     def _task_type(self) -> TaskType:
@@ -400,11 +349,8 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
         log_str = "w0 = {:.2f} ".format(fm.w0)
         return log_str
 
-    def predict(
-        self,
-        X: ArrayLike,
-        X_rel: List[RelationBlock] = [],
-        n_workers: Optional[int] = None,
+    def _predict(
+        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
     ) -> np.ndarray:
         """Based on the class probability, return binary classified outcome based on threshold = 0.5.
         If you want class probability instead, use `predict_proba` method.
@@ -424,15 +370,10 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
             the predicted outcome.
         """
 
-        return (
-            (self._predict(X, X_rel=X_rel, n_workers=n_workers)) > 0.5
-        ).astype(np.int64)
+        return ((self._predict_core(X, X_rel=X_rel, **kwargs)) > 0.5).astype(np.int64)
 
-    def predict_proba(
-        self,
-        X: ArrayLike,
-        X_rel: List[RelationBlock] = [],
-        n_workers: Optional[int] = None,
+    def _predict_proba(
+        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
     ):
 
         """Compute the probability that the outcome will be 1 (positive)
@@ -443,4 +384,4 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
             [description]
         """
 
-        return self._predict(X, X_rel, n_workers)
+        return self._predict_core(X, X_rel, **kwargs)

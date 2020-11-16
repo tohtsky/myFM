@@ -104,12 +104,12 @@ It is straightforward to include user/item side information.
 
 First we retrieve the side information from ``Movielens100kDataManager``: ::
 
-    user_info = data_manager.load_userinfo().set_index('user_id')
+    user_info = data_manager.load_user_info().set_index('user_id')
     user_info['age'] = user_info.age // 5 * 5
     user_info['zipcode'] = user_info.zipcode.str[0]
     user_info_ohe = OneHotEncoder(handle_unknown='ignore').fit(user_info)
 
-    movie_info, movie_genres = data_manager.load_movieinfo()
+    movie_info, movie_genres = data_manager.load_movie_info()
     movie_info['release_year'] = [
         str(x) for x in movie_info['release_date'].dt.year.fillna('NaN')
     ] # hack to avoid NaN
