@@ -106,24 +106,29 @@ class TestAll(TestCase):
         return RelationBlock(index, X)
 
     def test_main(self):
-        for CLS, classification in [
-            (MyFMGibbsRegressor, False),
-            (MyFMGibbsClassifier, True),
-            (VariationalFMRegressor, False),
-            (VariationalFMClassifier, True),
-            (MyFMOrderedProbit, False),
+        for CLS, problem in [
+            (MyFMGibbsRegressor, "reg"),
+            (MyFMGibbsClassifier, "clf"),
+            (VariationalFMRegressor, "reg"),
+            (VariationalFMClassifier, "clf"),
+            (MyFMOrderedProbit, "ord"),
         ]:
             fm = CLS(rank=2, random_seed=43).fit(
                 self.X_main_train,
-                self.y_train if not classification else self.y_train_binary,
+                self.y_train_binary if problem == "clf" else self.y_train,
                 X_rel=self.blocks_train,
                 X_test=self.X_main_test,
-                y_test=self.y_test if not classification else self.y_test_binary,
+                y_test=self.y_test_binary if problem == "clf" else self.y_test,
                 X_rel_test=self.blocks_test,
                 n_iter=20,
                 n_kept_samples=20,
             )
-            prediction_1 = fm.predict(self.X_main_test, self.blocks_test)
+
+            # test pickling
+            if problem == "reg":
+                prediction_1 = fm.predict(self.X_main_test, self.blocks_test)
+            else:
+                prediction_1 = fm.predict_proba(self.X_main_test, self.blocks_test)
 
             with open("temp.pkl", "wb") as ofs:
                 pickle.dump(fm, ofs)
@@ -132,9 +137,24 @@ class TestAll(TestCase):
                 fm_recovered = pickle.load(ifs)
 
             os.remove("temp.pkl")
-            prediction_2 = fm_recovered.predict(self.X_main_test, self.blocks_test)
+            if problem == "reg":
+                prediction_2 = fm_recovered.predict(self.X_main_test, self.blocks_test)
+            else:
+                prediction_2 = fm_recovered.predict_proba(
+                    self.X_main_test, self.blocks_test
+                )
 
             self.assertTrue(np.all(prediction_1 == prediction_2))
+
+            if problem == "reg":
+                rmse = ((self.y_test - prediction_1) ** 2).mean() ** 0.5
+                print("rmse={}".format(rmse))
+            elif problem == "clf":
+                roc = metrics.roc_auc_score(self.y_test_binary, prediction_1)
+                print("roc={}".format(roc))
+            elif problem == "ord":
+                ll = metrics.log_loss(self.y_test, prediction_1)
+                print("lll={}".format(ll))
 
 
 if __name__ == "__main__":

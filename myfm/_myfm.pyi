@@ -1,6 +1,4 @@
 """Backend C++ implementation for myfm."""
-import scipy.sparse
-import numpy
 import myfm._myfm
 from typing import *
 from typing import Iterable as iterable
@@ -8,9 +6,9 @@ from typing import Iterator as iterator
 from numpy import float64
 
 _Shape = Tuple[int, ...]
+import numpy
+import scipy.sparse
 
-m: int
-n: int
 __all__ = [
     "ConfigBuilder",
     "FM",
@@ -21,16 +19,19 @@ __all__ = [
     "Predictor",
     "RelationBlock",
     "TaskType",
-    "VariationalLearningHistory",
     "VariationalFM",
     "VariationalFMHyperParameters",
     "VariationalFMTrainer",
+    "VariationalLearningHistory",
     "VariationalPredictor",
     "create_train_fm",
     "create_train_vfm",
     "mean_var_truncated_normal_left",
     "mean_var_truncated_normal_right",
 ]
+
+m: int
+n: int
 
 
 class ConfigBuilder:
@@ -70,6 +71,9 @@ class ConfigBuilder:
         ...
 
     def set_n_kept_samples(self, arg0: int) -> ConfigBuilder:
+        ...
+
+    def set_nu_oprobit(self, arg0: int) -> ConfigBuilder:
         ...
 
     def set_reg_0(self, arg0: float) -> ConfigBuilder:
@@ -200,11 +204,6 @@ class FMTrainer:
         ...
 
     def create_Hyper(self, arg0: int) -> FMHyperParameters:
-        ...
-
-    def learn(
-        self, arg0: FM, arg1: FMHyperParameters
-    ) -> Tuple[Predictor, LearningHistory]:
         ...
 
     pass
@@ -363,32 +362,8 @@ class TaskType:
     CLASSIFICATION: myfm._myfm.TaskType  # value = TaskType.CLASSIFICATION
     ORDERED: myfm._myfm.TaskType  # value = TaskType.ORDERED
     REGRESSION: myfm._myfm.TaskType  # value = TaskType.REGRESSION
-    # value = {'REGRESSION': (TaskType.REGRESSION, None), 'CLASSIFICATION': (TaskType.CLASSIFICATION, None), 'ORDERED': (TaskType.ORDERED, None)}
-    __entries: dict
-    # value = {'REGRESSION': TaskType.REGRESSION, 'CLASSIFICATION': TaskType.CLASSIFICATION, 'ORDERED': TaskType.ORDERED}
-    __members__: dict
-    pass
-
-
-class VariationalLearningHistory:
-    def __getstate__(self) -> tuple:
-        ...
-
-    def __setstate__(self, arg0: tuple) -> None:
-        ...
-
-    @property
-    def elbos(self) -> List[float]:
-        """
-        :type: List[float]
-        """
-
-    @property
-    def hypers(self) -> FMHyperParameters:
-        """
-        :type: FMHyperParameters
-        """
-
+    __entries: dict  # value = {'REGRESSION': (TaskType.REGRESSION, None), 'CLASSIFICATION': (TaskType.CLASSIFICATION, None), 'ORDERED': (TaskType.ORDERED, None)}
+    __members__: dict  # value = {'REGRESSION': TaskType.REGRESSION, 'CLASSIFICATION': TaskType.CLASSIFICATION, 'ORDERED': TaskType.ORDERED}
     pass
 
 
@@ -569,10 +544,27 @@ class VariationalFMTrainer:
     def create_Hyper(self, arg0: int) -> VariationalFMHyperParameters:
         ...
 
-    def learn(
-        self, arg0: VariationalFM, arg1: VariationalFMHyperParameters
-    ) -> Tuple[VariationalPredictor, VariationalLearningHistory]:
+    pass
+
+
+class VariationalLearningHistory:
+    def __getstate__(self) -> tuple:
         ...
+
+    def __setstate__(self, arg0: tuple) -> None:
+        ...
+
+    @property
+    def elbos(self) -> List[float]:
+        """
+        :type: List[float]
+        """
+
+    @property
+    def hypers(self) -> FMHyperParameters:
+        """
+        :type: FMHyperParameters
+        """
 
     pass
 
@@ -603,7 +595,7 @@ def create_train_fm(
     arg4: numpy.ndarray[float64, _Shape[m, 1]],
     arg5: int,
     arg6: FMLearningConfig,
-    arg7: Callable[[int, FM, FMHyperParameters], bool],
+    arg7: Callable[[int, FM, FMHyperParameters, LearningHistory], bool],
 ) -> Tuple[Predictor, LearningHistory]:
     """
     create and train fm.
@@ -619,7 +611,13 @@ def create_train_vfm(
     random_seed: int,
     learning_config: FMLearningConfig,
     callback: Callable[
-        [int, VariationalFM, VariationalFMHyperParameters], bool
+        [
+            int,
+            VariationalFM,
+            VariationalFMHyperParameters,
+            VariationalLearningHistory,
+        ],
+        bool,
     ],
 ) -> Tuple[VariationalPredictor, VariationalLearningHistory]:
     """

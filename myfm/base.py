@@ -28,7 +28,9 @@ def std_cdf(x: np.ndarray) -> np.ndarray:
     return (1 + special.erf(x * np.sqrt(0.5))) / 2
 
 
-def check_data_consistency(X: Optional[ArrayLike], X_rel: List[RelationBlock]) -> int:
+def check_data_consistency(
+    X: Optional[ArrayLike], X_rel: List[RelationBlock]
+) -> int:
     shape: Optional[int] = None
     if X_rel:
         shape_rel_all = {rel.mapper_size for rel in X_rel}
@@ -48,8 +50,12 @@ def check_data_consistency(X: Optional[ArrayLike], X_rel: List[RelationBlock]) -
 
 FM = TypeVar("FM", _myfm.FM, _myfm.VariationalFM)
 Predictor = TypeVar("Predictor", _myfm.Predictor, _myfm.VariationalPredictor)
-History = TypeVar("History", _myfm.LearningHistory, _myfm.VariationalLearningHistory)
-Hyper = TypeVar("Hyper", _myfm.FMHyperParameters, _myfm.VariationalFMHyperParameters)
+History = TypeVar(
+    "History", _myfm.LearningHistory, _myfm.VariationalLearningHistory
+)
+Hyper = TypeVar(
+    "Hyper", _myfm.FMHyperParameters, _myfm.VariationalFMHyperParameters
+)
 
 CallBackType = Callable[[int, FM, Hyper], bool]
 
@@ -67,7 +73,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         y: np.ndarray,
         random_seed: int,
         config: FMLearningConfig,
-        callback: Callable[[int, FM, Hyper], bool],
+        callback: Callable[[int, FM, Hyper, History], bool],
     ) -> Tuple[Predictor, History]:
         raise NotImplementedError("not implemented")
 
@@ -152,29 +158,29 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
     def _create_default_callback(
         self,
-        pbar: tqdm,
         callback_default_freq: int,
         do_test: float,
         X_test: Optional[sps.csr_matrix] = None,
         X_rel_test: List[RelationBlock] = [],
         y_test: Optional[np.ndarray] = None,
-    ) -> Callable[[int, FM, Hyper], bool]:
-        def callback(i: int, fm: FM, hyper: Hyper) -> bool:
-            pbar.update(1)
-
+    ) -> Callable[[int, FM, Hyper, History], Tuple[bool, Optional[str]]]:
+        def callback(
+            i: int, fm: FM, hyper: Hyper, history: History
+        ) -> Tuple[bool, Optional[str]]:
             if i % callback_default_freq:
-                return False
+                return False, None
 
             log_str = self._status_report(fm, hyper)
 
             if do_test:
-                pred_this = self._prepare_prediction_for_test(fm, X_test, X_rel_test)
+                pred_this = self._prepare_prediction_for_test(
+                    fm, X_test, X_rel_test
+                )
                 val_results = self._measure_score(pred_this, y_test)
                 for key, metric in val_results.items():
                     log_str += " {}_this: {:.2f}".format(key, metric)
 
-            pbar.set_description(log_str)
-            return False
+            return (False, log_str)
 
         return callback
 
@@ -190,7 +196,9 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         n_kept_samples: Optional[int] = None,
         grouping: Optional[List[int]] = None,
         group_shapes: Optional[List[int]] = None,
-        callback: Optional[Callable[[int, FM, Hyper], bool]] = None,
+        callback: Optional[
+            Callable[[int, FM, Hyper, History], Tuple[bool, Optional[str]]]
+        ] = None,
         config_builder: Optional[ConfigBuilder] = None,
         callback_default_freq: int = 10,
     ) -> "MyFMBase":
@@ -216,7 +224,9 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             getattr(config_builder, "set_{}".format(key))(value)
 
         if group_shapes is not None and grouping is None:
-            grouping = [i for i, gsize in enumerate(group_shapes) for _ in range(gsize)]
+            grouping = [
+                i for i, gsize in enumerate(group_shapes) for _ in range(gsize)
+            ]
 
         if grouping is None:
             self.n_groups_ = 1
@@ -239,7 +249,9 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
                 X_test = sps.csr_matrix(X_test)
             do_test = True
         elif y_test is not None:
-            raise RuntimeError("Must specify both (X_test or X_rel_test) and y_test.")
+            raise RuntimeError(
+                "Must specify both (X_test or X_rel_test) and y_test."
+            )
         else:
             do_test = False
 
@@ -252,19 +264,28 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
         config = config_builder.build()
 
-        pbar: Optional[tqdm] = None
         if callback is None:
-            pbar = tqdm(total=n_iter)
-            callback = self._create_default_callback(
-                pbar,
+            callback_not_null = self._create_default_callback(
                 callback_default_freq=callback_default_freq,
                 do_test=do_test,
                 X_test=X_test,
                 X_rel_test=X_rel_test,
                 y_test=y_test,
             )
+        else:
+            callback_not_null = callback
 
-        try:
+        with tqdm(total=n_iter) as pbar:
+
+            def wrapped_callback(
+                i: int, fm: FM, hyper: Hyper, history: History
+            ) -> bool:
+                should_stop, message = callback_not_null(i, fm, hyper, history)
+                if message is not None:
+                    pbar.set_description(message)
+                pbar.update(1)
+                return should_stop
+
             self.predictor_, self.history_ = self._train_core(
                 self.rank,
                 self.init_stdev,
@@ -273,12 +294,9 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
                 y,
                 self.random_seed,
                 config,
-                callback,
+                wrapped_callback,
             )
             return self
-        finally:
-            if pbar is not None:
-                pbar.close()
 
     def _set_tasktype(self, config_builder: ConfigBuilder) -> None:
         config_builder.set_task_type(self._task_type)
@@ -297,7 +315,9 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         return y.astype(np.float64)
 
     @abstractmethod
-    def _measure_score(cls, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+    def _measure_score(
+        cls, prediction: np.ndarray, y: np.ndarray
+    ) -> Dict[str, float]:
         raise NotImplementedError("")
 
 
@@ -318,7 +338,9 @@ class RegressorMixin(Generic[FM, Hyper]):
         log_str += "w0 = {:.2f} ".format(fm.w0)
         return log_str
 
-    def _measure_score(self, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+    def _measure_score(
+        self, prediction: np.ndarray, y: np.ndarray
+    ) -> Dict[str, float]:
         result = OrderedDict()
         result["rmse"] = ((y - prediction) ** 2).mean() ** 0.5
         result["mae"] = np.abs(y - prediction).mean()
@@ -350,7 +372,9 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
         lp = np.log(prediction + 1e-15)
         l1mp = np.log(1 - prediction + 1e-15)
         gt = y > 0
-        result["ll"] = (-lp.dot(gt) - l1mp.dot(~gt)) / max(1, prediction.shape[0])
+        result["ll"] = (-lp.dot(gt) - l1mp.dot(~gt)) / max(
+            1, prediction.shape[0]
+        )
         result["accuracy"] = np.mean((prediction >= 0.5) == gt)
         return result
 
@@ -362,7 +386,9 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
     ) -> np.ndarray:
 
-        return ((self._predict_core(X, X_rel=X_rel, **kwargs)) > 0.5).astype(np.int64)
+        return ((self._predict_core(X, X_rel=X_rel, **kwargs)) > 0.5).astype(
+            np.int64
+        )
 
     def _predict_proba(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs

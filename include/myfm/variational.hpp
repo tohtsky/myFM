@@ -136,8 +136,7 @@ struct VariationalRelationWiseCache
 };
 
 template <typename Real> struct VariationalLearningHistory {
-  inline VariationalLearningHistory(FMHyperParameters<Real> hyper,
-                                    std::vector<Real> elbos)
+  inline VariationalLearningHistory(FMHyperParameters<Real> hyper, std::vector<Real> elbos)
       : hyper(hyper), elbos(elbos) {}
   FMHyperParameters<Real> hyper;
   std::vector<Real> elbos;
@@ -176,44 +175,42 @@ public:
   Vector x2s;
   Vector x3sv;
   Real e_var_sum;
-  std::vector<Real> elbos;
+  Real elbo;
 
   inline VariationalFMTrainer(const SparseMatrix &X,
                               const vector<RelationBlock> &relations,
                               const Vector &y, int random_seed,
                               Config learning_config)
       : BaseType(X, relations, y, random_seed, learning_config), x2s(X.rows()),
-        x3sv(X.rows()), e_var_sum(0), elbos() {}
+        x3sv(X.rows()), e_var_sum(0), elbo(0) {}
 
-  inline std::pair<VariationalPredictor<Real>, LearningHistory>
-  learn(FMType &fm, HyperType &hyper) {
-    return learn_with_callback(
-        fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
-  }
 
   /**
    *  Main routine for Variational update.
    */
   inline std::pair<VariationalPredictor<Real>, LearningHistory>
   learn_with_callback(FMType &fm, HyperType &hyper,
-                      std::function<bool(int, FMType *, HyperType *)> cb) {
+                      std::function<bool(int, FMType *, HyperType *, LearningHistory *)> cb) {
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
+
+    std::pair<VariationalPredictor<Real>, LearningHistory> result{
+        {static_cast<size_t>(fm.n_factors), this->dim_all,
+         this->learning_config.task_type},
+        {hyper, {}}};
 
     for (int iteration = 0; iteration < this->learning_config.n_iter;
          iteration++) {
       this->update_all(fm, hyper);
+      result.second.elbos.push_back(this->elbo);
 
-      bool should_stop = cb(iteration, &fm, &hyper);
+      bool should_stop = cb(iteration, &fm, &hyper, &(result.second));
       if (should_stop) {
         break;
       }
     }
-    std::pair<VariationalPredictor<Real>, LearningHistory> result{
-        {static_cast<size_t>(fm.n_factors), this->dim_all,
-         this->learning_config.task_type},
-        {hyper, this->elbos}};
-    std::get<0>(result).samples.emplace_back(fm);
+    result.second.hyper = std::move(hyper);
+    result.first.samples.emplace_back(fm);
     return result;
   }
 
@@ -836,7 +833,7 @@ public:
   inline void update_e(FMType &fm, HyperType &hyper) {
     this->update_e_and_var(fm, hyper);
 
-    Real elbo = 0;
+    this->elbo = 0;
     if (this->learning_config.task_type == TASKTYPE::REGRESSION) {
       this->e_train -= this->y;
     } else if (this->learning_config.task_type == TASKTYPE::CLASSIFICATION) {
@@ -913,7 +910,6 @@ public:
       group_index++;
     }
 
-    this->elbos.push_back(elbo);
   }
 }; // namespace variational
 

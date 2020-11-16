@@ -49,18 +49,15 @@ struct GibbsFMTrainer
 
 public:
   using BaseType::BaseType;
-  inline pair<Predictor<Real>, LearningHistory> learn(FMType &fm,
-                                                      HyperType &hyper) {
-    return learn_with_callback(
-        fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
-  }
 
   /**
    *  Main routine for Gibbs sampling.
    */
   inline pair<Predictor<Real>, LearningHistory>
-  learn_with_callback(FMType &fm, HyperType &hyper,
-                      std::function<bool(int, FMType *, HyperType *)> cb) {
+  learn_with_callback(
+    FMType &fm, HyperType &hyper,
+    std::function<bool(int, FMType *, HyperType *,  LearningHistory *)> cb
+    ) {
     std::pair<Predictor<Real>, LearningHistory> result{
         {static_cast<size_t>(fm.n_factors), this->dim_all,
          this->learning_config.task_type},
@@ -80,7 +77,7 @@ public:
       // for tracing
       result.second.hypers.emplace_back(hyper);
 
-      bool should_stop = cb(mcmc_iteration, &fm, &hyper);
+      bool should_stop = cb(mcmc_iteration, &fm, &hyper, &(result.second));
       if (should_stop) {
         break;
       }

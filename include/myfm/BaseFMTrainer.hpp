@@ -114,14 +114,10 @@ struct BaseFMTrainer {
     return HyperType{rank, learning_config.get_n_groups()};
   }
 
-  inline learn_result_type learn(FMType &fm, HyperType &hyper) {
-    return static_cast<Derived &>(*this).learn_with_callback(
-        fm, hyper, [](int i, FMType *fm, HyperType *hyper) { return false; });
-  }
 
   inline learn_result_type
   learn_with_callback(FMType &fm, HyperType &hyper,
-                      std::function<bool(int, FMType *, HyperType *)> cb);
+                      std::function<bool(int, FMType *, HyperType *, Predictor<Real> *, HistoryType *)> cb);
 
   inline void initialize_hyper(FMType &fm, HyperType &hyper) {
     static_cast<Derived &>(*this).initialize_alpha();

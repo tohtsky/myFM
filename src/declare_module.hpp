@@ -35,8 +35,7 @@ create_train_fm(
     const vector<myFM::relational::RelationBlock<Real>> &relations,
     const typename myFM::FM<Real>::Vector &y, int random_seed,
     myFM::FMLearningConfig<Real> &config,
-    std::function<bool(int, myFM::FM<Real> *, myFM::FMHyperParameters<Real> *)>
-        cb) {
+    std::function<bool(int, myFM::FM<Real> *, myFM::FMHyperParameters<Real> *, myFM::GibbsLearningHistory<Real> *)> cb) {
   FMTrainer<Real> fm_trainer(X, relations, y, random_seed, config);
   auto fm = fm_trainer.create_FM(n_factor, init_std);
   auto hyper_param = fm_trainer.create_Hyper(fm.n_factors);
@@ -53,7 +52,8 @@ create_train_vfm(
     const typename myFM::FM<Real>::Vector &y, int random_seed,
     myFM::FMLearningConfig<Real> &config,
     std::function<bool(int, myFM::variational::VariationalFM<Real> *,
-                       myFM::variational::VariationalFMHyperParameters<Real> *)>
+                       myFM::variational::VariationalFMHyperParameters<Real> *,
+                       myFM::variational::VariationalLearningHistory<Real> *)>
         cb) {
   myFM::variational::VariationalFMTrainer<Real> fm_trainer(X, relations, y,
                                                            random_seed, config);
@@ -344,15 +344,13 @@ template <typename Real> void declare_functional(py::module &m) {
       .def(py::init<const SparseMatrix &, const vector<RelationBlock> &,
                     const Vector &, int, FMLearningConfig>())
       .def("create_FM", &FMTrainer::create_FM)
-      .def("create_Hyper", &FMTrainer::create_Hyper)
-      .def("learn", &FMTrainer::learn);
+      .def("create_Hyper", &FMTrainer::create_Hyper);
 
   py::class_<VFMTrainer>(m, "VariationalFMTrainer")
       .def(py::init<const SparseMatrix &, const vector<RelationBlock> &,
                     const Vector &, int, FMLearningConfig>())
       .def("create_FM", &VFMTrainer::create_FM)
-      .def("create_Hyper", &VFMTrainer::create_Hyper)
-      .def("learn", &VFMTrainer::learn);
+      .def("create_Hyper", &VFMTrainer::create_Hyper);
 
   py::class_<History>(m, "LearningHistory")
       .def_readonly("hypers", &History::hypers)
