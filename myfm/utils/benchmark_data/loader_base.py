@@ -90,9 +90,3 @@ class MovieLensBase(DataLoaderBase, ABC):
             raise ValueError("0 <= fold < K")
         df_all = self.load_rating_all()
         return train_test_split_with_kfold(df_all, K, fold, random_state)
-
-    def load_user_info(self) -> pd.DataFrame:
-        raise NotImplementedError("user_info not available.")
-
-    def load_movie_info(self) -> pd.DataFrame:
-        raise NotImplementedError("item_info not available.")
