@@ -196,7 +196,7 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
         Parameters
         ----------
         X : Optional[ArrayLike]
-            When None, treated as a matrix with no column.
+            Main table. When None, treated as a matrix with no column.
         X_rel : List[RelationBlock]
             Relations.
         n_workers : Optional[int], optional
@@ -239,7 +239,7 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
             Target variable.
 
         X_rel: list of RelationBlock, optional (default=[])
-               Relation blocks which supplements X.
+            Relation blocks which supplements X.
 
         n_iter : int, optional (default = 100)
             Iterations to perform.

@@ -332,7 +332,7 @@ template <typename Real> void declare_functional(py::module &m) {
             VPredictor *p =
                 new VPredictor(t[0].cast<size_t>(), t[1].cast<size_t>(),
                                static_cast<TASKTYPE>(t[2].cast<int>()));
-            // p->set_samples(std::move(t[3].cast<vector<VFM>>()));
+            p->set_samples(std::move(t[3].cast<vector<VFM>>()));
             return p;
           }))
       .def("weights", [](VPredictor &predictor) {

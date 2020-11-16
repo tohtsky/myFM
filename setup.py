@@ -8,7 +8,7 @@ import sys
 import setuptools
 import os
 
-__version__ = "0.3.0.0"
+__version__ = "0.3.0.0.dev1"
 
 install_requires = [
     "pybind11>=2.5.0",
@@ -182,6 +182,6 @@ setup(
     ],
     zip_safe=False,
     headers=headers,
-    python_requires=">=3.5.0",
+    python_requires=">=3.6.0",
     package_data={"myfm": ["*.pyi"]},
 )
