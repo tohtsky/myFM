@@ -1,9 +1,8 @@
 from collections import OrderedDict
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, Dict
 
 import numpy as np
 from scipy import sparse as sps
-from scipy import special
 
 from ._myfm import (
     FM,
@@ -383,16 +382,40 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             callback_default_freq=callback_default_freq,
         )
 
-    def _process_score(self, score):
-        return (1 + special.erf(score * np.sqrt(0.5))) / 2
+    @classmethod
+    def _score_to_class_prob(
+        cls, score: np.ndarray, cutpoints: np.ndarray
+    ) -> np.ndarray:
+        score = std_cdf((cutpoints[np.newaxis, :] - score[:, np.newaxis]))
+        score = np.hstack(
+            [
+                np.zeros((score.shape[0], 1), dtype=score.dtype),
+                score,
+                np.ones((score.shape[0], 1), dtype=score.dtype),
+            ]
+        )
+        return score[:, 1:] - score[:, :-1]
+
+    def _prepare_prediction_for_test(
+        self, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
+    ) -> np.ndarray:
+        score = fm.predict_score(X, X_rel)
+        return self._score_to_class_prob(score, fm.cutpoints[0])
 
     def _process_y(self, y):
         y_as_float = y.astype(np.float64)
         assert y.min() >= 0
         return y_as_float
 
-    def _measure_score(self, prediction, y):
-        raise NotImplementedError("not implemented")
+    def _measure_score(cls, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+        result: Dict[str, float] = OrderedDict()
+        accuracy = (np.argmax(prediction, axis=1) == y).mean()
+        result["accuracy"] = accuracy
+        log_loss = -np.log(
+            prediction[np.arange(prediction.shape[0]), y.astype(np.int64)] + 1e-15
+        ).mean()
+        result["log_loss"] = log_loss
+        return result
 
     def _status_report(cls, fm: FM, hyper: FMHyperParameters):
         log_str = ""
@@ -444,17 +467,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
 
         for sample in self.predictor_.samples:
             score = sample.predict_score(X, X_rel)
-            score = std_cdf(
-                (sample.cutpoints[cutpoint_index][np.newaxis, :] - score[:, np.newaxis])
-            )
-            score = np.hstack(
-                [
-                    np.zeros((score.shape[0], 1), dtype=score.dtype),
-                    score,
-                    np.ones((score.shape[0], 1), dtype=score.dtype),
-                ]
-            )
-            p += score[:, 1:] - score[:, :-1]
+            p += self._score_to_class_prob(score, sample.cutpoints[cutpoint_index])
         return p / len(self.predictor_.samples)
 
     def predict(

@@ -168,9 +168,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             log_str = self._status_report(fm, hyper)
 
             if do_test:
-                pred_this = self._prepare_prediction_for_test(
-                    fm.predict_score(X_test, X_rel_test or [])
-                )
+                pred_this = self._prepare_prediction_for_test(fm, X_test, X_rel_test)
                 val_results = self._measure_score(pred_this, y_test)
                 for key, metric in val_results.items():
                     log_str += " {}_this: {:.2f}".format(key, metric)
@@ -289,14 +287,17 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
     def _status_report(cls, fm: FM, hyper: Hyper):
         raise NotImplementedError("must be implemented")
 
-    def _prepare_prediction_for_test(cls, y):
-        return y
+    @abstractmethod
+    def _prepare_prediction_for_test(
+        self, fm: FM, X: Optional[ArrayLike], X_rel: List[RelationBlock]
+    ):
+        raise NotImplementedError("must be implemented")
 
     def _process_y(cls, y):
         return y.astype(np.float64)
 
     @abstractmethod
-    def _measure_score(cls, prediction: np.ndarray, y: np.ndarray):
+    def _measure_score(cls, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
         raise NotImplementedError("")
 
 
@@ -307,12 +308,17 @@ class RegressorMixin(Generic[FM, Hyper]):
     def _task_type(self) -> TaskType:
         return TaskType.REGRESSION
 
+    def _prepare_prediction_for_test(
+        cls, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
+    ):
+        return fm.predict_score(X, X_rel)
+
     def _status_report(self, fm: FM, hyper: Hyper):
         log_str = "alpha = {:.2f} ".format(hyper.alpha)
         log_str += "w0 = {:.2f} ".format(fm.w0)
         return log_str
 
-    def _measure_score(self, prediction: np.ndarray, y: np.ndarray):
+    def _measure_score(self, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
         result = OrderedDict()
         result["rmse"] = ((y - prediction) ** 2).mean() ** 0.5
         result["mae"] = np.abs(y - prediction).mean()
@@ -331,8 +337,10 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
     def _task_type(self) -> TaskType:
         return TaskType.CLASSIFICATION
 
-    def _prepare_prediction_for_test(self, score):
-        return std_cdf(score)
+    def _prepare_prediction_for_test(
+        self, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
+    ):
+        return std_cdf(fm.predict_score(X, X_rel))
 
     def _process_y(self, y) -> np.ndarray:
         return y.astype(np.float64) * 2 - 1
@@ -342,7 +350,7 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
         lp = np.log(prediction + 1e-15)
         l1mp = np.log(1 - prediction + 1e-15)
         gt = y > 0
-        result["ll"] = -lp.dot(gt) - l1mp.dot(~gt)
+        result["ll"] = (-lp.dot(gt) - l1mp.dot(~gt)) / max(1, prediction.shape[0])
         result["accuracy"] = np.mean((prediction >= 0.5) == gt)
         return result
 

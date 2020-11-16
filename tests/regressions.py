@@ -1,9 +1,8 @@
-import pickle
 import os
+import pickle
 import unittest
 from collections import defaultdict
 from typing import Dict, List
-from abc import ABC, abstractmethod
 from unittest.case import TestCase
 
 import numpy as np
@@ -11,10 +10,10 @@ import pandas as pd
 from myfm import (
     MyFMGibbsClassifier,
     MyFMGibbsRegressor,
+    MyFMOrderedProbit,
     RelationBlock,
     VariationalFMClassifier,
     VariationalFMRegressor,
-    MyFMOrderedProbit,
 )
 from myfm.utils.benchmark_data import MovieLens100kDataManager
 from myfm.utils.encoders import (
@@ -23,6 +22,7 @@ from myfm.utils.encoders import (
     DataFrameEncoder,
     MultipleValuesToSparseEncoder,
 )
+from sklearn import metrics
 
 
 class TestAll(TestCase):
@@ -115,13 +115,13 @@ class TestAll(TestCase):
         ]:
             fm = CLS(rank=2, random_seed=43).fit(
                 self.X_main_train,
-                self.y_train if classification else self.y_train_binary,
+                self.y_train if not classification else self.y_train_binary,
                 X_rel=self.blocks_train,
                 X_test=self.X_main_test,
-                y_test=self.y_test if classification else self.y_test_binary,
+                y_test=self.y_test if not classification else self.y_test_binary,
                 X_rel_test=self.blocks_test,
-                n_iter=10,
-                n_kept_samples=10,
+                n_iter=20,
+                n_kept_samples=20,
             )
             prediction_1 = fm.predict(self.X_main_test, self.blocks_test)
 
@@ -130,6 +130,8 @@ class TestAll(TestCase):
 
             with open("temp.pkl", "rb") as ifs:
                 fm_recovered = pickle.load(ifs)
+
+            os.remove("temp.pkl")
             prediction_2 = fm_recovered.predict(self.X_main_test, self.blocks_test)
 
             self.assertTrue(np.all(prediction_1 == prediction_2))
