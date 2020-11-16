@@ -64,6 +64,8 @@ class VariationalFMRegressor(
     RegressorMixin[VariationalFM, VariationalFMHyperParameters],
     MyFMVariationalBase,
 ):
+    """Variational Inference for Regression Task."""
+
     def fit(
         self,
         X: ArrayLike,
@@ -136,6 +138,20 @@ class VariationalFMRegressor(
     def predict(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
     ) -> np.ndarray:
+        """Make a prediction based on variational mean.
+
+        Parameters
+        ----------
+        X : Optional[ArrayLike]
+            Main Table. When None, treated as a matrix without columns.
+        X_rel : List[RelationBlock], optional
+            Relations, by default []
+
+        Returns
+        -------
+        np.ndarray
+            [description]
+        """
         return self._predict(X, X_rel)
 
 
@@ -143,6 +159,8 @@ class VariationalFMClassifier(
     ClassifierMixin[VariationalFM, VariationalFMHyperParameters],
     MyFMVariationalBase,
 ):
+    """Variational Inference for Classification Task."""
+
     def fit(
         self,
         X: ArrayLike,
@@ -164,8 +182,8 @@ class VariationalFMClassifier(
 
         Parameters
         ----------
-        X : 2D array-like.
-            Input variable.
+        X : Optional[ArrayLike].
+            Main table. When None, treated as a matrix without columns.
 
         y : 1D array-like.
             Target variable.
@@ -215,7 +233,38 @@ class VariationalFMClassifier(
     def predict(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
     ) -> np.ndarray:
+        """Based on the class probability, return binary classified outcome based on threshold = 0.5.
+        If you want class probability instead, use `predict_proba` method.
+
+        Parameters
+        ----------
+        X : Optional[ArrayLike]
+            Main Table. When None, treated as a matrix without columns.
+        X_rel : List[RelationBlock], optional
+            Relations, by default []
+
+        Returns
+        -------
+        np.ndarray
+            0/1 predictions based on the probability.
+        """
         return self._predict(X, X_rel)
 
-    def predict_proba(self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []):
+    def predict_proba(
+        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
+    ) -> np.ndarray:
+        """Compute the probability that the outcome will be 1 based on variational mean.
+
+        Parameters
+        ----------
+        X : Optional[ArrayLike]
+            Main Table. When None, treated as a matrix without columns.
+        X_rel : List[RelationBlock], optional
+            Relations, by default []
+
+        Returns
+        -------
+        np.ndarray
+            the probability.
+        """
         return self._predict_proba(X, X_rel)

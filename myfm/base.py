@@ -182,7 +182,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
     def _fit(
         self,
-        X: ArrayLike,
+        X: Optional[ArrayLike],
         y: np.ndarray,
         X_rel: List[RelationBlock] = [],
         X_test: Optional[ArrayLike] = None,
@@ -202,6 +202,8 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         train_size = check_data_consistency(X, X_rel)
         if X is None:
             X = sps.csr_matrix((train_size, 0), dtype=REAL)
+        else:
+            X = sps.csr_matrix(X)
 
         assert X.shape[0] == y.shape[0]
         dim_all = X.shape[1] + sum([rel.feature_size for rel in X_rel])
@@ -245,7 +247,6 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
         config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
 
-        X = sps.csr_matrix(X)
         if X.dtype != np.float64:
             X.data = X.data.astype(np.float64)
         y = self._process_y(y)
@@ -352,36 +353,10 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
     def _predict(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
     ) -> np.ndarray:
-        """Based on the class probability, return binary classified outcome based on threshold = 0.5.
-        If you want class probability instead, use `predict_proba` method.
-
-        Parameters
-        ----------
-        X : ArrayLike
-            The main table.
-        X_rel : List[RelationBlock], optional
-            Relation blocks, by default []
-        n_workers : Optional[int], optional
-            number of threads to compute. For variational inference, this will be ignored., by default None
-
-        Returns
-        -------
-        np.ndarray
-            the predicted outcome.
-        """
 
         return ((self._predict_core(X, X_rel=X_rel, **kwargs)) > 0.5).astype(np.int64)
 
     def _predict_proba(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
     ):
-
-        """Compute the probability that the outcome will be 1 (positive)
-
-        Returns
-        -------
-        [type]
-            [description]
-        """
-
         return self._predict_core(X, X_rel, **kwargs)
