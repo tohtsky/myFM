@@ -259,16 +259,15 @@ if __name__ == "__main__":
             trace_path=trace_path,
         )
 
-    with callback:
-        fm.fit(
-            X_date_train,
-            df_train.rating.values,
-            X_rel=train_blocks,
-            grouping=grouping,
-            n_iter=callback.n_iter,
-            callback=callback,
-            n_kept_samples=1,
-        )
+    fm.fit(
+        X_date_train,
+        df_train.rating.values,
+        X_rel=train_blocks,
+        grouping=grouping,
+        n_iter=callback.n_iter,
+        callback=callback,
+        n_kept_samples=1,
+    )
     with open(
         "callback_result_{0}_fold_{1}.pkl".format(ALGORITHM, FOLD_INDEX), "wb"
     ) as ofs:

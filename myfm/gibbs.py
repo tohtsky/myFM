@@ -67,7 +67,7 @@ class MyFMGibbsBase(
         y: np.ndarray,
         random_seed: int,
         config: FMLearningConfig,
-        callback: Callable[[int, FM, FMHyperParameters], bool],
+        callback: Callable[[int, FM, FMHyperParameters, LearningHistory], bool],
     ) -> Tuple[Predictor, LearningHistory]:
         return create_train_fm(
             rank, init_stdev, X, X_rel, y, random_seed, config, callback
@@ -129,7 +129,12 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
         n_kept_samples: Optional[int] = None,
         grouping: Optional[List[int]] = None,
         group_shapes: Optional[List[int]] = None,
-        callback: Optional[Callable[[int, FM, FMHyperParameters], bool]] = None,
+        callback: Optional[
+            Callable[
+                [int, FM, FMHyperParameters, LearningHistory],
+                Tuple[bool, Optional[str]],
+            ]
+        ] = None,
         config_builder: Optional[ConfigBuilder] = None,
     ):
         """Performs Gibbs sampling to fit the data.
@@ -166,7 +171,7 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
             For example, if ``group_shapes = [n_1, n_2]``,
             this is equivalent to ``grouping = [0] * n_1 + [1] * n_2``
 
-        callback: function(int, fm, hyper) -> bool, optional(default = None)
+        callback: function(int, fm, hyper, history) -> (bool, str), optional(default = None)
             Called at the every end of each Gibbs iteration.
         """
         return self._fit(
@@ -209,7 +214,9 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
         return self._predict(X, X_rel, n_workers=n_workers)
 
 
-class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase):
+class MyFMGibbsClassifier(
+    ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase
+):
     r"""Bayesian Factorization Machines for binary classification tasks."""
 
     def fit(
@@ -224,7 +231,12 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
         n_kept_samples: Optional[int] = None,
         grouping: Optional[List[int]] = None,
         group_shapes: Optional[List[int]] = None,
-        callback: Optional[Callable[[int, FM, FMHyperParameters], bool]] = None,
+        callback: Optional[
+            Callable[
+                [int, FM, FMHyperParameters, LearningHistory],
+                Tuple[bool, Optional[str]],
+            ]
+        ] = None,
         config_builder: Optional[ConfigBuilder] = None,
     ):
         """Performs Gibbs sampling to fit the data.
@@ -261,7 +273,7 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
             For example, if ``group_shapes = [n_1, n_2]``,
             this is equivalent to ``grouping = [0] * n_1 + [1] * n_2``
 
-        callback: function(int, fm, hyper) -> bool, optional(default = None)
+        callback: function(int, fm, hyper, history) -> (bool, str), optional(default = None)
             Called at the every end of each Gibbs iteration.
         """
         return self._fit(
@@ -353,7 +365,12 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         n_kept_samples: Optional[int] = None,
         grouping: Optional[List[int]] = None,
         group_shapes: Optional[List[int]] = None,
-        callback: Optional[Callable[[int, FM, FMHyperParameters], bool]] = None,
+        callback: Optional[
+            Callable[
+                [int, FM, FMHyperParameters, LearningHistory],
+                Tuple[bool, Optional[str]],
+            ]
+        ] = None,
         cutpoint_group_configs: Optional[List[Tuple[int, np.ndarray]]] = None,
         callback_default_freq: int = 5,
     ):
@@ -407,12 +424,15 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         assert y.min() >= 0
         return y_as_float
 
-    def _measure_score(cls, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+    def _measure_score(
+        cls, prediction: np.ndarray, y: np.ndarray
+    ) -> Dict[str, float]:
         result: Dict[str, float] = OrderedDict()
         accuracy = (np.argmax(prediction, axis=1) == y).mean()
         result["accuracy"] = accuracy
         log_loss = -np.log(
-            prediction[np.arange(prediction.shape[0]), y.astype(np.int64)] + 1e-15
+            prediction[np.arange(prediction.shape[0]), y.astype(np.int64)]
+            + 1e-15
         ).mean()
         result["log_loss"] = log_loss
         return result
@@ -420,7 +440,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
     def _status_report(cls, fm: FM, hyper: FMHyperParameters):
         log_str = ""
         if len(fm.cutpoints) == 1:
-            log_str += ", cutpoint = {} ".format(
+            log_str += "cutpoint = {} ".format(
                 ["{:.3f}".format(c) for c in list(fm.cutpoints[0])]
             )
         return log_str
@@ -467,7 +487,9 @@ class MyFMOrderedProbit(MyFMGibbsBase):
 
         for sample in self.predictor_.samples:
             score = sample.predict_score(X, X_rel)
-            p += self._score_to_class_prob(score, sample.cutpoints[cutpoint_index])
+            p += self._score_to_class_prob(
+                score, sample.cutpoints[cutpoint_index]
+            )
         return p / len(self.predictor_.samples)
 
     def predict(
@@ -496,6 +518,6 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             The class prediction
         """
 
-        return self.predict_proba(X, X_rel=X_rel, cutpoint_index=cutpoint_index).argmax(
-            axis=1
-        )
+        return self.predict_proba(
+            X, X_rel=X_rel, cutpoint_index=cutpoint_index
+        ).argmax(axis=1)

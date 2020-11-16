@@ -6,7 +6,7 @@ from tqdm import tqdm
 import pandas as pd
 import numpy as np
 
-from ..._myfm import RelationBlock, FM, FMHyperParameters
+from ..._myfm import RelationBlock, FM, FMHyperParameters, LearningHistory
 from ...base import ArrayLike, check_data_consistency, REAL
 
 
@@ -36,7 +36,6 @@ class LibFMLikeCallbackBase(ABC):
         self.X_rel_test = X_rel_test
         self.y_test: np.ndarray = y_test
         self.result_trace: List[Dict[str, float]] = []
-        self.pbar: Optional[tqdm] = None
         self.trace_path = trace_path
         self.n_samples = 0
 
@@ -46,29 +45,17 @@ class LibFMLikeCallbackBase(ABC):
     ) -> Tuple[str, Dict[str, float]]:
         raise NotImplementedError("must be implemented")
 
-    def __enter__(self):
-        self.pbar = tqdm(total=self.n_iter)
-
-    def __exit__(self, *args):
-        if self.pbar is not None:
-            self.pbar.__exit__()
-        self.pbar = None
-
-    def __call__(self, i: int, fm: FM, hyper: FMHyperParameters):
+    def __call__(
+        self, i: int, fm: FM, hyper: FMHyperParameters, history: LearningHistory
+    ) -> Tuple[bool, Optional[str]]:
         description, trace_result = self._measure_score(i, fm, hyper)
-
-        if self.pbar is not None:
-            self.pbar.set_description(description)
         self.result_trace.append(trace_result)
 
         if self.trace_path is not None:
             df = pd.DataFrame(self.result_trace)
             df.to_csv(self.trace_path, index=False)
 
-        if self.pbar is not None:
-            self.pbar.update(1)
-
-        return False
+        return False, description
 
 
 class RegressionCallback(LibFMLikeCallbackBase):

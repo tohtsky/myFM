@@ -1,4 +1,4 @@
-import json
+import pickle
 import argparse
 from myfm.gibbs import MyFMGibbsRegressor, MyFMOrderedProbit
 from typing import Dict, List, Union
@@ -11,6 +11,11 @@ from myfm.utils.benchmark_data.movielens100k_data import (
     MovieLens100kDataManager,
 )
 from myfm.utils.encoders import CategoryValueToSparseEncoder
+from myfm.utils.callbacks import (
+    LibFMLikeCallbackBase,
+    RegressionCallback,
+    OrderedProbitCallback,
+)
 from scipy import sparse as sps
 
 if __name__ == "__main__":
@@ -238,11 +243,30 @@ if __name__ == "__main__":
 
     trace_path = "rmse_{0}_fold_{1}.csv".format(ALGORITHM, FOLD_INDEX)
 
+
+    callback: LibFMLikeCallbackBase
     fm: Union[MyFMGibbsRegressor, MyFMOrderedProbit]
     if ALGORITHM == "regression":
         fm = myfm.MyFMRegressor(rank=DIMENSION)
+        callback = RegressionCallback(
+            n_iter=ITERATION,
+            X_test=X_date_test,
+            y_test=df_test.rating.values,
+            X_rel_test=test_blocks,
+            clip_min=df_train.rating.min(),
+            clip_max=df_train.rating.max(),
+            trace_path=trace_path,
+        )
     else:
         fm = myfm.MyFMOrderedProbit(rank=DIMENSION)
+        callback = OrderedProbitCallback(
+            n_iter=ITERATION,
+            X_test=X_date_test,
+            y_test=df_test.rating.values,
+            n_class=5,
+            X_rel_test=test_blocks,
+            trace_path=trace_path,
+        )
 
     fm.fit(
         X_date_train,
@@ -251,20 +275,9 @@ if __name__ == "__main__":
         grouping=grouping,
         n_iter=ITERATION,
         n_kept_samples=ITERATION,
+        callback=callback,
     )
-    if isinstance(fm, MyFMGibbsRegressor):
-        rmse = (
-            (df_test.rating.values - fm.predict(X_date_test, test_blocks)) ** 2
-        ).mean() ** 0.5
-    else:
-        # mean rating
-        prediction = fm.predict_proba(X_date_test, test_blocks).dot(
-            np.arange(5)
-        )
-        rmse = ((df_test.rating.values - prediction) ** 2).mean() ** 0.5
-
-    print("RMSE = {rmse}".format(rmse=rmse))
     with open(
-        "rmse_result_{0}_fold_{1}.json".format(ALGORITHM, FOLD_INDEX), "w"
+        "callback_result_{0}_fold_{1}.pkl".format(ALGORITHM, FOLD_INDEX), "wb"
     ) as ofs:
-        json.dump(dict(rmse=rmse), ofs)
+        pickle.dump(callback, ofs)

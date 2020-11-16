@@ -39,7 +39,15 @@ class MyFMVariationalBase(
         y: np.ndarray,
         random_seed: int,
         config: FMLearningConfig,
-        callback: Callable[[int, VariationalFM, VariationalFMHyperParameters], bool],
+        callback: Callable[
+            [
+                int,
+                VariationalFM,
+                VariationalFMHyperParameters,
+                VariationalLearningHistory,
+            ],
+            bool,
+        ],
     ) -> Tuple[VariationalPredictor, VariationalLearningHistory]:
         return create_train_vfm(
             rank, init_stdev, X, X_rel, y, random_seed, config, callback
@@ -79,7 +87,15 @@ class VariationalFMRegressor(
         grouping: Optional[List[int]] = None,
         group_shapes: Optional[List[int]] = None,
         callback: Optional[
-            Callable[[int, VariationalFM, VariationalFMHyperParameters], bool]
+            Callable[
+                [
+                    int,
+                    VariationalFM,
+                    VariationalFMHyperParameters,
+                    VariationalLearningHistory,
+                ],
+                Tuple[bool, Optional[str]],
+            ]
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
     ):
@@ -117,7 +133,7 @@ class VariationalFMRegressor(
             For example, if ``group_shapes = [n_1, n_2]``,
             this is equivalent to ``grouping = [0] * n_1 + [1] * n_2``
 
-        callback: function(int, fm, hyper) -> bool, optional(default = None)
+        callback: function(int, fm, hyper, history) -> bool, optional(default = None)
             Called at the every end of each Gibbs iteration.
         """
         return self._fit(
@@ -174,7 +190,15 @@ class VariationalFMClassifier(
         grouping: Optional[List[int]] = None,
         group_shapes: Optional[List[int]] = None,
         callback: Optional[
-            Callable[[int, VariationalFM, VariationalFMHyperParameters], bool]
+            Callable[
+                [
+                    int,
+                    VariationalFM,
+                    VariationalFMHyperParameters,
+                    VariationalLearningHistory,
+                ],
+                Tuple[bool, Optional[str]],
+            ]
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
     ):
