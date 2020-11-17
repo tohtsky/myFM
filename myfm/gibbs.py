@@ -438,7 +438,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         return result
 
     def _status_report(cls, fm: FM, hyper: FMHyperParameters):
-        log_str = "w0 = {:.2f}".format(fm.w0)
+        log_str = "w0 = {:.2f}, ".format(fm.w0)
         if len(fm.cutpoints) == 1:
             log_str += "cutpoint = {} ".format(
                 ["{:.3f}".format(c) for c in list(fm.cutpoints[0])]
