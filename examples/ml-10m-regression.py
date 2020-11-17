@@ -258,7 +258,7 @@ if __name__ == "__main__":
             ITERATION,
             X_date_test,
             df_test.rating.values,
-            n_class=5,
+            n_class=10,
             X_rel_test=test_blocks,
             trace_path=trace_path,
         )

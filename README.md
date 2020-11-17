@@ -21,7 +21,7 @@ Tutorial and reference doc is provided at https://myfm.readthedocs.io/en/latest/
 
 # Requirements
 
-Python >= 3.5 and recent version of gcc/clang with C++ 11 support.
+Python >= 3.6 and recent version of gcc/clang with C++ 11 support.
 
 # Installation
 
