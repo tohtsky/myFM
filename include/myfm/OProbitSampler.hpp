@@ -515,8 +515,8 @@ template <typename Real> struct OprobitSampler {
   int K;
   const std::vector<size_t> indices_;
   Real tune = 1;
-  Real nu;
   Real reg;
+  Real nu;
   std::mt19937 &rng;
   DenseVector alpha_now;
   DenseVector gamma_now;

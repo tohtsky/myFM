@@ -136,7 +136,8 @@ struct VariationalRelationWiseCache
 };
 
 template <typename Real> struct VariationalLearningHistory {
-  inline VariationalLearningHistory(FMHyperParameters<Real> hyper, std::vector<Real> elbos)
+  inline VariationalLearningHistory(FMHyperParameters<Real> hyper,
+                                    std::vector<Real> elbos)
       : hyper(hyper), elbos(elbos) {}
   FMHyperParameters<Real> hyper;
   std::vector<Real> elbos;
@@ -184,13 +185,13 @@ public:
       : BaseType(X, relations, y, random_seed, learning_config), x2s(X.rows()),
         x3sv(X.rows()), e_var_sum(0), elbo(0) {}
 
-
   /**
    *  Main routine for Variational update.
    */
   inline std::pair<VariationalPredictor<Real>, LearningHistory>
-  learn_with_callback(FMType &fm, HyperType &hyper,
-                      std::function<bool(int, FMType *, HyperType *, LearningHistory *)> cb) {
+  learn_with_callback(
+      FMType &fm, HyperType &hyper,
+      std::function<bool(int, FMType *, HyperType *, LearningHistory *)> cb) {
     initialize_hyper(fm, hyper);
     initialize_e(fm, hyper);
 
@@ -344,12 +345,11 @@ public:
   }
 
   inline void update_w0(FMType &fm, HyperType &hyper) {
-    /*
-    if ( (learning_config.task_type == TASKTYPE::ORDERED) &&
-    (learning_config.cutpoint_sample_method ==
-    CutpointSampleMethod::AlbertChib01)) { fm.w0 = 0; return;
+    if (!this->learning_config.fit_w0) {
+      fm.w0 = 0;
+      fm.w0_var = 0;
+      return;
     }
-    */
     Real w0_lin_term = hyper.alpha * (fm.w0 - this->e_train.array()).sum();
     Real w0_quad_term =
         hyper.alpha * this->n_train + this->learning_config.reg_0;
@@ -360,7 +360,10 @@ public:
   }
 
   inline void update_w(FMType &fm, HyperType &hyper) {
-    // main table
+    if (!this->learning_config.fit_linear) {
+      fm.w.array() = 0;
+      fm.w_var.array() = 0;
+    }
     for (int feature_index = 0; feature_index < this->X.cols();
          feature_index++) {
       int group = this->learning_config.group_index(feature_index);
@@ -909,7 +912,6 @@ public:
       }
       group_index++;
     }
-
   }
 }; // namespace variational
 

@@ -35,7 +35,9 @@ create_train_fm(
     const vector<myFM::relational::RelationBlock<Real>> &relations,
     const typename myFM::FM<Real>::Vector &y, int random_seed,
     myFM::FMLearningConfig<Real> &config,
-    std::function<bool(int, myFM::FM<Real> *, myFM::FMHyperParameters<Real> *, myFM::GibbsLearningHistory<Real> *)> cb) {
+    std::function<bool(int, myFM::FM<Real> *, myFM::FMHyperParameters<Real> *,
+                       myFM::GibbsLearningHistory<Real> *)>
+        cb) {
   FMTrainer<Real> fm_trainer(X, relations, y, random_seed, config);
   auto fm = fm_trainer.create_FM(n_factor, init_std);
   auto hyper_param = fm_trainer.create_Hyper(fm.n_factors);
@@ -145,6 +147,8 @@ template <typename Real> void declare_functional(py::module &m) {
       .def("set_n_kept_samples", &ConfigBuilder::set_n_kept_samples)
       .def("set_task_type", &ConfigBuilder::set_task_type)
       .def("set_nu_oprobit", &ConfigBuilder::set_nu_oprobit)
+      .def("set_fit_w0", &ConfigBuilder::set_fit_w0)
+      .def("set_fit_linear", &ConfigBuilder::set_fit_linear)
       .def("set_group_index", &ConfigBuilder::set_group_index)
       .def("set_identical_groups", &ConfigBuilder::set_identical_groups)
       .def("set_cutpoint_scale", &ConfigBuilder::set_cutpoint_scale)

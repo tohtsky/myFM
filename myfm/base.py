@@ -91,6 +91,8 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         gamma_0: float = 1.0,
         mu_0: float = 0.0,
         reg_0: float = 1.0,
+        fit_w0: bool = True,
+        fit_linear: bool = True,
     ):
         """Setup the configuration.
 
@@ -113,20 +115,27 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             Together with beta_0, the priors for these parameters are
             alpha, lambda_w, lambda_v ~ Gamma(alpha_0 / 2, beta_0 / 2)
 
-        beta_0 : float, optioal (default = 1.0)
+        beta_0 : float, optional (default = 1.0)
             See the explanation for alpha_0 .
 
-        gamma_0: float optional (default = 1.0)
+        gamma_0: float, optional (default = 1.0)
             Inverse variance of the prior for mu_w, mu_v.
             Together with mu_0, the priors for these parameters are
             mu_w, mu_v ~ Normal(mu_0, 1 / gamma_0)
 
-        mu_0:
+        mu_0: float, optional (default = 0.0)
             See the explanation for gamma_0.
 
-        reg_0:
-            Inverse variance of tthe prior for w0.
+        reg_0: float, optional (default = 0.0)
+            Inverse variance of the prior for w0.
             w0 ~ Normal(0, 1 / reg_0)
+
+        fit_w0: bool, optional (default = True)
+            whether to fit w0, by default True.
+
+        fit_linear: bool, optional (default = True)
+            whether to fit linear coefficients, by default True.
+
         """
         self.rank = rank
 
@@ -139,6 +148,8 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         self.mu_0 = mu_0
 
         self.reg_0 = reg_0
+        self.fit_w0 = fit_w0
+        self.fit_linear = fit_linear
 
         self.predictor_: Optional[Predictor] = None
         self.history_: Optional[History] = None
@@ -205,6 +216,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
         if config_builder is None:
             config_builder = ConfigBuilder()
+
         train_size = check_data_consistency(X, X_rel)
         if X is None:
             X = sps.csr_matrix((train_size, 0), dtype=REAL)
@@ -219,7 +231,15 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         else:
             assert n_iter >= n_kept_samples
 
-        for key in ["alpha_0", "beta_0", "gamma_0", "mu_0", "reg_0"]:
+        for key in [
+            "alpha_0",
+            "beta_0",
+            "gamma_0",
+            "mu_0",
+            "reg_0",
+            "fit_w0",
+            "fit_linear",
+        ]:
             value = getattr(self, key)
             getattr(config_builder, "set_{}".format(key))(value)
 

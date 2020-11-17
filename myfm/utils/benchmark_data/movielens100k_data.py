@@ -65,6 +65,13 @@ class MovieLens100kDataManager(MovieLensBase):
         return df_train, df_test
 
     def load_user_info(self) -> pd.DataFrame:
+        """load user meta information.
+
+        Returns
+        -------
+        pd.DataFrame
+            user infomation
+        """
         user_info_bytes = self.zf.read("ml-100k/u.user")
         with BytesIO(user_info_bytes) as ifs:
             return pd.read_csv(
@@ -74,11 +81,18 @@ class MovieLens100kDataManager(MovieLensBase):
                 names=["user_id", "age", "gender", "occupation", "zipcode"],
             )
 
-    def load_movie_info(self) -> pd.DataFrame:
+    def load_movie_info(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        """load movie meta information.
+
+        Returns
+        -------
+        Tuple[pd.DataFrame, pd.DataFrame]
+            meta-information (id, title, release_date, url) and genre (many to many)
+        """
         MOVIE_COLUMNS = ["movie_id", "title", "release_date", "unk", "url"]
 
         with BytesIO(self.zf.read("ml-100k/u.genre")) as ifs:
-            genres = pd.read_csv(ifs, sep="|", header=None)[0]
+            genres = list(pd.read_csv(ifs, sep="|", header=None)[0])
         with BytesIO(self.zf.read("ml-100k/u.item")) as ifs:
             df_mov = pd.read_csv(
                 ifs,
@@ -86,6 +100,13 @@ class MovieLens100kDataManager(MovieLensBase):
                 encoding="latin-1",
                 header=None,
             )
-            df_mov.columns = MOVIE_COLUMNS + list(genres)
+            df_mov.columns = MOVIE_COLUMNS + genres
         df_mov["release_date"] = pd.to_datetime(df_mov.release_date)
-        return df_mov, list(genres)
+        movie_index, genre_index = df_mov[genres].values.nonzero()
+        genre_df = pd.DataFrame(
+            dict(
+                movie_id=df_mov.movie_id.values[movie_index],
+                genre=[genres[i] for i in genre_index],
+            )
+        )
+        return df_mov.drop(columns=genres + ["unk"]), genre_df

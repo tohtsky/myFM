@@ -53,11 +53,9 @@ public:
   /**
    *  Main routine for Gibbs sampling.
    */
-  inline pair<Predictor<Real>, LearningHistory>
-  learn_with_callback(
-    FMType &fm, HyperType &hyper,
-    std::function<bool(int, FMType *, HyperType *,  LearningHistory *)> cb
-    ) {
+  inline pair<Predictor<Real>, LearningHistory> learn_with_callback(
+      FMType &fm, HyperType &hyper,
+      std::function<bool(int, FMType *, HyperType *, LearningHistory *)> cb) {
     std::pair<Predictor<Real>, LearningHistory> result{
         {static_cast<size_t>(fm.n_factors), this->dim_all,
          this->learning_config.task_type},
@@ -218,7 +216,7 @@ public:
   }
 
   inline void update_w0(FMType &fm, HyperType &hyper) {
-    if (this->learning_config.task_type == TASKTYPE::ORDERED) {
+    if (!this->learning_config.fit_w0) {
       fm.w0 = 0;
       return;
     }
@@ -231,6 +229,10 @@ public:
   }
 
   inline void update_w(FMType &fm, HyperType &hyper) {
+    if (!this->learning_config.fit_linear) {
+      fm.w.array() = 0;
+      return;
+    }
     // main table
     for (int feature_index = 0; feature_index < this->X.cols();
          feature_index++) {
