@@ -45,17 +45,17 @@ class MyFMGibbsBase(
         X_rel: List[RelationBlock] = [],
         n_workers: Optional[int] = None,
     ) -> np.ndarray:
-        if self.predictor_ is None:
-            raise RuntimeError("Not fit yet.")
+
+        predictor = self._fetch_predictor()
         shape = check_data_consistency(X, X_rel)
         if X is None:
             X = sps.csr_matrix((shape, 0), dtype=REAL)
         else:
             X = sps.csr_matrix(X)
         if n_workers is None:
-            return self.predictor_.predict(X, X_rel)
+            return predictor.predict(X, X_rel)
         else:
-            return self.predictor_.predict_parallel(X, X_rel, n_workers)
+            return predictor.predict_parallel(X, X_rel, n_workers)
 
     @classmethod
     def _train_core(
@@ -471,8 +471,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             The class probability
         """
 
-        if self.predictor_ is None:
-            raise RuntimeError("Not fit yet.")
+        predictor = self._fetch_predictor()
 
         if cutpoint_index is None:
             if self.n_cutpoint_groups == 1:
@@ -485,12 +484,12 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             X.data = X.data.astype(np.float64)
         p = 0
 
-        for sample in self.predictor_.samples:
+        for sample in predictor.samples:
             score = sample.predict_score(X, X_rel)
             p += self._score_to_class_prob(
                 score, sample.cutpoints[cutpoint_index]
             )
-        return p / len(self.predictor_.samples)
+        return p / len(predictor.samples)
 
     def predict(
         self,

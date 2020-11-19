@@ -322,7 +322,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         config_builder.set_task_type(self._task_type)
 
     @abstractmethod
-    def _status_report(cls, fm: FM, hyper: Hyper):
+    def _status_report(self, fm: FM, hyper: Hyper):
         raise NotImplementedError("must be implemented")
 
     @abstractmethod
@@ -331,14 +331,19 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
     ):
         raise NotImplementedError("must be implemented")
 
-    def _process_y(cls, y):
+    def _process_y(self, y):
         return y.astype(np.float64)
 
     @abstractmethod
     def _measure_score(
-        cls, prediction: np.ndarray, y: np.ndarray
+        self, prediction: np.ndarray, y: np.ndarray
     ) -> Dict[str, float]:
         raise NotImplementedError("")
+
+    def _fetch_predictor(self) -> Predictor:
+        if self.predictor_ is None:
+            raise RuntimeError("Predictor called before fit.")
+        return self.predictor_
 
 
 class RegressorMixin(Generic[FM, Hyper]):
@@ -349,7 +354,7 @@ class RegressorMixin(Generic[FM, Hyper]):
         return TaskType.REGRESSION
 
     def _prepare_prediction_for_test(
-        cls, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
+        self, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
     ):
         return fm.predict_score(X, X_rel)
 

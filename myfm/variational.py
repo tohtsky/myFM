@@ -58,14 +58,13 @@ class MyFMVariationalBase(
         X: Optional[ArrayLike],
         X_rel: List[RelationBlock] = [],
     ) -> np.ndarray:
-        if self.predictor_ is None:
-            raise RuntimeError("Not fit yet.")
+        predictor = self._fetch_predictor()
         shape = check_data_consistency(X, X_rel)
         if X is None:
             X = sps.csr_matrix((shape, 0), dtype=REAL)
         else:
             X = sps.csr_matrix(X)
-        return self.predictor_.predict(X, X_rel)
+        return predictor.predict(X, X_rel)
 
 
 class VariationalFMRegressor(
