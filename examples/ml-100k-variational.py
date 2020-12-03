@@ -1,16 +1,20 @@
-import json
 import argparse
-from myfm import VariationalFMRegressor
-from typing import Dict, List, Union
+from datetime import date
+import json
+from typing import Dict, List
 
-import myfm
 import numpy as np
 import pandas as pd
-from myfm import RelationBlock
+from pandas.core.algorithms import unique
+from myfm import RelationBlock, VariationalFMRegressor
 from myfm.utils.benchmark_data.movielens100k_data import (
     MovieLens100kDataManager,
 )
-from myfm.utils.encoders import CategoryValueToSparseEncoder
+from myfm.utils.encoders import (
+    CategoryValueToSparseEncoder,
+    DataFrameEncoder,
+    ManyToManyEncoder,
+)
 from scipy import sparse as sps
 
 if __name__ == "__main__":
@@ -90,157 +94,98 @@ if __name__ == "__main__":
     DIMENSION = args.dimension
     if FOLD_INDEX < 1 or FOLD_INDEX >= 6:
         raise ValueError("fold_index must be in the range(1, 6).")
+
     data_manager = MovieLens100kDataManager()
-    df_train, df_test = data_manager.load_rating_predefined_split(
-        fold=FOLD_INDEX
-    )
+    df_train, df_test = data_manager.load_rating_predefined_split(fold=FOLD_INDEX)
 
     if args.stricter_protocol:
         implicit_data_source = df_train
     else:
         implicit_data_source = pd.concat([df_train, df_test])
 
-    user_to_internal = CategoryValueToSparseEncoder[int](
-        implicit_data_source.user_id.values
-    )
-    movie_to_internal = CategoryValueToSparseEncoder[int](
-        implicit_data_source.movie_id.values
-    )
-
     print(
-        "df_train.shape = {}, df_test.shape = {}".format(
-            df_train.shape, df_test.shape
+        "df_train.shape = {}, df_test.shape = {}".format(df_train.shape, df_test.shape)
+    )
+
+    user_encoder = DataFrameEncoder().add_column(
+        "user_id",
+        CategoryValueToSparseEncoder(implicit_data_source.user_id),
+    )
+    if use_iu:
+        user_encoder.add_many_to_many(
+            "user_id",
+            "movie_id",
+            ManyToManyEncoder(implicit_data_source.movie_id),
         )
+
+    movie_encoder = DataFrameEncoder().add_column(
+        "movie_id",
+        CategoryValueToSparseEncoder(implicit_data_source.movie_id),
     )
+    if use_ii:
+        movie_encoder.add_many_to_many(
+            "movie_id",
+            "user_id",
+            ManyToManyEncoder(implicit_data_source.user_id),
+        )
+
     # treat the days of events as categorical variable
-    date_encoder = CategoryValueToSparseEncoder[pd.Timestamp](
-        implicit_data_source.timestamp.dt.date.values
-    )
 
-    def categorize_date(df: pd.DataFrame):
-        return date_encoder.to_sparse(df.timestamp.dt.date.values)
-
-    movie_vs_watched: Dict[int, List[int]] = dict()
-    user_vs_watched: Dict[int, List[int]] = dict()
-
-    for row in implicit_data_source.itertuples():
-        user_id: int = row.user_id
-        movie_id: int = row.movie_id
-        movie_vs_watched.setdefault(movie_id, list()).append(user_id)
-        user_vs_watched.setdefault(user_id, list()).append(movie_id)
-
+    feature_group_sizes: List[int] = []
     if use_date:
-        X_date_train = categorize_date(df_train)
-        X_date_test = categorize_date(df_test)
+        date_encoder = CategoryValueToSparseEncoder(
+            implicit_data_source.timestamp.dt.date
+        )
+        X_date_train = date_encoder.to_sparse(df_train.timestamp.dt.date)
+        X_date_test = date_encoder.to_sparse(df_test.timestamp.dt.date)
+        feature_group_sizes.append(len(date_encoder))
     else:
         X_date_train, X_date_test = (None, None)
 
     # setup grouping
-    feature_group_sizes = []
-    if use_date:
-        feature_group_sizes.append(
-            len(date_encoder),  # date
-        )
-
-    feature_group_sizes.append(len(user_to_internal))  # user ids
-
-    if use_iu:
-        # all movies which a user watched
-        feature_group_sizes.append(len(movie_to_internal))
-
-    feature_group_sizes.append(len(movie_to_internal))  # movie ids
-
-    if use_ii:
-        feature_group_sizes.append(
-            len(user_to_internal)  # all the users who watched a movies
-        )
-
-    grouping = [
-        i for i, size in enumerate(feature_group_sizes) for _ in range(size)
-    ]
-
-    # given user/movie ids, add additional infos and return it as sparse
-    def augment_user_id(user_ids: List[int]) -> sps.csr_matrix:
-        X = user_to_internal.to_sparse(user_ids)
-        if not use_iu:
-            return X
-        data: List[float] = []
-        row: List[int] = []
-        col: List[int] = []
-        for index, user_id in enumerate(user_ids):
-            watched_movies = user_vs_watched.get(user_id, [])
-            normalizer = 1 / max(len(watched_movies), 1) ** 0.5
-            for mid in watched_movies:
-                data.append(normalizer)
-                col.append(movie_to_internal[mid])
-                row.append(index)
-        return sps.hstack(
-            [
-                X,
-                sps.csr_matrix(
-                    (data, (row, col)),
-                    shape=(len(user_ids), len(movie_to_internal)),
-                ),
-            ],
-            format="csr",
-        )
-
-    def augment_movie_id(movie_ids: List[int]):
-        X = movie_to_internal.to_sparse(movie_ids)
-        if not use_ii:
-            return X
-
-        data: List[float] = []
-        row: List[int] = []
-        col: List[int] = []
-
-        for index, movie_id in enumerate(movie_ids):
-            watched_users = movie_vs_watched.get(movie_id, [])
-            normalizer = 1 / max(len(watched_users), 1) ** 0.5
-            for uid in watched_users:
-                data.append(normalizer)
-                row.append(index)
-                col.append(user_to_internal[uid])
-        return sps.hstack(
-            [
-                X,
-                sps.csr_matrix(
-                    (data, (row, col)),
-                    shape=(len(movie_ids), len(user_to_internal)),
-                ),
-            ]
-        )
+    feature_group_sizes.extend(user_encoder.encoder_shapes)
+    feature_group_sizes.extend(movie_encoder.encoder_shapes)
 
     # Create RelationBlock.
     train_blocks: List[RelationBlock] = []
     test_blocks: List[RelationBlock] = []
     for source, target in [(df_train, train_blocks), (df_test, test_blocks)]:
         unique_users, user_map = np.unique(source.user_id, return_inverse=True)
-        target.append(RelationBlock(user_map, augment_user_id(unique_users)))
-        unique_movies, movie_map = np.unique(
-            source.movie_id, return_inverse=True
+        target.append(
+            RelationBlock(
+                user_map,
+                user_encoder.encode_df(
+                    pd.DataFrame(dict(user_id=unique_users)),
+                    [implicit_data_source],
+                ),
+            )
         )
-        target.append(RelationBlock(movie_map, augment_movie_id(unique_movies)))
+        unique_movies, movie_map = np.unique(source.movie_id, return_inverse=True)
+        target.append(
+            RelationBlock(
+                movie_map,
+                movie_encoder.encode_df(
+                    pd.DataFrame(dict(movie_id=unique_movies)),
+                    [implicit_data_source],
+                ),
+            )
+        )
 
     trace_path = "rmse_variational_fold_{0}.csv".format(FOLD_INDEX)
-
-    fm = myfm.VariationalFMRegressor(rank=DIMENSION)
+    fm = VariationalFMRegressor(rank=DIMENSION)
 
     fm.fit(
         X_date_train,
         df_train.rating.values,
         X_rel=train_blocks,
-        grouping=grouping,
         n_iter=ITERATION,
         n_kept_samples=ITERATION,
+        group_shapes=feature_group_sizes,
     )
     rmse = (
         (df_test.rating.values - fm.predict(X_date_test, test_blocks)) ** 2
     ).mean() ** 0.5
-    print("ELBOs = {}".format(fm.history_.elbos))
-
+    assert fm.history_ is not None
     print("RMSE = {rmse}".format(rmse=rmse))
-    with open(
-        "rmse_result_variational_fold_{0}.json".format(FOLD_INDEX), "w"
-    ) as ofs:
+    with open("rmse_result_variational_fold_{0}.json".format(FOLD_INDEX), "w") as ofs:
         json.dump(dict(rmse=rmse), ofs)

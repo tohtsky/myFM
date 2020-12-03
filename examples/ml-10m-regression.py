@@ -52,7 +52,7 @@ if __name__ == "__main__":
         "--stricter_protocol",
         action="store_true",
         help="Whether to use the \"stricter\" protocol (i.e., don't include the test set implicit information) stated in [Rendle, '19].",
-        default=False,
+        default=True,
     )
     parser.add_argument(
         "-f",
@@ -106,9 +106,10 @@ if __name__ == "__main__":
     )
 
     if ALGORITHM == "oprobit":
-        # interpret the rating (1, 2, 3, 4, 5) as class (0, 1, 2, 3, 4).
+        # interpret the rating 0.5, 1.0 ... , 5.0 as class (0, 1, ... , 10)
         for df_ in [df_train, df_test]:
-            df_["rating"] -= 1
+            df_["rating"] -= 0.5
+            df_["rating"] *= 2
             df_["rating"] = df_.rating.astype(np.int32)
 
     if args.stricter_protocol:
@@ -124,9 +125,7 @@ if __name__ == "__main__":
     )
 
     print(
-        "df_train.shape = {}, df_test.shape = {}".format(
-            df_train.shape, df_test.shape
-        )
+        "df_train.shape = {}, df_test.shape = {}".format(df_train.shape, df_test.shape)
     )
     # treat the days of events as categorical variable
     date_encoder = CategoryValueToSparseEncoder[pd.Timestamp](
@@ -171,9 +170,7 @@ if __name__ == "__main__":
             len(user_to_internal)  # all the users who watched a movies
         )
 
-    grouping = [
-        i for i, size in enumerate(feature_group_sizes) for _ in range(size)
-    ]
+    grouping = [i for i, size in enumerate(feature_group_sizes) for _ in range(size)]
 
     def augment_user_id(user_ids: List[int]) -> sps.csr_matrix:
         X = user_to_internal.to_sparse(user_ids)
@@ -232,9 +229,7 @@ if __name__ == "__main__":
     for source, target in [(df_train, train_blocks), (df_test, test_blocks)]:
         unique_users, user_map = np.unique(source.user_id, return_inverse=True)
         target.append(RelationBlock(user_map, augment_user_id(unique_users)))
-        unique_movies, movie_map = np.unique(
-            source.movie_id, return_inverse=True
-        )
+        unique_movies, movie_map = np.unique(source.movie_id, return_inverse=True)
         target.append(RelationBlock(movie_map, augment_movie_id(unique_movies)))
 
     trace_path = "rmse_{0}_fold_{1}.csv".format(ALGORITHM, FOLD_INDEX)

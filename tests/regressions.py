@@ -1,12 +1,9 @@
 import os
 import pickle
 import unittest
-from collections import defaultdict
-from typing import Dict, List
 from unittest.case import TestCase
 
 import numpy as np
-import pandas as pd
 from myfm import (
     MyFMGibbsClassifier,
     MyFMGibbsRegressor,
@@ -24,8 +21,8 @@ from myfm.utils.encoders import (
 )
 from sklearn import metrics
 
-ITERATION = 100
-RANK = 8
+ITERATION = 10
+RANK = 4
 
 
 class TestAll(TestCase):
@@ -47,9 +44,7 @@ class TestAll(TestCase):
 
         self.movie_encoders = (
             DataFrameEncoder()
-            .add_column(
-                "movie_id", CategoryValueToSparseEncoder(movie_unique.movie_id)
-            )
+            .add_column("movie_id", CategoryValueToSparseEncoder(movie_unique.movie_id))
             .add_many_to_many(
                 "movie_id",
                 "user_id",
@@ -59,9 +54,7 @@ class TestAll(TestCase):
 
         self.user_encoders = (
             DataFrameEncoder()
-            .add_column(
-                "user_id", CategoryValueToSparseEncoder(user_unique.user_id)
-            )
+            .add_column("user_id", CategoryValueToSparseEncoder(user_unique.user_id))
             .add_many_to_many(
                 "user_id",
                 "movie_id",
@@ -74,9 +67,7 @@ class TestAll(TestCase):
             (self.X_main_test, self.blocks_test, self.y_test),
         ] = [
             (
-                datetime_encoder.to_sparse(
-                    df.timestamp.values.astype(np.int64)
-                ),
+                datetime_encoder.to_sparse(df.timestamp.values.astype(np.int64)),
                 [
                     self.user_id_to_relation_block(df.user_id),
                     self.movie_id_to_relation_block(df.movie_id),
@@ -126,9 +117,7 @@ class TestAll(TestCase):
             if problem == "reg":
                 prediction_1 = fm.predict(self.X_main_test, self.blocks_test)
             else:
-                prediction_1 = fm.predict_proba(
-                    self.X_main_test, self.blocks_test
-                )
+                prediction_1 = fm.predict_proba(self.X_main_test, self.blocks_test)
 
             with open("temp.pkl", "wb") as ofs:
                 pickle.dump(fm, ofs)
@@ -138,9 +127,7 @@ class TestAll(TestCase):
 
             os.remove("temp.pkl")
             if problem == "reg":
-                prediction_2 = fm_recovered.predict(
-                    self.X_main_test, self.blocks_test
-                )
+                prediction_2 = fm_recovered.predict(self.X_main_test, self.blocks_test)
             else:
                 prediction_2 = fm_recovered.predict_proba(
                     self.X_main_test, self.blocks_test
