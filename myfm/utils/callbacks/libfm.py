@@ -1,8 +1,7 @@
-from typing import Dict, OrderedDict as OrderedDictType, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from collections import OrderedDict
 from abc import ABC, abstractmethod
 from scipy import special, sparse as sps
-from tqdm import tqdm
 import pandas as pd
 import numpy as np
 
@@ -10,7 +9,7 @@ from ..._myfm import RelationBlock, FM, FMHyperParameters, LearningHistory
 from ...base import ArrayLike, check_data_consistency, REAL
 
 
-def std_cdf(x):
+def std_cdf(x: np.ndarray) -> np.ndarray:
     return (1 + special.erf(x * np.sqrt(0.5))) / 2
 
 
@@ -65,17 +64,15 @@ class RegressionCallback(LibFMLikeCallbackBase):
         X_test: Optional[ArrayLike],
         y_test: np.ndarray,
         X_rel_test: List[RelationBlock] = [],
-        clip_min=None,
-        clip_max=None,
-        trace_path=None,
+        clip_min: Optional[float] = None,
+        clip_max: Optional[float] = None,
+        trace_path: Optional[str] = None,
     ):
         super(RegressionCallback, self).__init__(
             n_iter, X_test, X_rel_test, y_test, trace_path=trace_path
         )
         self.predictions = np.zeros((self.n_test_data,), dtype=np.float64)
-        self.prediction_all_but_5 = np.zeros(
-            (self.n_test_data,), dtype=np.float64
-        )
+        self.prediction_all_but_5 = np.zeros((self.n_test_data,), dtype=np.float64)
         self.clip_min = clip_min
         self.clip_max = clip_max
 
@@ -122,38 +119,38 @@ class RegressionCallback(LibFMLikeCallbackBase):
 class ClassificationCallback(LibFMLikeCallbackBase):
     def __init__(
         self,
-        n_iter,
-        X_test,
-        y_test,
-        X_rel_test=None,
-        eps=1e-15,
-        trace_path="rmse_result.csv",
+        n_iter: int,
+        X_test: Optional[ArrayLike],
+        y_test: np.ndarray,
+        X_rel_test: List[RelationBlock] = [],
+        eps: Optional[float] = 1e-15,
+        trace_path: Optional[str] = None,
     ):
         super(ClassificationCallback, self).__init__(
             n_iter, X_test, X_rel_test, y_test, trace_path=trace_path
         )
         self.predictions = np.zeros((self.n_test_data,), dtype=np.float64)
-        self.prediction_all_but_5 = np.zeros(
-            (self.n_test_data,), dtype=np.float64
-        )
+        self.prediction_all_but_5 = np.zeros((self.n_test_data,), dtype=np.float64)
         self.eps = eps
 
-    def clip_value(self, arr):
+    def clip_value(self, arr: np.ndarray) -> None:
         if self.eps is not None:
             arr[arr <= self.eps] = self.eps
             arr[arr >= (1 - self.eps)] = 1 - self.eps
 
-    def __log_loss(self, arr):
+    def __log_loss(self, arr: np.ndarray) -> float:
         result = 0
         result += np.log(arr[self.y_test == 1]).sum()
         result += np.log(1 - arr[self.y_test == 0]).sum()
         return -result
 
-    def __accuracy(self, arr):
+    def __accuracy(self, arr: np.ndarray) -> float:
         return float((self.y_test == (arr >= 0.5)).mean())
 
-    def _measure_score(self, i, fm, hyper):
-        prob_this = fm.predict_proba(self.X_test, self.X_rel_test)
+    def _measure_score(
+        self, i: int, fm: FM, hyper: FMHyperParameters
+    ) -> Tuple[str, Dict[str, float]]:
+        prob_this = fm.predict_score(self.X_test, self.X_rel_test)
         self.predictions += prob_this
         self.n_samples += 1
         prediction_mean = self.predictions / self.n_samples
@@ -172,10 +169,8 @@ class ClassificationCallback(LibFMLikeCallbackBase):
         accuracy = self.__accuracy(prediction_mean)
         ll_this = self.__log_loss(prob_this)
         accuracy_this = self.__accuracy(prob_this)
-        description = (
-            "ll_mean={0:.4f}, ll_this={1:.4f}, ll_all_but_5={2:.4f}".format(
-                ll, ll_this, ll_all_but_5
-            )
+        description = "ll_mean={0:.4f}, ll_this={1:.4f}, ll_all_but_5={2:.4f}".format(
+            ll, ll_this, ll_all_but_5
         )
         result = OrderedDict(
             [
@@ -193,47 +188,42 @@ class ClassificationCallback(LibFMLikeCallbackBase):
 class OrderedProbitCallback(LibFMLikeCallbackBase):
     def __init__(
         self,
-        n_iter,
-        X_test,
-        y_test,
-        n_class,
-        X_rel_test=None,
-        eps=1e-15,
-        trace_path=None,
+        n_iter: int,
+        X_test: Optional[ArrayLike],
+        y_test: np.ndarray,
+        n_class: int,
+        X_rel_test: List[RelationBlock] = [],
+        eps: Optional[float] = 1e-15,
+        trace_path: Optional[str] = None,
     ):
         super(OrderedProbitCallback, self).__init__(
             n_iter, X_test, X_rel_test, y_test, trace_path=trace_path
         )
-        self.predictions = np.zeros(
-            (self.n_test_data, n_class), dtype=np.float64
-        )
+        self.predictions = np.zeros((self.n_test_data, n_class), dtype=np.float64)
         self.prediction_all_but_5 = np.zeros(
             (self.n_test_data, n_class), dtype=np.float64
         )
         self.n_class = n_class
         self.eps = eps
         self.y_test = self.y_test.astype(np.int32)
-        assert (self.y_test.min() >= 0) and (
-            self.y_test.max() <= (self.n_class - 1)
-        )
+        assert (self.y_test.min() >= 0) and (self.y_test.max() <= (self.n_class - 1))
 
-    def __log_loss(self, arr):
+    def __log_loss(self, arr: np.ndarray) -> float:
         ps = arr[np.arange(self.y_test.shape[0]), self.y_test].copy()
         ps[ps <= self.eps] = self.eps
         return -float(np.log(ps).sum())
 
-    def __accuracy(self, arr):
+    def __accuracy(self, arr: np.ndarray) -> float:
         return float((self.y_test == (arr.argmax(axis=1))).mean())
 
-    def __rmse(self, arr):
+    def __rmse(self, arr: np.ndarray) -> float:
         return (
-            float(
-                ((self.y_test - arr.dot(np.arange(self.n_class))) ** 2).mean()
-            )
-            ** 0.5
+            float(((self.y_test - arr.dot(np.arange(self.n_class))) ** 2).mean()) ** 0.5
         )
 
-    def _measure_score(self, i, fm, hyper):
+    def _measure_score(
+        self, i: int, fm: FM, hyper: FMHyperParameters
+    ) -> Tuple[str, Dict[str, float]]:
         score = fm.predict_score(self.X_test, self.X_rel_test)
         score = std_cdf(fm.cutpoints[0][np.newaxis, :] - score[:, np.newaxis])
         score = np.hstack(
@@ -264,10 +254,8 @@ class OrderedProbitCallback(LibFMLikeCallbackBase):
         ll_this = self.__log_loss(prob_this)
         accuracy_this = self.__accuracy(prob_this)
         rmse_this = self.__rmse(prob_this)
-        description = (
-            "ll_mean={0:.4f}, ll_this={1:.4f}, ll_all_but_5={2:.4f}".format(
-                ll, ll_this, ll_all_but_5
-            )
+        description = "ll_mean={0:.4f}, ll_this={1:.4f}, ll_all_but_5={2:.4f}".format(
+            ll, ll_this, ll_all_but_5
         )
         result = OrderedDict(
             [

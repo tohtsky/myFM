@@ -9,7 +9,7 @@ import numpy as np
 class BinningEncoder(SparseEncoderBase):
     """The class to one-hot encode a List of numerical values into a sparse matrix representation by binning."""
 
-    def __init__(self, x: List[Number], n_percentiles: int = 10):
+    def __init__(self, x: List[Number], n_percentiles: int = 10) -> None:
         """Initializes the encoder by compting the percentile values of input.
 
         Parameters
@@ -37,4 +37,4 @@ class BinningEncoder(SparseEncoderBase):
         )
 
     def __len__(self) -> int:
-        return self.percentiles.shape[0] + 2
+        return len(self.percentiles) + 2

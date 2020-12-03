@@ -19,15 +19,13 @@ class SparseEncoderBase(ABC):
         raise NotImplementedError("must be implemented")
 
 
-class DataFrameEncoder(object):
+class DataFrameEncoder:
     """Encode pandas.DataFrame into concatenated sparse matrices."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Construct the encoders starting from empty one."""
         self.col_encoders: Dict[str, SparseEncoderBase] = OrderedDict()
-        self.many_to_many_encoders: List[
-            Tuple[str, str, str, ManyToManyEncoder]
-        ] = []
+        self.many_to_many_encoders: List[Tuple[str, str, str, ManyToManyEncoder]] = []
 
     @property
     def encoder_shapes(self) -> List[int]:

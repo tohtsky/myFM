@@ -28,9 +28,7 @@ def std_cdf(x: np.ndarray) -> np.ndarray:
     return (1 + special.erf(x * np.sqrt(0.5))) / 2
 
 
-def check_data_consistency(
-    X: Optional[ArrayLike], X_rel: List[RelationBlock]
-) -> int:
+def check_data_consistency(X: Optional[ArrayLike], X_rel: List[RelationBlock]) -> int:
     shape: Optional[int] = None
     if X_rel:
         shape_rel_all = {rel.mapper_size for rel in X_rel}
@@ -50,12 +48,8 @@ def check_data_consistency(
 
 FM = TypeVar("FM", _myfm.FM, _myfm.VariationalFM)
 Predictor = TypeVar("Predictor", _myfm.Predictor, _myfm.VariationalPredictor)
-History = TypeVar(
-    "History", _myfm.LearningHistory, _myfm.VariationalLearningHistory
-)
-Hyper = TypeVar(
-    "Hyper", _myfm.FMHyperParameters, _myfm.VariationalFMHyperParameters
-)
+History = TypeVar("History", _myfm.LearningHistory, _myfm.VariationalLearningHistory)
+Hyper = TypeVar("Hyper", _myfm.FMHyperParameters, _myfm.VariationalFMHyperParameters)
 
 CallBackType = Callable[[int, FM, Hyper], bool]
 
@@ -156,7 +150,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
         self.n_groups_: Optional[int] = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         return "{class_name}(init_stdev={init_stdev}, alpha_0={alpha_0}, beta_0={beta_0}, gamma_0={gamma_0}, mu_0={mu_0}, reg_0={reg_0})".format(
             class_name=self.__class__.__name__,
             init_stdev=self.init_stdev,
@@ -184,9 +178,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             log_str = self._status_report(fm, hyper)
 
             if do_test:
-                pred_this = self._prepare_prediction_for_test(
-                    fm, X_test, X_rel_test
-                )
+                pred_this = self._prepare_prediction_for_test(fm, X_test, X_rel_test)
                 val_results = self._measure_score(pred_this, y_test)
                 for key, metric in val_results.items():
                     log_str += " {}_this: {:.2f}".format(key, metric)
@@ -212,7 +204,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
         callback_default_freq: int = 10,
-    ) -> "MyFMBase":
+    ) -> None:
 
         if config_builder is None:
             config_builder = ConfigBuilder()
@@ -244,9 +236,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             getattr(config_builder, "set_{}".format(key))(value)
 
         if group_shapes is not None and grouping is None:
-            grouping = [
-                i for i, gsize in enumerate(group_shapes) for _ in range(gsize)
-            ]
+            grouping = [i for i, gsize in enumerate(group_shapes) for _ in range(gsize)]
 
         if grouping is None:
             self.n_groups_ = 1
@@ -269,9 +259,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
                 X_test = sps.csr_matrix(X_test)
             do_test = True
         elif y_test is not None:
-            raise RuntimeError(
-                "Must specify both (X_test or X_rel_test) and y_test."
-            )
+            raise RuntimeError("Must specify both (X_test or X_rel_test) and y_test.")
         else:
             do_test = False
 
@@ -316,28 +304,25 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
                 config,
                 wrapped_callback,
             )
-            return self
 
     def _set_tasktype(self, config_builder: ConfigBuilder) -> None:
         config_builder.set_task_type(self._task_type)
 
     @abstractmethod
-    def _status_report(self, fm: FM, hyper: Hyper):
+    def _status_report(self, fm: FM, hyper: Hyper) -> str:
         raise NotImplementedError("must be implemented")
 
     @abstractmethod
     def _prepare_prediction_for_test(
         self, fm: FM, X: Optional[ArrayLike], X_rel: List[RelationBlock]
-    ):
+    ) -> np.ndarray:
         raise NotImplementedError("must be implemented")
 
-    def _process_y(self, y):
+    def _process_y(self, y: np.ndarray) -> np.ndarray:
         return y.astype(np.float64)
 
     @abstractmethod
-    def _measure_score(
-        self, prediction: np.ndarray, y: np.ndarray
-    ) -> Dict[str, float]:
+    def _measure_score(self, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
         raise NotImplementedError("")
 
     def _fetch_predictor(self) -> Predictor:
@@ -355,26 +340,27 @@ class RegressorMixin(Generic[FM, Hyper]):
 
     def _prepare_prediction_for_test(
         self, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
-    ):
+    ) -> np.ndarray:
         return fm.predict_score(X, X_rel)
 
-    def _status_report(self, fm: FM, hyper: Hyper):
+    def _status_report(self, fm: FM, hyper: Hyper) -> str:
         log_str = "alpha = {:.2f} ".format(hyper.alpha)
         log_str += "w0 = {:.2f} ".format(fm.w0)
         return log_str
 
-    def _measure_score(
-        self, prediction: np.ndarray, y: np.ndarray
-    ) -> Dict[str, float]:
+    def _measure_score(self, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
         result = OrderedDict()
         result["rmse"] = ((y - prediction) ** 2).mean() ** 0.5
         result["mae"] = np.abs(y - prediction).mean()
         return result
 
     def _predict(
-        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
-    ):
-        return self._predict_core(X, X_rel, **kwargs)
+        self,
+        X: Optional[ArrayLike],
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ) -> np.ndarray:
+        return self._predict_core(X, X_rel, n_workers=n_workers)
 
 
 class ClassifierMixin(Generic[FM, Hyper], ABC):
@@ -386,36 +372,40 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
 
     def _prepare_prediction_for_test(
         self, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
-    ):
+    ) -> np.ndarray:
         return std_cdf(fm.predict_score(X, X_rel))
 
-    def _process_y(self, y) -> np.ndarray:
+    def _process_y(self, y: np.ndarray) -> np.ndarray:
         return y.astype(np.float64) * 2 - 1
 
-    def _measure_score(self, prediction, y) -> Dict[str, float]:
+    def _measure_score(self, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
         result = OrderedDict()
         lp = np.log(prediction + 1e-15)
         l1mp = np.log(1 - prediction + 1e-15)
         gt = y > 0
-        result["ll"] = (-lp.dot(gt) - l1mp.dot(~gt)) / max(
-            1, prediction.shape[0]
-        )
+        result["ll"] = (-lp.dot(gt) - l1mp.dot(~gt)) / max(1, prediction.shape[0])
         result["accuracy"] = np.mean((prediction >= 0.5) == gt)
         return result
 
-    def _status_report(self, fm, hyper) -> str:
+    def _status_report(self, fm: FM, hyper: Hyper) -> str:
         log_str = "w0 = {:.2f} ".format(fm.w0)
         return log_str
 
     def _predict(
-        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
+        self,
+        X: Optional[ArrayLike],
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
     ) -> np.ndarray:
 
-        return ((self._predict_core(X, X_rel=X_rel, **kwargs)) > 0.5).astype(
+        return ((self._predict_core(X, X_rel=X_rel, n_workers=n_workers)) > 0.5).astype(
             np.int64
         )
 
     def _predict_proba(
-        self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = [], **kwargs
-    ):
-        return self._predict_core(X, X_rel, **kwargs)
+        self,
+        X: Optional[ArrayLike],
+        X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
+    ) -> np.ndarray:
+        return self._predict_core(X, X_rel, n_workers=n_workers)

@@ -1,4 +1,5 @@
 from typing import Tuple, List, Callable, Optional
+import warnings
 import numpy as np
 from .base import (
     MyFMBase,
@@ -57,7 +58,12 @@ class MyFMVariationalBase(
         self,
         X: Optional[ArrayLike],
         X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
     ) -> np.ndarray:
+        if n_workers is not None:
+            warnings.warn(
+                "Currently variational api does not support multi-thread prediction."
+            )
         predictor = self._fetch_predictor()
         shape = check_data_consistency(X, X_rel)
         if X is None:
@@ -97,7 +103,7 @@ class VariationalFMRegressor(
             ]
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
-    ):
+    ) -> "VariationalFMRegressor":
         """Performs batch variational inference fit the data.
 
         Parameters
@@ -135,7 +141,7 @@ class VariationalFMRegressor(
         callback: function(int, fm, hyper, history) -> bool, optional(default = None)
             Called at the every end of each Gibbs iteration.
         """
-        return self._fit(
+        self._fit(
             X,
             y,
             X_rel=X_rel,
@@ -149,6 +155,7 @@ class VariationalFMRegressor(
             group_shapes=group_shapes,
             config_builder=config_builder,
         )
+        return self
 
     def predict(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
@@ -200,7 +207,7 @@ class VariationalFMClassifier(
             ]
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
-    ):
+    ) -> "VariationalFMClassifier":
         """Performs batch variational inference fit the data.
 
         Parameters
@@ -238,7 +245,7 @@ class VariationalFMClassifier(
         callback: function(int, fm, hyper) -> bool, optional(default = None)
             Called at the every end of each Gibbs iteration.
         """
-        return self._fit(
+        self._fit(
             X,
             y,
             X_rel=X_rel,
@@ -252,6 +259,7 @@ class VariationalFMClassifier(
             group_shapes=group_shapes,
             config_builder=config_builder,
         )
+        return self
 
     def predict(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
