@@ -4,6 +4,7 @@ jobs:
   check-mypy:
     runs-on: ubuntu-latest
     steps:
-      uses: jpetrucciani/mypy-check@master
-      with:
-        path: '.'
+      - name: "mypy-check"
+        uses: jpetrucciani/mypy-check@master
+        with:
+          path: "./myfm"
