@@ -2,8 +2,11 @@ name: mypy-check
 on: [push]
 jobs:
   check-mypy:
+    runs-on: ubuntu-latest
     steps:
+      - name: Checkout
+        uses: actions/checkout@v2
       - name: "mypy-check"
         uses: jpetrucciani/mypy-check@master
         with:
-          path: "."
+          path: "./myfm"
