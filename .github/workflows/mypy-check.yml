@@ -1,0 +1,9 @@
+name: mypy-check
+on: [push]
+jobs:
+  check-mypy:
+    runs-on: ubuntu-latest
+    steps:
+      uses: jpetrucciani/mypy-check@master
+      with:
+        path: '.'
