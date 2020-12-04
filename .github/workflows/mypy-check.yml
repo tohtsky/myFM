@@ -9,6 +9,4 @@ jobs:
       - name: "mypy-check"
         uses: jpetrucciani/mypy-check@master
         with:
-          path:
-            - "./myfm"
-            - "./examples"
+          path: "./myfm  ./examples"
