@@ -8,7 +8,7 @@ import sys
 import setuptools
 import os
 
-__version__ = "0.3.0.0"
+__version__ = "0.3.0.1"
 
 install_requires = [
     "pybind11>=2.5.0",
@@ -23,9 +23,7 @@ if eigen_include_dir is None:
 
 
 class get_eigen_include(object):
-    EIGEN3_URL = (
-        "https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.zip"
-    )
+    EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.zip"
     EIGEN3_DIRNAME = "eigen-3.3.7"
 
     def __str__(self):
@@ -42,11 +40,7 @@ class get_eigen_include(object):
         import requests
         import zipfile
 
-        print(
-            "Start downloading Eigen library from {}.".format(
-                self.EIGEN3_DIRNAME
-            )
-        )
+        print("Start downloading Eigen library from {}.".format(self.EIGEN3_DIRNAME))
         response = requests.get(self.EIGEN3_URL, stream=True)
         with open(download_target_dir, "wb") as ofs:
             for chunk in response.iter_content(chunk_size=1024):
@@ -131,9 +125,7 @@ def cpp_flag(compiler):
         if has_flag(compiler, flag):
             return flag
 
-    raise RuntimeError(
-        "Unsupported compiler -- at least C++11 support " "is needed!"
-    )
+    raise RuntimeError("Unsupported compiler -- at least C++11 support " "is needed!")
 
 
 class BuildExt(build_ext):
@@ -163,9 +155,7 @@ class BuildExt(build_ext):
             if has_flag(self.compiler, "-fvisibility=hidden"):
                 opts.append("-fvisibility=hidden")
         elif ct == "msvc":
-            opts.append(
-                '/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version()
-            )
+            opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
         for ext in self.extensions:
             ext.extra_compile_args = opts
             ext.extra_link_args = link_opts
