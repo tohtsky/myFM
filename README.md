@@ -81,14 +81,16 @@ from sklearn.preprocessing import OneHotEncoder
 from sklearn import metrics
 
 import myfm
+from myfm.utils.benchmark_data import MovieLens100kDataManager
 
-from movielens100k_data import MovieLens100kDataManager
 data_manager = MovieLens100kDataManager()
-df_train, df_test = data_manager.load_rating_predefined_split(fold=3) # Note the dependence on the fold
+df_train, df_test = data_manager.load_rating_predefined_split(
+    fold=3
+)  # Note the dependence on the fold
 
 def test_myfm(df_train, df_test, rank=8, grouping=None, n_iter=100, samples=95):
-    explanation_columns = ['user_id', 'movie_id']
-    ohe = OneHotEncoder(handle_unknown='ignore')
+    explanation_columns = ["user_id", "movie_id"]
+    ohe = OneHotEncoder(handle_unknown="ignore")
     X_train = ohe.fit_transform(df_train[explanation_columns])
     X_test = ohe.transform(df_test[explanation_columns])
     y_train = df_train.rating.values
@@ -96,19 +98,28 @@ def test_myfm(df_train, df_test, rank=8, grouping=None, n_iter=100, samples=95):
     fm = myfm.MyFMRegressor(rank=rank, random_seed=114514)
 
     if grouping:
-        # assign group index for each column of X_train.
-        grouping = [ i for i, category in enumerate(ohe.categories_) for _ in category]
-        assert len(grouping) == X_train.shape[1]
+        # specify how columns of X_train are grouped
+        group_shapes = [len(category) for category in ohe.categories_]
+        assert sum(group_shapes) == X_train.shape[1]
+    else:
+        group_shapes = None
 
-    fm.fit(X_train, y_train, grouping=grouping, n_iter=n_iter, n_kept_samples=samples)
+    fm.fit(
+        X_train,
+        y_train,
+        group_shapes=group_shapes,
+        n_iter=n_iter,
+        n_kept_samples=samples,
+    )
     prediction = fm.predict(X_test)
-    rmse = ((y_test - prediction) ** 2).mean() ** .5
+    rmse = ((y_test - prediction) ** 2).mean() ** 0.5
     mae = np.abs(y_test - prediction).mean()
-    print('rmse={rmse}, mae={mae}'.format(rmse=rmse, mae=mae))
+    print("rmse={rmse}, mae={mae}".format(rmse=rmse, mae=mae))
     return fm
 
+
 # basic regression
-test_myfm(df_train, df_test, rank=8);
+test_myfm(df_train, df_test, rank=8)
 # rmse=0.90321, mae=0.71164
 
 # with grouping
