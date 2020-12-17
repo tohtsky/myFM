@@ -102,7 +102,9 @@ inline std::tuple<Real, Real, Real> mean_var_truncated_normal_left(Real mu) {
     phi_Z = 2 / Z / SQRT2PI;
     lnZ = std::log(Z) - mu_square;
   }
-  return {mu + phi_Z, 1 - mu * phi_Z - phi_Z * phi_Z, lnZ};
+  std::tuple<Real, Real, Real> result(mu + phi_Z,
+                                      1 - mu * phi_Z - phi_Z * phi_Z, lnZ);
+  return result;
 }
 
 template <typename Real>
