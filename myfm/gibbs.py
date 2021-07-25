@@ -477,11 +477,16 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             else:
                 raise ValueError("specify the cutpoint index")
 
-        X = sps.csr_matrix(X)
-        if X.dtype != np.float64:
-            X.data = X.data.astype(np.float64)
-        p = 0
+        shape = check_data_consistency(X, X_rel)
+        if X is None:
+            X = sps.csr_matrix((shape, 0), dtype=REAL)
+        else:
+            X = sps.csr_matrix(X)
 
+        if X.dtype != REAL:
+            X.data = X.data.astype(REAL)
+
+        p = 0
         for sample in predictor.samples:
             score = sample.predict_score(X, X_rel)
             p += self._score_to_class_prob(score, sample.cutpoints[cutpoint_index])
