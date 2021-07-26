@@ -2,47 +2,49 @@
 # https://github.com/wichert/pybind11-example/blob/master/setup.py
 # and modified.
 
-from setuptools import setup, Extension
+from setuptools import setup, Extension, find_packages
 from setuptools.command.build_ext import build_ext
+from distutils.ccompiler import CCompiler
 import sys
 import setuptools
 import os
+from pathlib import Path
+from typing import Any, Dict, List
 
 __version__ = "0.3.0.1"
 
 install_requires = [
-    "pybind11>=2.5.0",
     "numpy>=1.11",
     "scipy>=1.0",
     "tqdm>=4",
 ]
+setup_requires = ["pybind11>=2.5", "requests", "setuptools_scm"]
+
 
 eigen_include_dir = os.environ.get("EIGEN3_INCLUDE_DIR", None)
-if eigen_include_dir is None:
-    install_requires.append("requests")
 
 
 class get_eigen_include(object):
     EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.zip"
     EIGEN3_DIRNAME = "eigen-3.3.7"
 
-    def __str__(self):
+    def __str__(self) -> str:
 
         if eigen_include_dir is not None:
             return eigen_include_dir
 
-        basedir = os.path.dirname(__file__)
-        target_dir = os.path.join(basedir, self.EIGEN3_DIRNAME)
-        if os.path.exists(target_dir):
-            return target_dir
+        basedir = Path(__file__).resolve().parent
+        target_dir = basedir / self.EIGEN3_DIRNAME
+        if target_dir.exists():
+            return str(target_dir)
 
-        download_target_dir = os.path.join(basedir, "eigen3.zip")
+        download_target_dir = basedir / "eigen3.zip"
         import requests
         import zipfile
 
         print("Start downloading Eigen library from {}.".format(self.EIGEN3_DIRNAME))
         response = requests.get(self.EIGEN3_URL, stream=True)
-        with open(download_target_dir, "wb") as ofs:
+        with download_target_dir.open("wb") as ofs:
             for chunk in response.iter_content(chunk_size=1024):
                 ofs.write(chunk)
         print("Downloaded Eigen into {}.".format(download_target_dir))
@@ -50,22 +52,23 @@ class get_eigen_include(object):
         with zipfile.ZipFile(download_target_dir) as ifs:
             ifs.extractall()
 
-        return target_dir
+        return str(target_dir)
 
 
-class get_pybind_include(object):
+class get_pybind_include:
     """Helper class to determine the pybind11 include path
     The purpose of this class is to postpone importing pybind11
     until it is actually installed, so that the ``get_include()``
     method can be invoked."""
 
-    def __init__(self, user=False):
+    def __init__(self, user: bool = False):
         self.user = user
 
-    def __str__(self):
+    def __str__(self) -> str:
         import pybind11
 
-        return pybind11.get_include(self.user)
+        include_dir: str = pybind11.get_include(self.user)
+        return include_dir
 
 
 headers = [
@@ -98,9 +101,7 @@ ext_modules = [
 ]
 
 
-# As of Python 3.6, CCompiler has a `has_flag` method.
-# cf http://bugs.python.org/issue26689
-def has_flag(compiler, flagname):
+def has_flag(compiler: CCompiler, flagname: str) -> bool:
     """Return a boolean indicating whether a flag name is supported on
     the specified compiler.
     """
@@ -115,7 +116,7 @@ def has_flag(compiler, flagname):
     return True
 
 
-def cpp_flag(compiler):
+def cpp_flag(compiler: CCompiler) -> str:
     """Return the -std=c++[11/14/17] compiler flag.
     The newer version is prefered over c++11 (when it is available).
     """
@@ -125,7 +126,7 @@ def cpp_flag(compiler):
         if has_flag(compiler, flag):
             return flag
 
-    raise RuntimeError("Unsupported compiler -- at least C++11 support " "is needed!")
+    raise RuntimeError("Unsupported compiler -- at least C++11 support is needed!")
 
 
 class BuildExt(build_ext):
@@ -135,7 +136,7 @@ class BuildExt(build_ext):
         "msvc": ["/EHsc"],
         "unix": ["-O3"],
     }
-    l_opts = {
+    l_opts: Dict[str, List[str]] = {
         "msvc": [],
         "unix": [],
     }
@@ -145,7 +146,7 @@ class BuildExt(build_ext):
         c_opts["unix"] += darwin_opts
         l_opts["unix"] += darwin_opts
 
-    def build_extensions(self):
+    def build_extensions(self) -> None:
         ct = self.compiler.compiler_type
         opts = self.c_opts.get(ct, [])
         link_opts = self.l_opts.get(ct, [])
@@ -162,9 +163,14 @@ class BuildExt(build_ext):
         build_ext.build_extensions(self)
 
 
+def local_scheme(version: Any) -> str:
+    return ""
+
+
 setup(
     name="myfm",
     version=__version__,
+    use_scm_version={"local_scheme": local_scheme},
     author="Tomoki Ohtsuki",
     url="https://github.com/tohtsky/myfm",
     author_email="tomoki.ohtsuki129@gmail.com",
@@ -172,14 +178,9 @@ setup(
     long_description="",
     ext_modules=ext_modules,
     install_requires=install_requires,
-    setup_requires=install_requires,
+    setup_requires=setup_requires,
     cmdclass={"build_ext": BuildExt},
-    packages=[
-        "myfm",
-        "myfm.utils.benchmark_data",
-        "myfm.utils.callbacks",
-        "myfm.utils.encoders",
-    ],
+    packages=find_packages(),
     zip_safe=False,
     headers=headers,
     python_requires=">=3.6.0",
