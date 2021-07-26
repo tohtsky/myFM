@@ -104,7 +104,7 @@ class VariationalFMRegressor(
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
     ) -> "VariationalFMRegressor":
-        """Performs batch variational inference fit the data.
+        r"""Performs batch variational inference fit the data.
 
         Parameters
         ----------
@@ -160,7 +160,7 @@ class VariationalFMRegressor(
     def predict(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
     ) -> np.ndarray:
-        """Make a prediction based on variational mean.
+        r"""Make a prediction based on variational mean.
 
         Parameters
         ----------
@@ -208,7 +208,7 @@ class VariationalFMClassifier(
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
     ) -> "VariationalFMClassifier":
-        """Performs batch variational inference fit the data.
+        r"""Performs batch variational inference fit the data.
 
         Parameters
         ----------
@@ -264,7 +264,7 @@ class VariationalFMClassifier(
     def predict(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
     ) -> np.ndarray:
-        """Based on the class probability, return binary classified outcome based on threshold = 0.5.
+        r"""Based on the class probability, return binary classified outcome based on threshold = 0.5.
         If you want class probability instead, use `predict_proba` method.
 
         Parameters
@@ -284,7 +284,7 @@ class VariationalFMClassifier(
     def predict_proba(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
     ) -> np.ndarray:
-        """Compute the probability that the outcome will be 1 based on variational mean.
+        r"""Compute the probability that the outcome will be 1 based on variational mean.
 
         Parameters
         ----------

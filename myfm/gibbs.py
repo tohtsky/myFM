@@ -137,7 +137,7 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
     ) -> "MyFMGibbsRegressor":
-        """Performs Gibbs sampling to fit the data.
+        r"""Performs Gibbs sampling to fit the data.
 
         Parameters
         ----------
@@ -238,7 +238,7 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
         ] = None,
         config_builder: Optional[ConfigBuilder] = None,
     ) -> "MyFMGibbsClassifier":
-        """Performs Gibbs sampling to fit the data.
+        r"""Performs Gibbs sampling to fit the data.
 
         Parameters
         ----------
@@ -498,7 +498,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         X_rel: List[RelationBlock] = [],
         cutpoint_index: Optional[int] = None,
     ) -> np.ndarray:
-        """Predict the class outcome according to the class probability.
+        r"""Predict the class outcome according to the class probability.
 
         Parameters
         ----------

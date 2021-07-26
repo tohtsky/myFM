@@ -22,6 +22,7 @@ jobs:
         run: |
           pip install pytest pytest-cov
           pip install scikit-learn pandas
+          wget http://files.grouplens.org/datasets/movielens/ml-100k.zip -O $HOME/.ml-100k.zip
           pytest --cov=./myFM tests/
       - name: Generate coverage (ubuntu)
         run: |
