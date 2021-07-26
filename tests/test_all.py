@@ -27,7 +27,7 @@ RANK = 4
 
 
 def test_all() -> None:
-    data_manager = MovieLens100kDataManager()
+    data_manager = MovieLens100kDataManager(force_download=True)
     df_train, df_test = data_manager.load_rating_predefined_split(1)
 
     datetime_encoder = BinningEncoder(

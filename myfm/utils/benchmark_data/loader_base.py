@@ -38,16 +38,19 @@ class DataLoaderBase(ABC):
     def DEFAULT_PATH(self) -> str:
         raise NotImplementedError("must be implemented")
 
-    def __init__(self, zippath: Optional[str] = None):
+    def __init__(self, zippath: Optional[str] = None, force_download: bool = False):
         if zippath is None:
             zippath = self.DEFAULT_PATH
             if not os.path.exists(zippath):
-                download = input(
-                    "Could not find {}.\nCan I download and save it there?[y/N]".format(
-                        zippath
-                    )
-                )
-                if download.lower() == "y":
+                download = force_download
+                if not download:
+                    permission = input(
+                        "Could not find {}.\nCan I download and save it there?[y/N]".format(
+                            zippath
+                        )
+                    ).lower()
+                    download = permission == "y"
+                if download:
                     print("start download...")
                     urllib.request.urlretrieve(self.DOWNLOAD_URL, zippath)
                     print("complete")
