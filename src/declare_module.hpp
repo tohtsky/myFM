@@ -103,8 +103,8 @@ template <typename Real> void declare_functional(py::module &m) {
     original_to_block: List[int]
         describes which entry points to to which row of the data (second argument).
     data: scipy.sparse.csr_matrix[float64]
-        describes repeated pattern. 
-      
+        describes repeated pattern.
+
     Note
     -----
     The entries of `original_to_block` must be in the [0, data.shape[0]-1].)delim",

@@ -11,7 +11,7 @@ In such a case, for each user, we include all of the item IDs that the user had 
 and the complexity grows further by a factor of :math:`O(\mathrm{NNZ} / N_U)`.
 
 However, we can get away with this catastrophic complexity if we notice the repeated pattern in the input matrix.
-Interested readers can refer to `[Rendle, '13] <https://dl.acm.org/doi/abs/10.14778/2535573.2488340>`_ 
+Interested readers can refer to `[Rendle, '13] <https://dl.acm.org/doi/abs/10.14778/2535573.2488340>`_
 and `libFM's Manual <http://www.libfm.org/libfm-1.40.manual.pdf>`_ for details.
 
 Below let us see how we can incorporate SVD++-like features efficiently
@@ -113,7 +113,7 @@ We can then define functions which maps a list of user/movie ids to the features
                 normalizer = 1 / max(len(watched_users), 1) ** 0.5
                 for uid in watched_users:
                     X_ii[index, user_to_index[uid]] = normalizer
-            Xs.append(X_ii)    
+            Xs.append(X_ii)
 
 
         return sps.hstack(Xs, format='csr')

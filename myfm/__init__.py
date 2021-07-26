@@ -1,3 +1,11 @@
+from pkg_resources import DistributionNotFound, get_distribution
+
+try:
+    __version__ = get_distribution("myfm").version
+except DistributionNotFound:  # pragma: no cover
+    # package is not installed
+    pass  # pragma: no cover
+
 from . import _myfm as core
 from ._myfm import RelationBlock
 

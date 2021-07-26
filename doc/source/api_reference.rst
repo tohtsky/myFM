@@ -9,7 +9,7 @@ API References
 Training API
 ------------
 .. autosummary::
-    :toctree: api_reference 
+    :toctree: api_reference
 
     RelationBlock
     MyFMRegressor
@@ -25,7 +25,7 @@ Training API
 Benchmark Dataset
 -----------------
 .. autosummary::
-    :toctree: api_reference 
+    :toctree: api_reference
 
     utils.benchmark_data.MovieLens100kDataManager
     utils.benchmark_data.MovieLens1MDataManager
