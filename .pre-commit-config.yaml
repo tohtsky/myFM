@@ -15,3 +15,8 @@ repos:
     hooks:
       - id: mypy
         files: myfm/
+  - repo: https://github.com/hadialqattan/pycln
+    rev: v1.1.0
+    hooks:
+      - id: pycln
+        args: [--config=pyproject.toml]

@@ -1,7 +1,6 @@
 from abc import ABC, abstractclassmethod, abstractmethod, abstractproperty
 from collections import OrderedDict
 from typing import (
-    Any,
     Callable,
     Generic,
     List,
