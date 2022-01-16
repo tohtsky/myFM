@@ -23,6 +23,8 @@ setup_requires = ["pybind11>=2.5", "requests", "setuptools_scm"]
 
 eigen_include_dir = os.environ.get("EIGEN3_INCLUDE_DIR", None)
 
+TEST_BUILD = os.environ.get("TEST_BUILD", None) is not None
+
 
 class get_eigen_include(object):
     EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.zip"
@@ -132,14 +134,24 @@ def cpp_flag(compiler: CCompiler) -> str:
 class BuildExt(build_ext):
     """A custom build extension for adding compiler-specific options."""
 
-    c_opts = {
-        "msvc": ["/EHsc"],
-        "unix": ["-O3"],
-    }
-    l_opts: Dict[str, List[str]] = {
-        "msvc": [],
-        "unix": [],
-    }
+    if TEST_BUILD:
+        c_opts: Dict[str, List[str]] = {
+            "msvc": ["/EHsc"],
+            "unix": ["-O0", "-coverage", "-g"],
+        }
+        l_opts: Dict[str, List[str]] = {
+            "msvc": [],
+            "unix": ["-coverage"],
+        }
+    else:
+        c_opts = {
+            "msvc": ["/EHsc"],
+            "unix": [],
+        }
+        l_opts = {
+            "msvc": [],
+            "unix": [],
+        }
 
     if sys.platform == "darwin":
         darwin_opts = ["-stdlib=libc++", "-mmacosx-version-min=10.7"]
