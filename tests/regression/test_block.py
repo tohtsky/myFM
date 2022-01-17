@@ -31,17 +31,20 @@ def test_block() -> None:
     X_flatten = sps.hstack(
         [tm_column, user_block[user_indices], item_block[item_indices]]
     )
+
+    blocks = [
+        RelationBlock(user_indices, user_block),
+        RelationBlock(item_indices, item_block),
+    ]
     y = rns.randn(N_train)
     fm_flatten = MyFMRegressor(2).fit(
         X_flatten, y, group_shapes=[1, 4, 3], n_iter=30, n_kept_samples=30
     )
+
     fm_blocked = MyFMRegressor(2).fit(
         tm_column,
         y,
-        [
-            RelationBlock(user_indices, user_block),
-            RelationBlock(item_indices, item_block),
-        ],
+        blocks,
         group_shapes=[1, 4, 3],
         n_iter=30,
         n_kept_samples=30,
@@ -50,3 +53,6 @@ def test_block() -> None:
         fm_flatten.predictor_.samples, fm_blocked.predictor_.samples
     ):
         np.testing.assert_allclose(s_flatten.V, s_blocked.V)
+    predicton_flatten = fm_flatten.predict(tm_column, blocks, n_workers=2)
+    predicton_blocked = fm_blocked.predict(X_flatten, n_workers=None)
+    np.testing.assert_allclose(predicton_flatten, predicton_blocked)
