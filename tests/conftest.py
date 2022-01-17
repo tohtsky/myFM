@@ -26,7 +26,6 @@ def create_data(
     n_train: int, stub_weight: FMWeights
 ) -> Tuple[sps.csr_matrix, np.ndarray]:
     rns = np.random.RandomState(0)
-    n = np.ones(N_FEATURES)
     rows: List[int] = []
     cols: List[int] = []
     data: List[float] = []
