@@ -18,3 +18,6 @@ def test_oprobit() -> None:
         cp_1, cp_2 = sample.cutpoints[0]
         assert abs(cp_1) < 0.25
         assert abs(cp_2 - cp_1 - 0.5) < 0.25
+
+    p = fm.predict_proba(X[:, None])
+    assert np.all(np.argmax(p[np.where(X > 1.0)], axis=1) == 2)
