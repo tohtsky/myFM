@@ -3,7 +3,7 @@ from scipy import sparse as sps
 import numpy as np
 from ..util import FMWeights
 
-from myfm import MyFMGibbsRegressor
+from myfm import MyFMGibbsRegressor, VariationalFMRegressor
 
 import pytest
 
@@ -21,6 +21,8 @@ def test_middle_reg(
     fm = MyFMGibbsRegressor(3).fit(
         X, y, X_test=X, y_test=y, n_iter=100  # , n_kept_samples=50
     )
+    vfm = VariationalFMRegressor(3).fit(X, y, X_test=X, y_test=y, n_iter=50)
+    vfm_weights = vfm.predictor_.weights()
     hp_trance = fm.get_hyper_trace()
     last_alphs = hp_trance["alpha"].iloc[-20:].values
     assert np.all(last_alphs > ((1 / alpha_inv ** 2) / 2))
@@ -37,11 +39,14 @@ def test_middle_reg(
     for i in range(3):
         for j in range(i + 1, 3):
             cross_term = stub_weight.factors[:, i].dot(stub_weight.factors[:, j])
+            if abs(cross_term) < 0.1:
+                continue
+            sign = cross_term / abs(cross_term)
+            vfm_cross_term = vfm_weights.V[i].dot(vfm_weights.V[j])
+            assert vfm_cross_term > sign * cross_term * 0.8
+            assert vfm_cross_term < sign * cross_term * 1.25
+
             for s in last_samples:
                 sample_cross_term = s.V[i].dot(s.V[j])
-                if cross_term > 0:
-                    assert sample_cross_term > cross_term * 0.5
-                    assert sample_cross_term < cross_term * 2
-                elif cross_term < 0:
-                    assert sample_cross_term < cross_term * 0.5
-                    assert sample_cross_term > cross_term * 2
+                assert sample_cross_term > sign * cross_term * 0.5
+                assert sample_cross_term < sign * cross_term * 2
