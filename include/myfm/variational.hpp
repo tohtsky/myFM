@@ -3,6 +3,7 @@
 #include <atomic>
 #include <cstddef>
 #include <exception>
+#include <iostream>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -735,7 +736,6 @@ public:
             relation_data.X.cwiseAbs2() *
             fm.w_var.segment(offset, relation_data.feature_size);
         relation_cache.q.array() = 0;
-        relation_cache.x2s.array() = 0;
         for (int inner_index = 0; inner_index < relation_data.X.rows();
              inner_index++) {
           Real &e_ref = relation_cache.q(inner_index);
@@ -743,7 +743,6 @@ public:
             Real x = it.value();
             auto col = offset + it.col();
             e_ref += x * fm.w(col);
-            this->e_var_sum += x * x * fm.w_var(col);
           }
         }
         offset += relation_data.feature_size;

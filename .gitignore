@@ -21,3 +21,4 @@ doc/source/_build
 stubs/*
 
 doc/source/api_reference/*.rst
+.cache

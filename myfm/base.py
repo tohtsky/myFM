@@ -40,7 +40,7 @@ def check_data_consistency(X: Optional[ArrayLike], X_rel: List[RelationBlock]) -
         return shape
     else:
         if X is None:
-            raise ValueError("At lease X or X_rel must be provided.")
+            raise ValueError("At least X or X_rel must be provided.")
         shape = int(X.shape[0])
         return shape
 
@@ -218,7 +218,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         dim_all = X.shape[1] + sum([rel.feature_size for rel in X_rel])
 
         if n_kept_samples is None:
-            n_kept_samples = n_iter - 10
+            n_kept_samples = min(max(n_iter - 5, 5), n_iter)
         else:
             assert n_iter >= n_kept_samples
 
