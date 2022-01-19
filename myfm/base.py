@@ -1,6 +1,7 @@
 from abc import ABC, abstractclassmethod, abstractmethod, abstractproperty
 from collections import OrderedDict
 from typing import (
+    Any,
     Callable,
     Generic,
     List,
@@ -9,6 +10,7 @@ from typing import (
     TypeVar,
     Union,
     Dict,
+    TYPE_CHECKING,
 )
 
 import numpy as np
@@ -18,12 +20,23 @@ from scipy import sparse as sps, special
 from . import _myfm
 from ._myfm import ConfigBuilder, FMLearningConfig, RelationBlock, TaskType
 
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+    DenseArray = npt.NDArray[np.float64]
+    BinaryClassificationTarget = Union[
+        npt.NDArray[np.int64], npt.NDArray[np.int32], npt.NDArray[np.bool_]
+    ]
+else:
+    DenseArray = object
+    BinaryClassificationTarget = object
+
 REAL = np.float64
 
 ArrayLike = Union[np.ndarray, sps.csr_matrix]
 
 
-def std_cdf(x: np.ndarray) -> np.ndarray:
+def std_cdf(x: DenseArray) -> DenseArray:
     return (1 + special.erf(x * np.sqrt(0.5))) / 2
 
 
@@ -68,11 +81,11 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         config: FMLearningConfig,
         callback: Callable[[int, FM, Hyper, History], bool],
     ) -> Tuple[Predictor, History]:
-        raise NotImplementedError("not implemented")
+        raise NotImplementedError("not implemented")  # pragma: no cover
 
     @abstractproperty
     def _task_type(self) -> TaskType:
-        raise NotImplementedError("must be specified in child")
+        raise NotImplementedError("must be specified in child")  # pragma: no cover
 
     def __init__(
         self,
@@ -331,7 +344,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
 
 class RegressorMixin(Generic[FM, Hyper]):
-    _predict_core: Callable
+    _predict_core: Callable[[Any], DenseArray]
 
     @property
     def _task_type(self) -> TaskType:
@@ -363,7 +376,7 @@ class RegressorMixin(Generic[FM, Hyper]):
 
 
 class ClassifierMixin(Generic[FM, Hyper], ABC):
-    _predict_core: Callable
+    _predict_core: Callable[[Any], DenseArray]
 
     @property
     def _task_type(self) -> TaskType:

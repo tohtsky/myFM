@@ -23,7 +23,10 @@ from .base import (
     ClassifierMixin,
     check_data_consistency,
     std_cdf,
+    DenseArray,
+    BinaryClassificationTarget,
 )
+
 
 try:
     import pandas as pd
@@ -44,7 +47,7 @@ class MyFMGibbsBase(
         X: Optional[ArrayLike],
         X_rel: List[RelationBlock] = [],
         n_workers: Optional[int] = None,
-    ) -> np.ndarray:
+    ) -> DenseArray:
 
         predictor = self._fetch_predictor()
         shape = check_data_consistency(X, X_rel)
@@ -96,12 +99,12 @@ class MyFMGibbsBase(
             ]
         )
 
-        res = []
+        res: List[DenseArray] = []
         for hyper in self.history_.hypers:
             res.append(
                 np.concatenate(
                     [
-                        [hyper.alpha],
+                        np.asfarray([hyper.alpha]),
                         hyper.mu_w,
                         hyper.lambda_w,
                         hyper.mu_V.ravel(),
@@ -109,9 +112,9 @@ class MyFMGibbsBase(
                     ]
                 )
             )
-        res = np.vstack(res)
+        res_as_array = np.vstack(res)
 
-        df = pd.DataFrame(res)
+        df = pd.DataFrame(res_as_array)
         df.columns = columns
         return df
 
@@ -195,7 +198,7 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
         X: Optional[ArrayLike],
         X_rel: List[RelationBlock] = [],
         n_workers: Optional[int] = None,
-    ) -> np.ndarray:
+    ) -> DenseArray:
         """Make a prediction by compute the posterior predictive mean.
 
         Parameters
@@ -209,7 +212,6 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
 
         Returns
         -------
-        np.ndarray
             One-dimensional array of predictions.
         """
         return self._predict(X, X_rel, n_workers=n_workers)
@@ -221,7 +223,7 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
     def fit(
         self,
         X: ArrayLike,
-        y: np.ndarray,
+        y: BinaryClassificationTarget,
         X_rel: List[RelationBlock] = [],
         X_test: Optional[ArrayLike] = None,
         y_test: Optional[np.ndarray] = None,
@@ -296,7 +298,7 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
         X: Optional[ArrayLike],
         X_rel: List[RelationBlock] = [],
         n_workers: Optional[int] = None,
-    ) -> np.ndarray:
+    ) -> BinaryClassificationTarget:
         """Based on the class probability, return binary classified outcome based on threshold = 0.5.
         If you want class probability instead, use `predict_proba` method.
 
@@ -323,7 +325,7 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
         X: Optional[ArrayLike],
         X_rel: List[RelationBlock] = [],
         n_workers: Optional[int] = None,
-    ) -> np.ndarray:
+    ) -> DenseArray:
         """Compute the probability that the outcome will be 1 based on posterior predictive mean.
 
         Parameters
@@ -371,16 +373,12 @@ class MyFMOrderedProbit(MyFMGibbsBase):
                 Tuple[bool, Optional[str]],
             ]
         ] = None,
-        cutpoint_group_configs: Optional[List[Tuple[int, np.ndarray]]] = None,
         callback_default_freq: int = 5,
     ) -> "MyFMOrderedProbit":
         config_builder = ConfigBuilder()
         y = np.asarray(y)
-        if cutpoint_group_configs is None:
-            n_class = y.max() + 1
-            cutpoint_group_configs = [
-                (int(n_class), np.arange(y.shape[0], dtype=np.int64))
-            ]
+        n_class = y.max() + 1
+        cutpoint_group_configs = [(int(n_class), list(range(y.shape[0])))]
         self.n_cutpoint_groups = len(cutpoint_group_configs)
         config_builder.set_cutpoint_groups(cutpoint_group_configs)
         super()._fit(
@@ -403,16 +401,17 @@ class MyFMOrderedProbit(MyFMGibbsBase):
     @classmethod
     def _score_to_class_prob(
         cls, score: np.ndarray, cutpoints: np.ndarray
-    ) -> np.ndarray:
+    ) -> DenseArray:
         score = std_cdf((cutpoints[np.newaxis, :] - score[:, np.newaxis]))
-        score = np.hstack(
+        score_enlarged = np.hstack(
             [
                 np.zeros((score.shape[0], 1), dtype=score.dtype),
                 score,
                 np.ones((score.shape[0], 1), dtype=score.dtype),
             ]
         )
-        return score[:, 1:] - score[:, :-1]
+        result: DenseArray = score_enlarged[:, 1:] - score_enlarged[:, :-1]
+        return result
 
     def _prepare_prediction_for_test(
         self, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
@@ -447,7 +446,6 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         self,
         X: ArrayLike,
         X_rel: List[RelationBlock] = [],
-        cutpoint_index: Optional[int] = None,
     ) -> np.ndarray:
         """Compute the ordinal class probability.
 
@@ -457,11 +455,6 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             The input data.
         X_rel : List[RelationBlock], optional
             Relational Block part of the data., by default []
-        cutpoint_index : int, optional
-            if not ``None`` and multiple cutpoints are enabled
-            when ``fit``, compute the class probability
-            based on the ``cutpoint_index``-th cutpoint, by default None.
-            Must not be ``None`` when there are multiple cutpoints.
 
         Returns
         -------
@@ -470,12 +463,6 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         """
 
         predictor = self._fetch_predictor()
-
-        if cutpoint_index is None:
-            if self.n_cutpoint_groups == 1:
-                cutpoint_index = 0
-            else:
-                raise ValueError("specify the cutpoint index")
 
         shape = check_data_consistency(X, X_rel)
         if X is None:
@@ -486,18 +473,17 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         if X.dtype != REAL:
             X.data = X.data.astype(REAL)
 
-        p = 0
+        p = 0.0
         for sample in predictor.samples:
             score = sample.predict_score(X, X_rel)
-            p += self._score_to_class_prob(score, sample.cutpoints[cutpoint_index])
+            p += self._score_to_class_prob(score, sample.cutpoints[0])
         return p / len(predictor.samples)
 
     def predict(
         self,
         X: ArrayLike,
         X_rel: List[RelationBlock] = [],
-        cutpoint_index: Optional[int] = None,
-    ) -> np.ndarray:
+    ) -> DenseArray:
         r"""Predict the class outcome according to the class probability.
 
         Parameters
@@ -506,11 +492,6 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             The input data.
         X_rel : List[RelationBlock], optional
             Relational Block part of the data., by default []
-        cutpoint_index : int, optional
-            if not ``None`` and multiple cutpoints are enabled
-            when ``fit``, compute the class probability
-            based on the ``cutpoint_index``-th cutpoint, by default None
-            Must not be ``None`` when there are multiple cutpoints.
 
         Returns
         -------
@@ -518,6 +499,4 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             The class prediction
         """
 
-        return self.predict_proba(X, X_rel=X_rel, cutpoint_index=cutpoint_index).argmax(
-            axis=1
-        )
+        return self.predict_proba(X, X_rel=X_rel).argmax(axis=1)

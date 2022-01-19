@@ -46,6 +46,11 @@ def test_block_vfm() -> None:
         RelationBlock(user_indices, user_block),
         RelationBlock(item_indices, item_block),
     ]
+    with tempfile.TemporaryFile() as temp_fs:
+        pickle.dump(blocks, temp_fs)
+        del blocks
+        temp_fs.seek(0)
+        blocks = pickle.load(temp_fs)
     fm_flatten = VariationalFMRegressor(3).fit(
         X_flatten,
         y,
