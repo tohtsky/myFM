@@ -1,3 +1,6 @@
+import pickle
+import tempfile
+
 import numpy as np
 from scipy import sparse as sps
 from myfm import MyFMRegressor, RelationBlock, VariationalFMRegressor
@@ -54,8 +57,14 @@ def test_block_vfm() -> None:
         blocks,
         n_iter=100,
     )
+
     assert fm_flatten.predictor_ is not None
     assert fm_blocked.predictor_ is not None
+    with tempfile.TemporaryFile() as temp_fs:
+        pickle.dump(fm_blocked, temp_fs)
+        del fm_blocked
+        temp_fs.seek(0)
+        fm_blocked = pickle.load(temp_fs)
 
     np.testing.assert_allclose(
         fm_flatten.predictor_.weights().w, fm_blocked.predictor_.weights().w
@@ -127,6 +136,13 @@ def test_block() -> None:
         fm_flatten.predictor_.samples, fm_blocked.predictor_.samples
     ):
         np.testing.assert_allclose(s_flatten.V, s_blocked.V)
+
+    with tempfile.TemporaryFile() as temp_fs:
+        pickle.dump(fm_blocked, temp_fs)
+        del fm_blocked
+        temp_fs.seek(0)
+        fm_blocked = pickle.load(temp_fs)
+
     predicton_flatten = fm_flatten.predict(tm_column, blocks, n_workers=2)
     predicton_blocked = fm_blocked.predict(X_flatten, n_workers=None)
     np.testing.assert_allclose(predicton_flatten, predicton_blocked)
