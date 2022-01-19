@@ -88,7 +88,6 @@ class VariationalFMRegressor(
         y_test: Optional[np.ndarray] = None,
         X_rel_test: List[RelationBlock] = [],
         n_iter: int = 100,
-        n_kept_samples: Optional[int] = None,
         grouping: Optional[List[int]] = None,
         group_shapes: Optional[List[int]] = None,
         callback: Optional[
@@ -120,10 +119,6 @@ class VariationalFMRegressor(
         n_iter : int, optional (default = 100)
             Iterations to perform.
 
-        n_kept_samples: int, optional (default = None)
-            The number of samples to store.
-            If `None`, the value is set to `n_iter` - 5.
-
         grouping: Integer List, optional (default = None)
             If not `None`, this specifies which column of X belongs to which group.
             That is, if grouping[i] is g, then, :math:`w_i` and :math:`V_{i, r}`
@@ -149,7 +144,6 @@ class VariationalFMRegressor(
             X_rel_test=X_rel_test,
             y_test=y_test,
             n_iter=n_iter,
-            n_kept_samples=n_kept_samples,
             grouping=grouping,
             callback=callback,
             group_shapes=group_shapes,
@@ -192,7 +186,6 @@ class VariationalFMClassifier(
         y_test: Optional[np.ndarray] = None,
         X_rel_test: List[RelationBlock] = [],
         n_iter: int = 100,
-        n_kept_samples: Optional[int] = None,
         grouping: Optional[List[int]] = None,
         group_shapes: Optional[List[int]] = None,
         callback: Optional[
@@ -224,10 +217,6 @@ class VariationalFMClassifier(
         n_iter : int, optional (default = 100)
             Iterations to perform.
 
-        n_kept_samples: int, optional (default = None)
-            The number of samples to store.
-            If `None`, the value is set to `n_iter` - 5.
-
         grouping: Integer List, optional (default = None)
             If not `None`, this specifies which column of X belongs to which group.
             That is, if grouping[i] is g, then, :math:`w_i` and :math:`V_{i, r}`
@@ -253,7 +242,6 @@ class VariationalFMClassifier(
             X_rel_test=X_rel_test,
             y_test=y_test,
             n_iter=n_iter,
-            n_kept_samples=n_kept_samples,
             grouping=grouping,
             callback=callback,
             group_shapes=group_shapes,
