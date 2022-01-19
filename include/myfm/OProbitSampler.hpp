@@ -286,7 +286,7 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline void find_minimum(DenseVector &alpha_hat, bool verbose = false) {
+  inline void find_minimum(DenseVector &alpha_hat) {
     int max_iter = 10000;
     Real epsilon = 1e-5;
     Real epsilon_rel = 1e-5;
@@ -302,24 +302,11 @@ template <typename Real> struct OprobitSampler {
     while (true) {
       if (first) {
         ll_current = (*this)(alpha_hat, dalpha, &H);
-        if (verbose) {
-          print_to_stream(std::cout, "ll_current = ", ll_current,
-                          "\ndalpha = ", dalpha);
-          std::cout << std::endl;
-        }
       }
       {
 
         Real alpha2 = alpha_hat.norm();
         Real dalpha2 = dalpha.norm();
-        if (verbose) {
-          print_to_stream(std::cout, "ll = ", ll_current,
-                          "\nalpha_hat =", alpha_hat);
-          std::cout << std::endl;
-
-          print_to_stream(std::cout, "dalpha2 = ", dalpha2);
-          std::cout << std::endl;
-        }
 
         if (dalpha2 < epsilon || dalpha2 < epsilon_rel * alpha2) {
           break;
@@ -327,13 +314,6 @@ template <typename Real> struct OprobitSampler {
       }
 
       direction = -H.llt().solve(dalpha);
-      if (verbose) {
-        print_to_stream(std::cout, "H = ", H);
-        std::cout << std::endl;
-
-        print_to_stream(std::cout, "direction = ", direction);
-        std::cout << std::endl;
-      }
 
       Real step_size = 1;
       int lsc = 0;
@@ -376,10 +356,10 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline bool step(bool verbose = false) {
+  inline bool step() {
     DenseVector alpha_hat = alpha_now;
     DenseVector gamma(alpha_hat);
-    find_minimum(alpha_hat, verbose);
+    find_minimum(alpha_hat);
     DenseVector alpha_candidate = sample_mvt(H, nu) + alpha_hat;
 
     Real ll_candidate, ll_old;
@@ -455,7 +435,6 @@ template <typename Real> struct OprobitSampler {
       }
       H.array() *= -1;
       if (H.hasNaN()) {
-        fail_dump();
         throw std::runtime_error(print_to_string(
             __FILE__, ":", __LINE__, " H has NaN, alpha = ", alpha));
       }
@@ -470,7 +449,6 @@ template <typename Real> struct OprobitSampler {
     }
     dalpha = -dGammadAlpha * dalpha;
     if (dalpha.hasNaN()) {
-      fail_dump();
       throw std::runtime_error(print_to_string(
           __FILE__, ":", __LINE__, " dalpha has NaN, alpha = ", alpha));
     }
@@ -482,31 +460,6 @@ template <typename Real> struct OprobitSampler {
       ll -= 0.5 * reg * alpha(m) * alpha(m);
     }
     return -ll;
-  }
-
-  template <class ostype> inline void show_info(ostype &os) {
-    os << "{\"xs\": [";
-    bool first = true;
-    for (auto i : indices_) {
-      if (!first)
-        os << ", ";
-      os << x_[i];
-      first = false;
-    }
-    os << "], \"ys\":[";
-    first = true;
-    for (auto i : indices_) {
-      if (!first)
-        os << ", ";
-      os << y_[i];
-      first = false;
-    }
-    os << "]}";
-  }
-
-  inline void fail_dump() {
-    std::ofstream fail_log("fail-log.json");
-    show_info(fail_log);
   }
 
   DenseVector &x_;
