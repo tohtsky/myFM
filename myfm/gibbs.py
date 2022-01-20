@@ -18,6 +18,7 @@ from ._myfm import (
 from .base import (
     REAL,
     ArrayLike,
+    ClassIndexArray,
     MyFMBase,
     RegressorMixin,
     ClassifierMixin,
@@ -101,17 +102,13 @@ class MyFMGibbsBase(
 
         res: List[DenseArray] = []
         for hyper in self.history_.hypers:
-            res.append(
-                np.concatenate(
-                    [
-                        np.asfarray([hyper.alpha]),
-                        hyper.mu_w,
-                        hyper.lambda_w,
-                        hyper.mu_V.ravel(),
-                        hyper.lambda_V.ravel(),
-                    ]
-                )
-            )
+            row = np.zeros(len(columns), dtype=np.float64)
+            row[0] = hyper.alpha
+            cursor = 1
+            for hp in [hyper.mu_w, hyper.lambda_w, hyper.mu_V, hyper.lambda_V]:
+                row[cursor : cursor + hp.size] = hp
+                cursor == hp.size
+            res.append(row)
         res_as_array = np.vstack(res)
 
         df = pd.DataFrame(res_as_array)
@@ -214,7 +211,7 @@ class MyFMGibbsRegressor(RegressorMixin[FM, FMHyperParameters], MyFMGibbsBase):
         -------
             One-dimensional array of predictions.
         """
-        return self._predict(X, X_rel, n_workers=n_workers)
+        return self._predict_core(X, X_rel, n_workers=n_workers)
 
 
 class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase):
@@ -318,7 +315,7 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
         np.ndarray
             One-dimensional array of predicted outcomes.
         """
-        return self._predict(X, X_rel, n_workers=n_workers)
+        return self.predict_proba(X, X_rel, n_workers=n_workers) > 0.5
 
     def predict_proba(
         self,
@@ -345,11 +342,37 @@ class MyFMGibbsClassifier(ClassifierMixin[FM, FMHyperParameters], MyFMGibbsBase)
             One-dimensional array of probabilities.
 
         """
-        return self._predict_proba(X, X_rel, n_workers=n_workers)
+        return self._predict_core(X, X_rel, n_workers=n_workers)
 
 
 class MyFMOrderedProbit(MyFMGibbsBase):
     """Bayesian Factorization Machines for Ordinal Regression Tasks."""
+
+    def __init__(
+        self,
+        rank: int,
+        init_stdev: float = 0.1,
+        random_seed: int = 42,
+        alpha_0: float = 1,
+        beta_0: float = 1,
+        gamma_0: float = 1,
+        mu_0: float = 0,
+        reg_0: float = 1,
+        fit_w0: bool = True,
+        fit_linear: bool = True,
+    ):
+        super().__init__(
+            rank,
+            init_stdev,
+            random_seed,
+            alpha_0,
+            beta_0,
+            gamma_0,
+            mu_0,
+            reg_0,
+            fit_w0,
+            fit_linear,
+        )
 
     @property
     def _task_type(self) -> TaskType:
@@ -446,6 +469,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         self,
         X: ArrayLike,
         X_rel: List[RelationBlock] = [],
+        n_workers: Optional[int] = None,
     ) -> np.ndarray:
         """Compute the ordinal class probability.
 
@@ -472,18 +496,13 @@ class MyFMOrderedProbit(MyFMGibbsBase):
 
         if X.dtype != REAL:
             X.data = X.data.astype(REAL)
-
-        p = 0.0
-        for sample in predictor.samples:
-            score = sample.predict_score(X, X_rel)
-            p += self._score_to_class_prob(score, sample.cutpoints[0])
-        return p / len(predictor.samples)
+        return predictor.predict_parallel_oprobit(X, X_rel, n_workers or 1, 0)
 
     def predict(
         self,
         X: ArrayLike,
         X_rel: List[RelationBlock] = [],
-    ) -> DenseArray:
+    ) -> ClassIndexArray:
         r"""Predict the class outcome according to the class probability.
 
         Parameters
@@ -499,4 +518,5 @@ class MyFMOrderedProbit(MyFMGibbsBase):
             The class prediction
         """
 
-        return self.predict_proba(X, X_rel=X_rel).argmax(axis=1)
+        result: ClassIndexArray = self.predict_proba(X, X_rel=X_rel).argmax(axis=1)
+        return result

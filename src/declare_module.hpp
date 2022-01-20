@@ -304,6 +304,7 @@ template <typename Real> void declare_functional(py::module &m) {
       .def_readonly("samples", &Predictor::samples)
       .def("predict", &Predictor::predict)
       .def("predict_parallel", &Predictor::predict_parallel)
+      .def("predict_parallel_oprobit", &Predictor::predict_parallel_oprobit)
       .def(py::pickle(
           [](const Predictor &predictor) {
             return py::make_tuple(predictor.rank, predictor.feature_size,

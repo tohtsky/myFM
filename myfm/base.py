@@ -1,7 +1,6 @@
 from abc import ABC, abstractclassmethod, abstractmethod, abstractproperty
 from collections import OrderedDict
 from typing import (
-    Any,
     Callable,
     Generic,
     List,
@@ -20,16 +19,18 @@ from scipy import sparse as sps, special
 from . import _myfm
 from ._myfm import ConfigBuilder, FMLearningConfig, RelationBlock, TaskType
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma : no cover
     import numpy.typing as npt
 
     DenseArray = npt.NDArray[np.float64]
     BinaryClassificationTarget = Union[
         npt.NDArray[np.int64], npt.NDArray[np.int32], npt.NDArray[np.bool_]
     ]
+    ClassIndexArray = npt.NDArray[np.int64]
 else:
     DenseArray = object
     BinaryClassificationTarget = object
+    ClassIndexArray = object
 
 REAL = np.float64
 
@@ -37,7 +38,8 @@ ArrayLike = Union[np.ndarray, sps.csr_matrix]
 
 
 def std_cdf(x: DenseArray) -> DenseArray:
-    return (1 + special.erf(x * np.sqrt(0.5))) / 2
+    _: DenseArray = (1 + special.erf(x * np.sqrt(0.5))) / 2
+    return _
 
 
 def check_data_consistency(X: Optional[ArrayLike], X_rel: List[RelationBlock]) -> int:
@@ -179,7 +181,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         do_test: float,
         X_test: Optional[sps.csr_matrix] = None,
         X_rel_test: List[RelationBlock] = [],
-        y_test: Optional[np.ndarray] = None,
+        y_test: Optional[BinaryClassificationTarget] = None,
     ) -> Callable[[int, FM, Hyper, History], Tuple[bool, Optional[str]]]:
         def callback(
             i: int, fm: FM, hyper: Hyper, history: History
@@ -190,6 +192,8 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             log_str = self._status_report(fm, hyper)
 
             if do_test:
+                assert X_test is not None
+                assert y_test is not None
                 pred_this = self._prepare_prediction_for_test(fm, X_test, X_rel_test)
                 val_results = self._measure_score(pred_this, y_test)
                 for key, metric in val_results.items():
@@ -255,7 +259,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
             config_builder.set_identical_groups(dim_all)
         else:
             assert dim_all == len(grouping)
-            self.n_groups_ = np.unique(grouping).shape[0]
+            self.n_groups_ = len(set(grouping))
             config_builder.set_group_index(grouping)
 
         if X_test is not None or X_rel_test:
@@ -278,7 +282,7 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
 
         if X.dtype != np.float64:
-            X.data = X.data.astype(np.float64)
+            X = X.astype(np.float64)
         y = self._process_y(y)
         self._set_tasktype(config_builder)
 
@@ -330,11 +334,13 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
     ) -> np.ndarray:
         raise NotImplementedError("must be implemented")
 
-    def _process_y(self, y: np.ndarray) -> np.ndarray:
+    def _process_y(self, y: np.ndarray) -> DenseArray:
         return y.astype(np.float64)
 
     @abstractmethod
-    def _measure_score(self, prediction: np.ndarray, y: np.ndarray) -> Dict[str, float]:
+    def _measure_score(
+        self, prediction: DenseArray, y: BinaryClassificationTarget
+    ) -> Dict[str, float]:
         raise NotImplementedError("")
 
     def _fetch_predictor(self) -> Predictor:
@@ -344,8 +350,6 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
 
 
 class RegressorMixin(Generic[FM, Hyper]):
-    _predict_core: Callable[[Any], DenseArray]
-
     @property
     def _task_type(self) -> TaskType:
         return TaskType.REGRESSION
@@ -366,18 +370,8 @@ class RegressorMixin(Generic[FM, Hyper]):
         result["mae"] = np.abs(y - prediction).mean()
         return result
 
-    def _predict(
-        self,
-        X: Optional[ArrayLike],
-        X_rel: List[RelationBlock] = [],
-        n_workers: Optional[int] = None,
-    ) -> np.ndarray:
-        return self._predict_core(X, X_rel, n_workers=n_workers)
-
 
 class ClassifierMixin(Generic[FM, Hyper], ABC):
-    _predict_core: Callable[[Any], DenseArray]
-
     @property
     def _task_type(self) -> TaskType:
         return TaskType.CLASSIFICATION
@@ -402,22 +396,3 @@ class ClassifierMixin(Generic[FM, Hyper], ABC):
     def _status_report(self, fm: FM, hyper: Hyper) -> str:
         log_str = "w0 = {:.2f} ".format(fm.w0)
         return log_str
-
-    def _predict(
-        self,
-        X: Optional[ArrayLike],
-        X_rel: List[RelationBlock] = [],
-        n_workers: Optional[int] = None,
-    ) -> np.ndarray:
-
-        return ((self._predict_core(X, X_rel=X_rel, n_workers=n_workers)) > 0.5).astype(
-            np.int64
-        )
-
-    def _predict_proba(
-        self,
-        X: Optional[ArrayLike],
-        X_rel: List[RelationBlock] = [],
-        n_workers: Optional[int] = None,
-    ) -> np.ndarray:
-        return self._predict_core(X, X_rel, n_workers=n_workers)

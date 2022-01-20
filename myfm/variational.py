@@ -1,5 +1,4 @@
 from typing import Tuple, List, Callable, Optional
-import warnings
 import numpy as np
 from .base import (
     MyFMBase,
@@ -58,12 +57,7 @@ class MyFMVariationalBase(
         self,
         X: Optional[ArrayLike],
         X_rel: List[RelationBlock] = [],
-        n_workers: Optional[int] = None,
     ) -> np.ndarray:
-        if n_workers is not None:
-            warnings.warn(
-                "Currently variational api does not support multi-thread prediction."
-            )
         predictor = self._fetch_predictor()
         shape = check_data_consistency(X, X_rel)
         if X is None:
@@ -168,7 +162,7 @@ class VariationalFMRegressor(
         np.ndarray
             [description]
         """
-        return self._predict(X, X_rel)
+        return self._predict_core(X, X_rel)
 
 
 class VariationalFMClassifier(
@@ -267,7 +261,7 @@ class VariationalFMClassifier(
         np.ndarray
             0/1 predictions based on the probability.
         """
-        return self._predict(X, X_rel)
+        return self.predict_proba(X, X_rel) > 0.5
 
     def predict_proba(
         self, X: Optional[ArrayLike], X_rel: List[RelationBlock] = []
@@ -286,4 +280,4 @@ class VariationalFMClassifier(
         np.ndarray
             the probability.
         """
-        return self._predict_proba(X, X_rel)
+        return self._predict_core(X, X_rel)

@@ -168,6 +168,13 @@ class Predictor:
         arg1: List[RelationBlock],
         arg2: int,
     ) -> npt.NDArray[float64]: ...
+    def predict_parallel_oprobit(
+        self,
+        arg0: scipy.sparse.csr_matrix[float64],
+        arg1: List[RelationBlock],
+        arg2: int,
+        arg3: int,
+    ) -> npt.NDArray[float64]: ...
     @property
     def samples(self) -> List[FM]:
         """

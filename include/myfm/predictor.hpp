@@ -15,6 +15,7 @@ template <typename Real, class FMType = FM<Real>> struct Predictor {
   typedef typename FMLearningConfig<Real>::TASKTYPE TASKTYPE;
   typedef typename FMType::SparseMatrix SparseMatrix;
   typedef typename FMType::Vector Vector;
+  typedef typename FMType::DenseMatrix DenseMatrix;
   typedef typename FMType::RelationBlock RelationBlock;
 
   inline Predictor(size_t rank, size_t feature_size, TASKTYPE type)
@@ -25,8 +26,8 @@ template <typename Real, class FMType = FM<Real>> struct Predictor {
     auto given_feature_size = check_row_consistency_return_column(X, relations);
     if (feature_size != given_feature_size) {
       throw std::invalid_argument(
-          StringBuilder{}("Told to predict for ")(given_feature_size)(
-              " but this->feature_size is ")(feature_size)
+          StringBuilder{}("Told to predict for ")(
+              given_feature_size)(" but this->feature_size is ")(feature_size)
               .build());
     }
   }
@@ -66,6 +67,63 @@ template <typename Real, class FMType = FM<Real>> struct Predictor {
               }
             }
           });
+    }
+    for (auto &worker : workers) {
+      worker.join();
+    }
+    result.array() /= static_cast<Real>(n_samples);
+    return result;
+  }
+
+  inline DenseMatrix
+  predict_parallel_oprobit(const SparseMatrix &X,
+                           const vector<RelationBlock> &relations,
+                           size_t n_workers, size_t cutpoint_index) const {
+    check_input(X, relations);
+    if (samples.empty()) {
+      throw std::runtime_error("Told to predict but no sample available.");
+    }
+    if (this->type != TASKTYPE::ORDERED) {
+      throw std::runtime_error(
+          "predict_parallel_oprobit must be called for oprobit model.");
+    }
+    int n_cpt = (this->samples.at(0)).cutpoints.at(cutpoint_index).size();
+    DenseMatrix result = DenseMatrix::Zero(X.rows(), n_cpt + 1);
+    const size_t n_samples = this->samples.size();
+
+    std::mutex mtx;
+    std::atomic<size_t> currently_done(0);
+    std::vector<std::thread> workers;
+
+    for (size_t i = 0; i < n_workers; i++) {
+      workers.emplace_back([this, n_samples, &result, &X, &relations,
+                            &currently_done, &mtx, cutpoint_index, n_cpt] {
+        Vector score(X.rows());
+
+        DenseMatrix cache(X.rows(), n_cpt + 1);
+        while (true) {
+          size_t cd = currently_done.fetch_add(1);
+          if (cd >= n_samples)
+            break;
+          this->samples.at(cd).predict_score_write_target(score, X, relations);
+          Vector cutpoints = this->samples.at(cd).cutpoints.at(cutpoint_index);
+          for (int cpt_index = 0; cpt_index < n_cpt; cpt_index++) {
+            cache.col(cpt_index) =
+                (1 + ((cutpoints(cpt_index) - score.array()) *
+                      static_cast<Real>(std::sqrt(0.5)))
+                         .erf()) /
+                2;
+          }
+          cache.col(n_cpt) = (1 - cache.col(n_cpt - 1).array());
+          for (int col = n_cpt - 1; col >= 1; col--) {
+            cache.col(col) -= cache.col(col - 1);
+          }
+          {
+            std::lock_guard<std::mutex> lock{mtx};
+            result += cache;
+          }
+        }
+      });
     }
     for (auto &worker : workers) {
       worker.join();
