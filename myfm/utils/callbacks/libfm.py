@@ -5,12 +5,8 @@ from scipy import special, sparse as sps
 import pandas as pd
 import numpy as np
 
-from ..._myfm import RelationBlock, FM, FMHyperParameters, LearningHistory
-from ...base import ArrayLike, check_data_consistency, REAL
-
-
-def std_cdf(x: np.ndarray) -> np.ndarray:
-    return (1 + special.erf(x * np.sqrt(0.5))) / 2
+from myfm._myfm import RelationBlock, FM, FMHyperParameters, LearningHistory
+from myfm.base import ArrayLike, check_data_consistency, REAL, std_cdf
 
 
 class LibFMLikeCallbackBase(ABC):
@@ -217,9 +213,10 @@ class OrderedProbitCallback(LibFMLikeCallbackBase):
         return float((self.y_test == (arr.argmax(axis=1))).mean())
 
     def __rmse(self, arr: np.ndarray) -> float:
-        return (
+        result: float = (
             float(((self.y_test - arr.dot(np.arange(self.n_class))) ** 2).mean()) ** 0.5
         )
+        return result
 
     def _measure_score(
         self, i: int, fm: FM, hyper: FMHyperParameters

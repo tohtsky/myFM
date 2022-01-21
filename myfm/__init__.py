@@ -1,4 +1,4 @@
-from pkg_resources import DistributionNotFound, get_distribution
+from pkg_resources import DistributionNotFound, get_distribution  # type: ignore
 
 try:
     __version__ = get_distribution("myfm").version

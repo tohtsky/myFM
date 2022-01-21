@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Generic, List, TypeVar, Union
+from typing import Generic, List, TypeVar, Union, Iterable
 
 import numpy as np
 import scipy.sparse as sps
@@ -12,14 +12,14 @@ T = TypeVar("T")
 class CategoryValueToSparseEncoder(Generic[T], SparseEncoderBase):
     """The class to one-hot encode a List of items into a sparse matrix representation."""
 
-    def __init__(self, items: List[T], min_freq: int = 1):
+    def __init__(self, items: Iterable[T], min_freq: int = 1):
         """Construct the encoder by providing the known item set.
         It has a position for "unknown or too rare" items,
         which are regarded as the 0-th class.
 
         Parameters
         ----------
-        items : List[T]
+        items : Iterable[T]
             The items list.
         min_freq : int, optional
             The minimal frequency for an item to be retained in the known items list, by default 1
@@ -33,22 +33,22 @@ class CategoryValueToSparseEncoder(Generic[T], SparseEncoderBase):
     def __getitem__(self, x: T) -> int:
         return self._dict.get(x, 0)
 
-    def names(self) -> List[Union[str, T]]:
-        return self._items
+    def names(self) -> List[str]:
+        return [str(y) for y in self._items]
 
-    def to_sparse(self, items: List[T]) -> sps.csr_matrix:
+    def to_sparse(self, items: Iterable[T]) -> sps.csr_matrix:
+        rows = []
+        cols = []
+        for i, x in enumerate(items):
+            rows.append(i)
+            cols.append(self[x])
         cols = [self[j] for j in items]
         return sps.csr_matrix(
             (
-                np.ones(len(items), dtype=np.float64),
-                (
-                    np.arange(
-                        len(items),
-                    ),
-                    cols,
-                ),
+                np.ones(len(rows), dtype=np.float64),
+                (rows, cols),
             ),
-            shape=(len(items), len(self)),
+            shape=(len(rows), len(self)),
         )
 
     def __len__(self) -> int:
