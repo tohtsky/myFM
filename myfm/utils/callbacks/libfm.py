@@ -25,7 +25,7 @@ class LibFMLikeCallbackBase(ABC):
 
         self.n_iter = n_iter
         if X_test is not None:
-            self.X_test: ArrayLike = X_test
+            self.X_test = sps.csr_matrix(X_test, dtype=REAL)
         else:
             self.X_test = sps.csr_matrix((self.n_test_data, 0), dtype=REAL)
         self.X_rel_test = X_rel_test
@@ -221,16 +221,7 @@ class OrderedProbitCallback(LibFMLikeCallbackBase):
     def _measure_score(
         self, i: int, fm: FM, hyper: FMHyperParameters
     ) -> Tuple[str, Dict[str, float]]:
-        score = fm.predict_score(self.X_test, self.X_rel_test)
-        score = std_cdf(fm.cutpoints[0][np.newaxis, :] - score[:, np.newaxis])
-        score = np.hstack(
-            [
-                np.zeros((score.shape[0], 1), dtype=score.dtype),
-                score,
-                np.ones((score.shape[0], 1), dtype=score.dtype),
-            ]
-        )
-        prob_this = score[:, 1:] - score[:, :-1]
+        prob_this = fm.oprobit_predict_proba(self.X_test, self.X_rel_test, 0)
         self.predictions += prob_this
         self.n_samples += 1
         prediction_mean = self.predictions / self.n_samples

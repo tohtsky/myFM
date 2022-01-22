@@ -56,6 +56,12 @@ class FM:
     def predict_score(
         self, arg0: scipy.sparse.csr_matrix[float64], arg1: List[RelationBlock]
     ) -> npt.NDArray[float64]: ...
+    def oprobit_predict_proba(
+        self,
+        arg0: scipy.sparse.csr_matrix[float64],
+        arg1: List[RelationBlock],
+        arg2: int,
+    ) -> npt.NDArray[float64]: ...
     @property
     def V(self) -> npt.NDArray[float64]:
         """

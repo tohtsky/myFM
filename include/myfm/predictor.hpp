@@ -100,27 +100,18 @@ template <typename Real, class FMType = FM<Real>> struct Predictor {
                             &currently_done, &mtx, cutpoint_index, n_cpt] {
         Vector score(X.rows());
 
-        DenseMatrix cache(X.rows(), n_cpt + 1);
         while (true) {
           size_t cd = currently_done.fetch_add(1);
           if (cd >= n_samples)
             break;
-          this->samples.at(cd).predict_score_write_target(score, X, relations);
-          Vector cutpoints = this->samples.at(cd).cutpoints.at(cutpoint_index);
-          for (int cpt_index = 0; cpt_index < n_cpt; cpt_index++) {
-            cache.col(cpt_index) =
-                (1 + ((cutpoints(cpt_index) - score.array()) *
-                      static_cast<Real>(std::sqrt(0.5)))
-                         .erf()) /
-                2;
-          }
-          cache.col(n_cpt) = (1 - cache.col(n_cpt - 1).array());
-          for (int col = n_cpt - 1; col >= 1; col--) {
-            cache.col(col) -= cache.col(col - 1);
-          }
+
+          DenseMatrix sample_result =
+              this->samples.at(cd).oprobit_predict_proba(X, relations,
+                                                         cutpoint_index);
+
           {
             std::lock_guard<std::mutex> lock{mtx};
-            result += cache;
+            result += sample_result;
           }
         }
       });

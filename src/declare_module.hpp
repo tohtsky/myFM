@@ -161,7 +161,7 @@ template <typename Real> void declare_functional(py::module &m) {
       .def_readwrite("V", &FM::V)
       .def_readwrite("cutpoints", &FM::cutpoints)
       .def("predict_score", &FM::predict_score)
-
+      .def("oprobit_predict_proba", &FM::oprobit_predict_proba)
       .def("__repr__",
            [](const FM &fm) {
              return (myFM::StringBuilder{})(

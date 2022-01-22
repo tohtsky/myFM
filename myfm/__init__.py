@@ -9,7 +9,6 @@ except DistributionNotFound:  # pragma: no cover
 from . import _myfm as core
 from ._myfm import RelationBlock
 
-# from .wrapper import MyFMRegressor, MyFMClassifier, MyFMOrderedProbit
 from .gibbs import MyFMGibbsClassifier, MyFMGibbsRegressor, MyFMOrderedProbit
 from .variational import VariationalFMRegressor, VariationalFMClassifier
 
