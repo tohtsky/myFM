@@ -421,26 +421,10 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         )
         return self
 
-    @classmethod
-    def _score_to_class_prob(
-        cls, score: np.ndarray, cutpoints: np.ndarray
-    ) -> DenseArray:
-        score = std_cdf((cutpoints[np.newaxis, :] - score[:, np.newaxis]))
-        score_enlarged = np.hstack(
-            [
-                np.zeros((score.shape[0], 1), dtype=score.dtype),
-                score,
-                np.ones((score.shape[0], 1), dtype=score.dtype),
-            ]
-        )
-        result: DenseArray = score_enlarged[:, 1:] - score_enlarged[:, :-1]
-        return result
-
     def _prepare_prediction_for_test(
         self, fm: FM, X: ArrayLike, X_rel: List[RelationBlock]
     ) -> np.ndarray:
-        score = fm.predict_score(X, X_rel)
-        return self._score_to_class_prob(score, fm.cutpoints[0])
+        return fm.oprobit_predict_proba(sps.csr_matrix(X, dtype=np.float64), X_rel, 0)
 
     def _process_y(self, y: np.ndarray) -> np.ndarray:
         y_as_float = y.astype(np.float64)
