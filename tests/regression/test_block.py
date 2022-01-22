@@ -121,14 +121,14 @@ def test_block() -> None:
         RelationBlock(user_indices, user_block),
         RelationBlock(item_indices, item_block),
     ]
-    fm_flatten = MyFMRegressor(2, fit_w0=False, fit_linear=False).fit(
+    fm_flatten = MyFMRegressor(2, fit_w0=False).fit(
         X_flatten,
         y,
         group_shapes=group_shapes,
         n_iter=30,
         n_kept_samples=30,
     )
-    fm_blocked = MyFMRegressor(2, fit_w0=False, fit_linear=False).fit(
+    fm_blocked = MyFMRegressor(2, fit_w0=False).fit(
         tm_column,
         y,
         blocks,
@@ -136,7 +136,8 @@ def test_block() -> None:
         n_iter=30,
         n_kept_samples=30,
     )
-
+    assert fm_flatten.predictor_ is not None
+    assert fm_blocked.predictor_ is not None
     for s_flatten, s_blocked in zip(
         fm_flatten.predictor_.samples, fm_blocked.predictor_.samples
     ):
