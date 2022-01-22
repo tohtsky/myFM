@@ -2,27 +2,38 @@ from typing import Tuple
 from scipy import sparse as sps
 import numpy as np
 from ..util import FMWeights
+import pytest
 
 from myfm import MyFMGibbsClassifier, VariationalFMClassifier
+from myfm.utils.callbacks import ClassificationCallback
 
 
+@pytest.mark.parametrize("use_libfm_callback", [True, False])
 def test_middle_clf(
     middle_data: Tuple[sps.csr_matrix, np.ndarray],
     stub_weight: FMWeights,
+    use_libfm_callback: bool,
 ) -> None:
     rns = np.random.RandomState(0)
     X, score = middle_data
     score_noised = score + rns.normal(0, 1, size=score.shape)
     score_noised -= score_noised.mean()
     y = score_noised > 0
+    if use_libfm_callback:
+        callback = ClassificationCallback(200, X, y)
+    else:
+        callback = None
 
     fm = MyFMGibbsClassifier(3).fit(
-        X, y, X_test=X, y_test=y, n_iter=200  # , n_kept_samples=50
+        X, y, X_test=X, y_test=y, n_iter=200, n_kept_samples=200, callback=callback
     )
+    if use_libfm_callback:
+        np.testing.assert_allclose(fm.predict_proba(X), callback.predictions / 200)
 
     vfm = VariationalFMClassifier(3).fit(
         X, y, X_test=X, y_test=y, n_iter=200  # , n_kept_samples=50
     )
+    assert fm.predictor_ is not None
 
     last_samples = fm.predictor_.samples[-20:]
 

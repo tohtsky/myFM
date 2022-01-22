@@ -4,6 +4,7 @@ import numpy as np
 from ..util import FMWeights
 
 from myfm import MyFMGibbsRegressor, VariationalFMRegressor
+from myfm.utils.callbacks import RegressionCallback
 
 import pytest
 
@@ -18,9 +19,13 @@ def test_middle_reg(
     X, score = middle_data
     y = score + alpha_inv * rns.normal(0, 1, size=score.shape)
 
+    callback = RegressionCallback(100, X_test=X, y_test=y)
+
     fm = MyFMGibbsRegressor(3).fit(
-        X, y, X_test=X, y_test=y, n_iter=100  # , n_kept_samples=50
+        X, y, X_test=X, y_test=y, n_iter=100, n_kept_samples=100, callback=callback
     )
+
+    np.testing.assert_allclose(fm.predict(X), callback.predictions / 100)
     vfm = VariationalFMRegressor(3).fit(X, y, X_test=X, y_test=y, n_iter=50)
     vfm_weights = vfm.predictor_.weights()
     hp_trance = fm.get_hyper_trace()

@@ -146,7 +146,7 @@ class ClassificationCallback(LibFMLikeCallbackBase):
     def _measure_score(
         self, i: int, fm: FM, hyper: FMHyperParameters
     ) -> Tuple[str, Dict[str, float]]:
-        prob_this = fm.predict_score(self.X_test, self.X_rel_test)
+        prob_this = std_cdf(fm.predict_score(self.X_test, self.X_rel_test))
         self.predictions += prob_this
         self.n_samples += 1
         prediction_mean = self.predictions / self.n_samples
