@@ -1,20 +1,21 @@
 from abc import ABC, abstractclassmethod, abstractmethod, abstractproperty
 from collections import OrderedDict
 from typing import (
+    TYPE_CHECKING,
     Callable,
+    Dict,
     Generic,
     List,
     Optional,
     Tuple,
     TypeVar,
     Union,
-    Dict,
-    TYPE_CHECKING,
 )
 
 import numpy as np
+from scipy import sparse as sps
+from scipy import special
 from tqdm import tqdm
-from scipy import sparse as sps, special
 
 from . import _myfm
 from ._myfm import ConfigBuilder, FMLearningConfig, RelationBlock, TaskType

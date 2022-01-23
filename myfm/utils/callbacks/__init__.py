@@ -1,6 +1,6 @@
 from .libfm import (
-    RegressionCallback,
     ClassificationCallback,
-    OrderedProbitCallback,
     LibFMLikeCallbackBase,
+    OrderedProbitCallback,
+    RegressionCallback,
 )

@@ -1,8 +1,11 @@
-from .base import SparseEncoderBase
-from myfm.base import DenseArray
-from scipy import sparse as sps
-from typing import List, TypeVar, TYPE_CHECKING
+from typing import TYPE_CHECKING, List, TypeVar
+
 import numpy as np
+from scipy import sparse as sps
+
+from myfm.base import DenseArray
+
+from .base import SparseEncoderBase
 
 if TYPE_CHECKING:
     from numpy.typing import ArrayLike

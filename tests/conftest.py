@@ -1,8 +1,8 @@
-from typing import Tuple, List
-import numpy as np
-import scipy.sparse as sps
+from typing import List, Tuple
 
+import numpy as np
 import pytest
+import scipy.sparse as sps
 
 from .util import FMWeights, prediction
 

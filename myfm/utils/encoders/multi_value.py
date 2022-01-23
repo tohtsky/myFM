@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import List, Iterable
+from typing import Iterable, List
 
 import scipy.sparse as sps
 

@@ -1,6 +1,7 @@
-import myfm
-from sklearn.feature_extraction import DictVectorizer
 import numpy as np
+from sklearn.feature_extraction import DictVectorizer
+
+import myfm
 
 train = [
     {"user": "1", "item": "5", "age": 19},

@@ -1,12 +1,14 @@
-from typing import Dict, List, Optional, Tuple
-from collections import OrderedDict
 from abc import ABC, abstractmethod
-from scipy import special, sparse as sps
-import pandas as pd
-import numpy as np
+from collections import OrderedDict
+from typing import Dict, List, Optional, Tuple
 
-from myfm._myfm import RelationBlock, FM, FMHyperParameters, LearningHistory
-from myfm.base import ArrayLike, check_data_consistency, REAL, std_cdf
+import numpy as np
+import pandas as pd
+from scipy import sparse as sps
+from scipy import special
+
+from myfm._myfm import FM, FMHyperParameters, LearningHistory, RelationBlock
+from myfm.base import REAL, ArrayLike, check_data_consistency, std_cdf
 
 
 class LibFMLikeCallbackBase(ABC):

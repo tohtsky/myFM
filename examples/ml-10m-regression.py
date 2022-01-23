@@ -1,11 +1,14 @@
-from myfm.gibbs import MyFMOrderedProbit
-from typing import List, Dict, Union
-import pandas as pd
 import argparse
 import pickle
+from typing import Dict, List, Union
+
 import numpy as np
+import pandas as pd
+from scipy import sparse as sps
+
 import myfm
-from myfm import RelationBlock, MyFMOrderedProbit, MyFMRegressor
+from myfm import MyFMOrderedProbit, MyFMRegressor, RelationBlock
+from myfm.gibbs import MyFMOrderedProbit
 from myfm.utils.benchmark_data import MovieLens10MDataManager
 from myfm.utils.callbacks.libfm import (
     LibFMLikeCallbackBase,
@@ -13,7 +16,6 @@ from myfm.utils.callbacks.libfm import (
     RegressionCallback,
 )
 from myfm.utils.encoders import CategoryValueToSparseEncoder
-from scipy import sparse as sps
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(

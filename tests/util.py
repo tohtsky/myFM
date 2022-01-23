@@ -1,7 +1,7 @@
 from typing import NamedTuple
+
 import numpy as np
 import scipy.sparse as sps
-
 
 N_FEATURES = 3
 N_LATENT = 4

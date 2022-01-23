@@ -2,22 +2,19 @@
 # https://github.com/wichert/pybind11-example/blob/master/setup.py
 # and modified.
 
-from setuptools import setup, Extension, find_packages
-from setuptools.command.build_ext import build_ext
-from distutils.ccompiler import CCompiler
-import sys
-import setuptools
 import os
+import sys
+from distutils.ccompiler import CCompiler
 from pathlib import Path
 from typing import Any, Dict, List
 
+import setuptools
+from setuptools import Extension, find_packages, setup
+from setuptools.command.build_ext import build_ext
+
 __version__ = "0.3.0.1"
 
-install_requires = [
-    "numpy>=1.11",
-    "scipy>=1.0",
-    "tqdm>=4",
-]
+install_requires = ["numpy>=1.11", "scipy>=1.0", "tqdm>=4", "pandas>=1.0.0"]
 setup_requires = ["pybind11>=2.5", "requests", "setuptools_scm"]
 
 
@@ -41,8 +38,9 @@ class get_eigen_include(object):
             return str(target_dir)
 
         download_target_dir = basedir / "eigen3.zip"
-        import requests
         import zipfile
+
+        import requests
 
         print("Start downloading Eigen library from {}.".format(self.EIGEN3_DIRNAME))
         response = requests.get(self.EIGEN3_URL, stream=True)

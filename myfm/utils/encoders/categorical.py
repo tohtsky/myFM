@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Generic, List, TypeVar, Union, Iterable
+from typing import Generic, Iterable, List, TypeVar, Union
 
 import numpy as np
 import scipy.sparse as sps

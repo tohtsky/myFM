@@ -1,14 +1,15 @@
 from collections import OrderedDict
-from typing import Callable, List, Optional, Tuple, Dict
+from typing import Callable, Dict, List, Optional, Tuple
 
 import numpy as np
+import pandas as pd
 from scipy import sparse as sps
 
 from ._myfm import (
     FM,
-    FMLearningConfig,
     ConfigBuilder,
     FMHyperParameters,
+    FMLearningConfig,
     LearningHistory,
     Predictor,
     RelationBlock,
@@ -18,21 +19,15 @@ from ._myfm import (
 from .base import (
     REAL,
     ArrayLike,
+    BinaryClassificationTarget,
+    ClassifierMixin,
     ClassIndexArray,
+    DenseArray,
     MyFMBase,
     RegressorMixin,
-    ClassifierMixin,
     check_data_consistency,
     std_cdf,
-    DenseArray,
-    BinaryClassificationTarget,
 )
-
-
-try:
-    import pandas as pd
-except:
-    pd = None
 
 
 class MyFMGibbsBase(
@@ -78,9 +73,6 @@ class MyFMGibbsBase(
         )
 
     def get_hyper_trace(self) -> "pd.DataFrame":
-        if pd is None:
-            raise RuntimeError("Require pandas for get_hyper_trace.")
-
         if (self.n_groups_ is None) or (self.history_ is None):
             raise RuntimeError("Sampler not run yet.")
 

@@ -1,12 +1,13 @@
 from typing import Tuple
-from scipy import sparse as sps
+
 import numpy as np
-from ..util import FMWeights
+import pytest
+from scipy import sparse as sps
 
 from myfm import MyFMGibbsRegressor, VariationalFMRegressor
 from myfm.utils.callbacks import RegressionCallback
 
-import pytest
+from ..util import FMWeights
 
 
 @pytest.mark.parametrize("alpha_inv", [0.3, 1.0, 3])

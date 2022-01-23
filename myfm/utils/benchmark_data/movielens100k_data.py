@@ -1,8 +1,9 @@
 from io import BytesIO
-import os
+from pathlib import Path
 from typing import Tuple
 
 import pandas as pd
+
 from .loader_base import MovieLensBase
 
 
@@ -14,8 +15,8 @@ class MovieLens100kDataManager(MovieLensBase):
         "http://files.grouplens.org/datasets/movielens/ml-100k.zip"
 
     @property
-    def DEFAULT_PATH(self) -> str:
-        return os.path.expanduser("~/.ml-100k.zip")
+    def DEFAULT_PATH(self) -> Path:
+        return Path("~/.ml-100k.zip").expanduser()
 
     def _read_interaction(self, byte_stream: bytes) -> pd.DataFrame:
         with BytesIO(byte_stream) as ifs:

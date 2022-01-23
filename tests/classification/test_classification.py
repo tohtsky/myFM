@@ -1,11 +1,13 @@
 from typing import Tuple
-from scipy import sparse as sps
+
 import numpy as np
-from ..util import FMWeights
 import pytest
+from scipy import sparse as sps
 
 from myfm import MyFMGibbsClassifier, VariationalFMClassifier
 from myfm.utils.callbacks import ClassificationCallback
+
+from ..util import FMWeights
 
 
 @pytest.mark.parametrize("use_libfm_callback", [True, False])

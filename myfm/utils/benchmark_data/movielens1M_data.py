@@ -1,7 +1,9 @@
 import os
 from io import BytesIO
-from .movielens100k_data import MovieLensBase
+
 import pandas as pd
+
+from .movielens100k_data import MovieLensBase
 
 
 class MovieLens1MDataManager(MovieLensBase):

@@ -1,23 +1,25 @@
-from typing import Tuple, List, Callable, Optional
+from typing import Callable, List, Optional, Tuple
+
 import numpy as np
-from .base import (
-    MyFMBase,
-    RegressorMixin,
-    ClassifierMixin,
-    ArrayLike,
-    check_data_consistency,
-    REAL,
-)
 import scipy.sparse as sps
+
 from ._myfm import (
     ConfigBuilder,
     FMLearningConfig,
     RelationBlock,
     VariationalFM,
     VariationalFMHyperParameters,
-    VariationalPredictor,
     VariationalLearningHistory,
+    VariationalPredictor,
     create_train_vfm,
+)
+from .base import (
+    REAL,
+    ArrayLike,
+    ClassifierMixin,
+    MyFMBase,
+    RegressorMixin,
+    check_data_consistency,
 )
 
 

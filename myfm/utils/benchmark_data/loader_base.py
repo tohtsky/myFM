@@ -1,13 +1,13 @@
+import urllib.request
 from abc import ABC, abstractmethod, abstractproperty
-from typing import Optional, Union, Tuple
-import pandas as pd
-import os
-import numpy as np
+from pathlib import Path
+from typing import Optional, Tuple, Union
 from zipfile import ZipFile
 
-from sklearn.model_selection import KFold
+import numpy as np
+import pandas as pd
 from numpy.random import RandomState
-import urllib.request
+from sklearn.model_selection import KFold
 
 RandomStateType = Union[int, RandomState]
 
@@ -32,30 +32,27 @@ class DataLoaderBase(ABC):
 
     @abstractproperty
     def DOWNLOAD_URL(self) -> str:
-        raise NotImplementedError("must be implemented")
+        raise NotImplementedError("must be implemented")  # pragma: no cover
 
     @abstractproperty
-    def DEFAULT_PATH(self) -> str:
-        raise NotImplementedError("must be implemented")
+    def DEFAULT_PATH(self) -> Path:
+        raise NotImplementedError("must be implemented")  # pragma: no cover
 
-    def __init__(self, zippath: Optional[str] = None, force_download: bool = False):
-        if zippath is None:
-            zippath = self.DEFAULT_PATH
-            if not os.path.exists(zippath):
-                download = force_download
-                if not download:
-                    permission = input(
-                        "Could not find {}.\nCan I download and save it there?[y/N]".format(
-                            zippath
-                        )
-                    ).lower()
-                    download = permission == "y"
-                if download:
-                    print("start download...")
-                    urllib.request.urlretrieve(self.DOWNLOAD_URL, zippath)
-                    print("complete")
-                else:
-                    raise RuntimeError("abort.")
+    def __init__(self, zippath: Optional[Path] = None):
+        zippath = Path(zippath or self.DEFAULT_PATH)
+        if not zippath.exists():
+            permission = input(
+                "Could not find {}.\nCan I download and save it there?[y/N]".format(
+                    zippath
+                )
+            ).lower()
+            download = permission == "y"
+            if download:
+                print("start download...")
+                urllib.request.urlretrieve(self.DOWNLOAD_URL, zippath)
+                print("complete")
+            else:
+                raise RuntimeError("abort.")
         self.zf = ZipFile(zippath)
 
 

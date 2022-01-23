@@ -3,6 +3,7 @@ import tempfile
 
 import numpy as np
 from scipy import sparse as sps
+
 from myfm import MyFMRegressor, RelationBlock, VariationalFMRegressor
 
 

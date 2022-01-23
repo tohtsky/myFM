@@ -1,10 +1,10 @@
 import numpy as np
+import pytest
+
 from myfm import MyFMOrderedProbit
 from myfm.base import std_cdf
 from myfm.utils import callbacks
 from myfm.utils.callbacks import OrderedProbitCallback
-
-import pytest
 
 
 @pytest.mark.parametrize("use_libfm_callback", [True, False])

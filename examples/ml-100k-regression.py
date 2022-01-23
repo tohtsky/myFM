@@ -1,22 +1,21 @@
-import pickle
 import argparse
-from myfm.gibbs import MyFMGibbsRegressor, MyFMOrderedProbit
+import pickle
 from typing import Dict, List, Union
 
-import myfm
 import numpy as np
 import pandas as pd
+from scipy import sparse as sps
+
+import myfm
 from myfm import RelationBlock
-from myfm.utils.benchmark_data.movielens100k_data import (
-    MovieLens100kDataManager,
-)
-from myfm.utils.encoders import CategoryValueToSparseEncoder
+from myfm.gibbs import MyFMGibbsRegressor, MyFMOrderedProbit
+from myfm.utils.benchmark_data.movielens100k_data import MovieLens100kDataManager
 from myfm.utils.callbacks import (
     LibFMLikeCallbackBase,
-    RegressionCallback,
     OrderedProbitCallback,
+    RegressionCallback,
 )
-from scipy import sparse as sps
+from myfm.utils.encoders import CategoryValueToSparseEncoder
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
