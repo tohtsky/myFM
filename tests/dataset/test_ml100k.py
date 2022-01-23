@@ -11,10 +11,18 @@ def test_ml100k(mocker: MockerFixture) -> None:
     unique_key_pair = ["user_id", "movie_id"]
 
     df_all_recovered = dm.load_rating_all().sort_values(unique_key_pair)
+
     user_infos = dm.load_user_info()
     assert np.all(df_all_recovered["user_id"].isin(user_infos["user_id"]))
     assert np.all(user_infos["age"] >= 0)
     assert np.all(user_infos["gender"].isin(["M", "F"]).values)
+
+    movie_infos = dm.load_movie_info()
+    genres = dm.genres()
+    for genre_concat in movie_infos["genres"]:
+        for genre in genre_concat.split("|"):
+            assert genre in genres
+
     for k in [2, 3]:
         df_train, df_test = dm.load_rating_predefined_split(k)
         df_reconcat = pd.concat([df_train, df_test]).sort_values(unique_key_pair)

@@ -1,6 +1,6 @@
 from io import BytesIO
 from pathlib import Path
-from typing import Tuple
+from typing import List, Tuple
 
 import pandas as pd
 
@@ -82,18 +82,23 @@ class MovieLens100kDataManager(MovieLensBase):
                 names=["user_id", "age", "gender", "occupation", "zipcode"],
             )
 
-    def load_movie_info(self) -> Tuple[pd.DataFrame, pd.DataFrame]:
-        """load movie meta information.
+    def genres(self) -> List[str]:
+        with BytesIO(self.zf.read("ml-100k/u.genre")) as ifs:
+            genres: List[str] = list(pd.read_csv(ifs, sep="|", header=None)[0])
+        return genres
+
+    def load_movie_info(self) -> pd.DataFrame:
+        r"""load movie meta information.
 
         Returns
         -------
-        Tuple[pd.DataFrame, pd.DataFrame]
-            meta-information (id, title, release_date, url) and genre (many to many)
+        pd.DataFrame
+            A dataframe containing meta-information (id, title, release_date, url, genres) about the movies.
+            Multiple genres per movie will be concatenated by "|".
         """
         MOVIE_COLUMNS = ["movie_id", "title", "release_date", "unk", "url"]
+        genres = self.genres()
 
-        with BytesIO(self.zf.read("ml-100k/u.genre")) as ifs:
-            genres = list(pd.read_csv(ifs, sep="|", header=None)[0])
         with BytesIO(self.zf.read("ml-100k/u.item")) as ifs:
             df_mov = pd.read_csv(
                 ifs,
@@ -104,10 +109,19 @@ class MovieLens100kDataManager(MovieLensBase):
             df_mov.columns = MOVIE_COLUMNS + genres
         df_mov["release_date"] = pd.to_datetime(df_mov.release_date)
         movie_index, genre_index = df_mov[genres].values.nonzero()
-        genre_df = pd.DataFrame(
-            dict(
-                movie_id=df_mov.movie_id.values[movie_index],
-                genre=[genres[i] for i in genre_index],
+        genre_df = (
+            (
+                pd.DataFrame(
+                    dict(
+                        movie_id=df_mov.movie_id.values[movie_index],
+                        genre=[genres[i] for i in genre_index],
+                    )
+                )
+                .groupby("movie_id")
+                .genre.agg(lambda x: "|".join(x))
             )
+            .reindex(df_mov.movie_id)
+            .fillna("")
         )
-        return df_mov.drop(columns=genres + ["unk"]), genre_df
+        df_mov["genres"] = genre_df.values
+        return df_mov
