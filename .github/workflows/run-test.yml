@@ -19,13 +19,9 @@ jobs:
           pip install numpy scipy pandas
           sudo apt-get install lcov
           TEST_BUILD=true python setup.py develop
-#      - name: mypy
-#        run: |
-#          pip install mypy
-#          mypy src/lda11 --ignore-missing-imports
       - name: Run pytest
         run: |
-          pip install pytest pytest-cov
+          pip install pytest pytest-cov pytest-mock
           pytest --cov=./myfm tests/
       - name: Generate coverage (ubuntu)
         run: |
