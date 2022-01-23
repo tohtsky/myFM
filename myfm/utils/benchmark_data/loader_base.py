@@ -1,29 +1,35 @@
 import urllib.request
 from abc import ABC, abstractmethod, abstractproperty
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Optional, Tuple
 from zipfile import ZipFile
 
+import numpy as np
 import pandas as pd
 from numpy.random import RandomState
-from sklearn.model_selection import KFold
-
-RandomStateType = Union[int, RandomState]
 
 
 def train_test_split_with_kfold(
     df: pd.DataFrame,
     K: int,
     fold: int,
-    random_state: Optional[RandomStateType] = None,
+    random_state: Optional[int] = None,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    rns = RandomState(random_state)
     if not ((0 <= fold) and (fold < K)):
         raise ValueError("0 <= fold < K")
-    kf = KFold(K, shuffle=True, random_state=random_state)
-    for i, (tr, te) in enumerate(kf.split(df)):
-        if i == fold:
-            return df.iloc[tr], df.iloc[te]
-    raise RuntimeError("should not reach here.")
+    n_data = df.shape[0]
+    n_test = n_data // K
+    if fold < (n_data % K):
+        n_test += 1
+    index = np.arange(df.shape[0])
+    rns.shuffle(index)
+    test_start_position = (n_data // K) * fold + min((n_data % K), fold)
+    test_end_position = test_start_position + n_test
+    return (
+        pd.concat([df.iloc[:test_start_position], df.iloc[test_end_position:]]),
+        df.iloc[test_start_position:test_end_position],
+    )
 
 
 class DataLoaderBase(ABC):
@@ -61,7 +67,7 @@ class MovieLensBase(DataLoaderBase, ABC):
         raise NotImplementedError("must be implemented")
 
     def load_rating_kfold_split(
-        self, K: int, fold: int, random_state: Optional[RandomStateType] = 42
+        self, K: int, fold: int, random_state: Optional[int] = 0
     ) -> Tuple[pd.DataFrame, pd.DataFrame]:
         """Load the entire dataset and split it into train/test set.
         K-fold
