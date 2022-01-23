@@ -26,7 +26,6 @@ from .base import (
     MyFMBase,
     RegressorMixin,
     check_data_consistency,
-    std_cdf,
 )
 
 

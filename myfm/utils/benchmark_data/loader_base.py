@@ -4,7 +4,6 @@ from pathlib import Path
 from typing import Optional, Tuple, Union
 from zipfile import ZipFile
 
-import numpy as np
 import pandas as pd
 from numpy.random import RandomState
 from sklearn.model_selection import KFold

@@ -4,8 +4,6 @@ from typing import List
 
 import numpy as np
 import pandas as pd
-from pandas.core.algorithms import unique
-from scipy import sparse as sps
 
 from myfm import RelationBlock, VariationalFMRegressor
 from myfm.utils.benchmark_data.movielens100k_data import MovieLens100kDataManager

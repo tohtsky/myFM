@@ -12,7 +12,7 @@ class MovieLens100kDataManager(MovieLensBase):
 
     @property
     def DOWNLOAD_URL(self) -> str:
-        "http://files.grouplens.org/datasets/movielens/ml-100k.zip"
+        return "http://files.grouplens.org/datasets/movielens/ml-100k.zip"
 
     @property
     def DEFAULT_PATH(self) -> Path:
