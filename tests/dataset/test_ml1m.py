@@ -10,9 +10,11 @@ from myfm.utils.benchmark_data import MovieLens1MDataManager
 from myfm.utils.dummy_data import gen_dummy_rating_df
 
 
-def test_ml100k(mocker: MockerFixture) -> None:
+def test_ml1m(mocker: MockerFixture) -> None:
     dummy_df = gen_dummy_rating_df(user_colname="user_id", item_colname="movie_id")
-    dummy_df["timestamp"] = (dummy_df["timestamp"].view(int) / 1e9).astype(int)
+    dummy_df["timestamp"] = (dummy_df["timestamp"].view(np.int64) / 1e9).astype(
+        np.int64
+    )
     with TemporaryDirectory() as temp_dir:
         target = Path(temp_dir) / "ml1m.zip"
         mocker.patch("builtins.input", return_value="NOO")
