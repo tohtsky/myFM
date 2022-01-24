@@ -127,11 +127,11 @@ if __name__ == "__main__":
         "df_train.shape = {}, df_test.shape = {}".format(df_train.shape, df_test.shape)
     )
     # treat the days of events as categorical variable
-    date_encoder = CategoryValueToSparseEncoder[pd.Timestamp](
+    date_encoder = CategoryValueToSparseEncoder(
         implicit_data_source.timestamp.dt.date.values
     )
 
-    def categorize_date(df: pd.DataFrame):
+    def categorize_date(df: pd.DataFrame) -> sps.csr_matrix:
         return date_encoder.to_sparse(df.timestamp.dt.date.values)
 
     movie_vs_watched: Dict[int, List[int]] = dict()
@@ -197,7 +197,7 @@ if __name__ == "__main__":
             format="csr",
         )
 
-    def augment_movie_id(movie_ids: List[int]):
+    def augment_movie_id(movie_ids: List[int]) -> sps.csr_matrix:
         X = movie_to_internal.to_sparse(movie_ids)
         if not use_ii:
             return X

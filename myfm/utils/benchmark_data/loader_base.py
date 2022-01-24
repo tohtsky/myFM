@@ -24,11 +24,14 @@ def train_test_split_with_kfold(
         n_test += 1
     index = np.arange(df.shape[0])
     rns.shuffle(index)
+    df = df.iloc[index]
     test_start_position = (n_data // K) * fold + min((n_data % K), fold)
     test_end_position = test_start_position + n_test
     return (
-        pd.concat([df.iloc[:test_start_position], df.iloc[test_end_position:]]),
-        df.iloc[test_start_position:test_end_position],
+        pd.concat(
+            [df.iloc[:test_start_position], df.iloc[test_end_position:]]
+        ).reset_index(drop=True),
+        df.iloc[test_start_position:test_end_position].reset_index(drop=True),
     )
 
 

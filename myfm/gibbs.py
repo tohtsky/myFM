@@ -97,8 +97,8 @@ class MyFMGibbsBase(
             row[0] = hyper.alpha
             cursor = 1
             for hp in [hyper.mu_w, hyper.lambda_w, hyper.mu_V, hyper.lambda_V]:
-                row[cursor : cursor + hp.size] = hp
-                cursor == hp.size
+                row[cursor : cursor + hp.size] = hp.ravel()
+                cursor += hp.size
             res.append(row)
         res_as_array = np.vstack(res)
 

@@ -13,4 +13,4 @@ class MovieLens10MDataManager(MovieLensBase):
 
     def load_rating_all(self) -> pd.DataFrame:
         with BytesIO(self.zf.read("ml-10M100K/ratings.dat")) as ifs:
-            read_ml1m10m_df(ifs)
+            return read_ml1m10m_df(ifs)

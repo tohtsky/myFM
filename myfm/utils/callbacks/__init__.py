@@ -1,3 +1,13 @@
-from .libfm import ClassificationCallback, OrderedProbitCallback, RegressionCallback
+from .libfm import (
+    ClassificationCallback,
+    LibFMLikeCallbackBase,
+    OrderedProbitCallback,
+    RegressionCallback,
+)
 
-__all__ = ["OrderedProbitCallback", "ClassificationCallback", "RegressionCallback"]
+__all__ = [
+    "LibFMLikeCallbackBase",
+    "OrderedProbitCallback",
+    "ClassificationCallback",
+    "RegressionCallback",
+]
