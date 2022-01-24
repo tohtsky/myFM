@@ -24,8 +24,8 @@ TEST_BUILD = os.environ.get("TEST_BUILD", None) is not None
 
 
 class get_eigen_include(object):
-    EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.3.7/eigen-3.3.7.zip"
-    EIGEN3_DIRNAME = "eigen-3.3.7"
+    EIGEN3_URL = "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip"
+    EIGEN3_DIRNAME = "eigen-3.4.0"
 
     def __str__(self) -> str:
 
@@ -43,7 +43,7 @@ class get_eigen_include(object):
         import requests
 
         print("Start downloading Eigen library from {}.".format(self.EIGEN3_DIRNAME))
-        response = requests.get(self.EIGEN3_URL, stream=True)
+        response = requests.get(self.EIGEN3_URL, stream=True, verify=False)
         with download_target_dir.open("wb") as ofs:
             for chunk in response.iter_content(chunk_size=1024):
                 ofs.write(chunk)
