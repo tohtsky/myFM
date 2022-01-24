@@ -8,7 +8,7 @@ from myfm.utils.callbacks import OrderedProbitCallback
 
 @pytest.mark.parametrize("use_libfm_callback", [True, False])
 def test_oprobit(use_libfm_callback: bool) -> None:
-    N_train = 500
+    N_train = 1000
     cps = np.asfarray([0.0, 0.5, 1.5])
     rns = np.random.RandomState(0)
     X = rns.normal(0, 2, size=N_train)

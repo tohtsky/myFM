@@ -22,7 +22,7 @@ jobs:
       - name: Run pytest
         run: |
           pip install pytest pytest-cov pytest-mock
-          pytest --cov=./myfm tests/
+          pytest --cov=./src/myfm tests/
       - name: Generate coverage (ubuntu)
         run: |
           coverage xml
