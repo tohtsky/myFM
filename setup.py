@@ -12,8 +12,6 @@ import setuptools
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-__version__ = "0.3.0.1"
-
 install_requires = ["numpy>=1.11", "scipy>=1.0", "tqdm>=4", "pandas>=1.0.0"]
 setup_requires = ["pybind11>=2.5", "requests", "setuptools_scm"]
 
@@ -179,7 +177,6 @@ def local_scheme(version: Any) -> str:
 
 setup(
     name="myfm",
-    version=__version__,
     use_scm_version={"local_scheme": local_scheme},
     author="Tomoki Ohtsuki",
     url="https://github.com/tohtsky/myfm",

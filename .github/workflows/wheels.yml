@@ -35,7 +35,7 @@ jobs:
       CIBW_SKIP: "${{ matrix.cibw.skip || '' }}"
       CIBW_ENVIRONMENT: "${{ matrix.cibw.env || '' }}"
       CIBW_TEST_COMMAND: "pytest {project}/tests"
-      CIBW_TEST_REQUIRES: pytest
+      CIBW_TEST_REQUIRES: pytest pytest-mock
       CIBW_MANYLINUX_X86_64_IMAGE: "${{ matrix.cibw.manylinux_image }}"
       CIBW_MANYLINUX_I686_IMAGE: "${{ matrix.cibw.manylinux_image }}"
       CIBW_MANYLINUX_AARCH64_IMAGE: "${{ matrix.cibw.manylinux_image }}"
