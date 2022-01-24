@@ -79,7 +79,7 @@ headers = [
     "include/myfm/FMLearningConfig.hpp",
     "include/myfm/OProbitSampler.hpp",
     "include/Faddeeva/Faddeeva.hh",
-    "src/declare_module.hpp",
+    "cpp_source/declare_module.hpp",
 ]
 
 
