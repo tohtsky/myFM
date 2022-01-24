@@ -86,7 +86,7 @@ headers = [
 ext_modules = [
     Extension(
         "myfm._myfm",
-        ["src/bind.cpp", "src/Faddeeva.cc"],
+        ["cpp_source/bind.cpp", "cpp_source/Faddeeva.cc"],
         include_dirs=[
             # Path to pybind11 headers
             get_pybind_include(),
@@ -187,7 +187,8 @@ setup(
     install_requires=install_requires,
     setup_requires=setup_requires,
     cmdclass={"build_ext": BuildExt},
-    packages=find_packages(),
+    packages=find_packages("src"),
+    package_dir={"": "src"},
     zip_safe=False,
     headers=headers,
     python_requires=">=3.6.0",
