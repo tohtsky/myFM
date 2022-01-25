@@ -10,18 +10,17 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import sys
-#sys.path.insert(0, os.path.abspath('../../'))
+
+# sys.path.insert(0, os.path.abspath('../../'))
 
 # -- Project information -----------------------------------------------------
 
-project = 'myFM'
-copyright = '2020, Tomoki Ohtsuki'
-author = 'Tomoki Ohtsuki'
+project = "myFM"
+copyright = "2020, Tomoki Ohtsuki"
+author = "Tomoki Ohtsuki"
 
 # The full version, including alpha/beta/rc tags
-release = '0.2.1'
+release = "0.2.1"
 
 
 # -- General configuration ---------------------------------------------------
@@ -30,13 +29,13 @@ release = '0.2.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [
-    'sphinx.ext.autodoc',
-    'sphinx.ext.autosummary',
-    'sphinx.ext.todo',
-    'sphinx.ext.viewcode',
-    'sphinx.ext.autodoc',
-    'sphinx.ext.napoleon',
-    'sphinx_rtd_theme'
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx.ext.todo",
+    "sphinx.ext.viewcode",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx_rtd_theme",
 ]
 
 napoleon_google_docstring = False
@@ -51,10 +50,10 @@ napoleon_use_param = True
 napoleon_use_rtype = True
 
 
-autosummary_generate = ['api_reference.rst']
+autosummary_generate = ["api_reference.rst"]
 
 
-autodoc_default_flags = ['members', 'inherited-members', 'show-inheritance']
+autodoc_default_flags = ["members", "inherited-members", "show-inheritance"]
 autodoc_default_options = {
     "members": True,
     "inherited-members": True,
@@ -62,9 +61,9 @@ autodoc_default_options = {
 }
 
 
-autoclass_content = 'class'
+autoclass_content = "class"
 # Add any paths that contain templates here, relative to this directory.
-templates_path = ['_templates']
+templates_path = ["_templates"]
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -77,11 +76,11 @@ exclude_patterns = []
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = 'sphinx_rtd_theme'
+html_theme = "sphinx_rtd_theme"
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = ["_static"]
 
-master_doc = 'index'
+master_doc = "index"

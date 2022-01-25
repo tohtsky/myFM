@@ -1,22 +1,21 @@
-import pickle
 import argparse
-from myfm.gibbs import MyFMGibbsRegressor, MyFMOrderedProbit
+import pickle
 from typing import Dict, List, Union
 
-import myfm
 import numpy as np
 import pandas as pd
+from scipy import sparse as sps
+
+import myfm
 from myfm import RelationBlock
-from myfm.utils.benchmark_data.movielens100k_data import (
-    MovieLens100kDataManager,
-)
-from myfm.utils.encoders import CategoryValueToSparseEncoder
+from myfm.gibbs import MyFMGibbsRegressor, MyFMOrderedProbit
+from myfm.utils.benchmark_data.movielens100k_data import MovieLens100kDataManager
 from myfm.utils.callbacks import (
     LibFMLikeCallbackBase,
-    RegressionCallback,
     OrderedProbitCallback,
+    RegressionCallback,
 )
-from scipy import sparse as sps
+from myfm.utils.encoders import CategoryValueToSparseEncoder
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -128,11 +127,11 @@ if __name__ == "__main__":
         "df_train.shape = {}, df_test.shape = {}".format(df_train.shape, df_test.shape)
     )
     # treat the days of events as categorical variable
-    date_encoder = CategoryValueToSparseEncoder[pd.Timestamp](
+    date_encoder = CategoryValueToSparseEncoder(
         implicit_data_source.timestamp.dt.date.values
     )
 
-    def categorize_date(df: pd.DataFrame):
+    def categorize_date(df: pd.DataFrame) -> sps.csr_matrix:
         return date_encoder.to_sparse(df.timestamp.dt.date.values)
 
     movie_vs_watched: Dict[int, List[int]] = dict()
@@ -198,7 +197,7 @@ if __name__ == "__main__":
             format="csr",
         )
 
-    def augment_movie_id(movie_ids: List[int]):
+    def augment_movie_id(movie_ids: List[int]) -> sps.csr_matrix:
         X = movie_to_internal.to_sparse(movie_ids)
         if not use_ii:
             return X

@@ -5,8 +5,8 @@ https://rdrr.io/cran/MCMCpack/man/MCMCoprobit.html
 """
 
 import numpy as np
-from myfm import MyFMOrderedProbit
 
+from myfm import MyFMOrderedProbit
 
 N_DATA = 100
 

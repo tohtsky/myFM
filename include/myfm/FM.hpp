@@ -1,6 +1,7 @@
 #pragma once
 #include "definitions.hpp"
 #include <cmath>
+#include <sstream>
 
 namespace myFM {
 
@@ -64,7 +65,11 @@ template <typename Real> struct FM {
       feature_size_all += rel.feature_size;
     }
     if (feature_size_all != static_cast<size_t>(this->w.rows())) {
-      throw std::invalid_argument("Total feature size mismatch.");
+      std::stringstream error_stream;
+      error_stream << "Total feature size mismatch. Should be "
+                   << (this->w.rows()) << ", but got " << feature_size_all
+                   << ".";
+      throw std::invalid_argument(error_stream.str());
     }
 
     if (!initialized) {
@@ -128,6 +133,32 @@ template <typename Real> struct FM {
       }
       target -= q_cache * static_cast<Real>(0.5);
     }
+  }
+  inline DenseMatrix
+  oprobit_predict_proba(const SparseMatrix &X,
+                        const vector<RelationBlock> &relations,
+                        size_t cutpoint_index) const {
+    if (cutpoints.empty()) {
+      throw std::runtime_error("No cutpoint available for this FM.");
+    }
+    int n_cpt = cutpoints.at(cutpoint_index).size();
+    DenseMatrix result = DenseMatrix::Zero(X.rows(), n_cpt + 1);
+
+    Vector score(X.rows());
+    DenseMatrix cache(X.rows(), n_cpt + 1);
+    predict_score_write_target(score, X, relations);
+    for (int cpt_index = 0; cpt_index < n_cpt; cpt_index++) {
+      cache.col(cpt_index) =
+          (1 + ((cutpoints.at(cutpoint_index)(cpt_index) - score.array()) *
+                static_cast<Real>(std::sqrt(0.5)))
+                   .erf()) /
+          2;
+    }
+    cache.col(n_cpt) = (1 - cache.col(n_cpt - 1).array());
+    for (int col = n_cpt - 1; col >= 1; col--) {
+      cache.col(col) -= cache.col(col - 1);
+    }
+    return cache;
   }
 
   const int n_factors;

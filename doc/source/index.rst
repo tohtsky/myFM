@@ -7,7 +7,7 @@
 myFM - Bayesian Factorization Machines in Python/C++
 ====================================================
 
-**myFM** is an unofficial implementation of Bayesian Factorization Machines. Its goals are to 
+**myFM** is an unofficial implementation of Bayesian Factorization Machines. Its goals are to
 
 * implement a `libFM <http://libfm.org/>`_ - like functionality that is easy to use from Python
 * provide a simpler and faster implementation with `Pybind11 <https://github.com/pybind/pybind11>`_ and `Eigen <http://eigen.tuxfamily.org/index.php?title=Main_Page>`_

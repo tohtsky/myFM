@@ -40,7 +40,7 @@ Let us first look at how :py:class:`myfm.MyFMClassifier` works for `a toy exampl
     X = v.fit_transform(train)
 
     # Note that X is a sparse matrix
-    print(X.toarray()) 
+    print(X.toarray())
     # print
     # [[ 19.   0.   0.   0.   1.   1.   0.   0.   0.]
     #  [ 33.   0.   0.   1.   0.   0.   1.   0.   0.]

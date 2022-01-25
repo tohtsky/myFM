@@ -1,21 +1,16 @@
 import argparse
-from datetime import date
-import json
-from typing import Dict, List
+from typing import List
 
 import numpy as np
 import pandas as pd
-from pandas.core.algorithms import unique
+
 from myfm import RelationBlock, VariationalFMRegressor
-from myfm.utils.benchmark_data.movielens100k_data import (
-    MovieLens100kDataManager,
-)
+from myfm.utils.benchmark_data.movielens100k_data import MovieLens100kDataManager
 from myfm.utils.encoders import (
     CategoryValueToSparseEncoder,
     DataFrameEncoder,
-    ManyToManyEncoder,
+    MultipleValueToSparseEncoder,
 )
-from scipy import sparse as sps
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -103,30 +98,42 @@ if __name__ == "__main__":
     else:
         implicit_data_source = pd.concat([df_train, df_test])
 
+    def int_list_to_str(x):
+        return "|".join([f"{id}" for id in x])
+
+    user_implicit_profile = (
+        implicit_data_source.groupby("user_id")["movie_id"]
+        .agg(int_list_to_str)
+        .reset_index()
+    )
+    item_implicit_profile = (
+        implicit_data_source.groupby("movie_id")["user_id"]
+        .agg(int_list_to_str)
+        .reset_index()
+    )
+
     print(
         "df_train.shape = {}, df_test.shape = {}".format(df_train.shape, df_test.shape)
     )
 
     user_encoder = DataFrameEncoder().add_column(
         "user_id",
-        CategoryValueToSparseEncoder(implicit_data_source.user_id),
+        CategoryValueToSparseEncoder(user_implicit_profile.user_id),
     )
     if use_iu:
-        user_encoder.add_many_to_many(
-            "user_id",
+        user_encoder.add_column(
             "movie_id",
-            ManyToManyEncoder(implicit_data_source.movie_id),
+            MultipleValueToSparseEncoder(user_implicit_profile.movie_id, sep="|"),
         )
 
     movie_encoder = DataFrameEncoder().add_column(
         "movie_id",
-        CategoryValueToSparseEncoder(implicit_data_source.movie_id),
+        CategoryValueToSparseEncoder(item_implicit_profile.movie_id),
     )
     if use_ii:
-        movie_encoder.add_many_to_many(
-            "movie_id",
+        movie_encoder.add_column(
             "user_id",
-            ManyToManyEncoder(implicit_data_source.user_id),
+            MultipleValueToSparseEncoder(item_implicit_profile.user_id, sep="|"),
         )
 
     # treat the days of events as categorical variable
@@ -155,8 +162,10 @@ if __name__ == "__main__":
             RelationBlock(
                 user_map,
                 user_encoder.encode_df(
-                    pd.DataFrame(dict(user_id=unique_users)),
-                    [implicit_data_source],
+                    user_implicit_profile.set_index("user_id")
+                    .reindex(unique_users)
+                    .fillna("")
+                    .reset_index()
                 ),
             )
         )
@@ -165,8 +174,10 @@ if __name__ == "__main__":
             RelationBlock(
                 movie_map,
                 movie_encoder.encode_df(
-                    pd.DataFrame(dict(movie_id=unique_movies)),
-                    [implicit_data_source],
+                    item_implicit_profile.set_index("movie_id")
+                    .reindex(unique_movies)
+                    .fillna("")
+                    .reset_index()
                 ),
             )
         )
@@ -179,7 +190,6 @@ if __name__ == "__main__":
         df_train.rating.values,
         X_rel=train_blocks,
         n_iter=ITERATION,
-        n_kept_samples=ITERATION,
         group_shapes=feature_group_sizes,
     )
     rmse = (
@@ -187,5 +197,3 @@ if __name__ == "__main__":
     ).mean() ** 0.5
     assert fm.history_ is not None
     print("RMSE = {rmse}".format(rmse=rmse))
-    with open("rmse_result_variational_fold_{0}.json".format(FOLD_INDEX), "w") as ofs:
-        json.dump(dict(rmse=rmse), ofs)

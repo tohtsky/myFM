@@ -1,11 +1,14 @@
-from myfm.gibbs import MyFMOrderedProbit
-from typing import List, Dict, Union
-import pandas as pd
 import argparse
 import pickle
+from typing import Dict, List, Union
+
 import numpy as np
+import pandas as pd
+from scipy import sparse as sps
+
 import myfm
-from myfm import RelationBlock, MyFMOrderedProbit, MyFMRegressor
+from myfm import MyFMOrderedProbit, MyFMRegressor, RelationBlock
+from myfm.gibbs import MyFMOrderedProbit
 from myfm.utils.benchmark_data import MovieLens1MDataManager
 from myfm.utils.callbacks.libfm import (
     LibFMLikeCallbackBase,
@@ -13,7 +16,6 @@ from myfm.utils.callbacks.libfm import (
     RegressionCallback,
 )
 from myfm.utils.encoders import CategoryValueToSparseEncoder
-from scipy import sparse as sps
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -120,9 +122,7 @@ if __name__ == "__main__":
     )
 
     print(
-        "df_train.shape = {}, df_test.shape = {}".format(
-            df_train.shape, df_test.shape
-        )
+        "df_train.shape = {}, df_test.shape = {}".format(df_train.shape, df_test.shape)
     )
     # treat the days of events as categorical variable
     date_encoder = CategoryValueToSparseEncoder[pd.Timestamp](
@@ -167,9 +167,7 @@ if __name__ == "__main__":
             len(user_to_internal)  # all the users who watched a movies
         )
 
-    grouping = [
-        i for i, size in enumerate(feature_group_sizes) for _ in range(size)
-    ]
+    grouping = [i for i, size in enumerate(feature_group_sizes) for _ in range(size)]
 
     def augment_user_id(user_ids: List[int]) -> sps.csr_matrix:
         X = user_to_internal.to_sparse(user_ids)
@@ -228,9 +226,7 @@ if __name__ == "__main__":
     for source, target in [(df_train, train_blocks), (df_test, test_blocks)]:
         unique_users, user_map = np.unique(source.user_id, return_inverse=True)
         target.append(RelationBlock(user_map, augment_user_id(unique_users)))
-        unique_movies, movie_map = np.unique(
-            source.movie_id, return_inverse=True
-        )
+        unique_movies, movie_map = np.unique(source.movie_id, return_inverse=True)
         target.append(RelationBlock(movie_map, augment_movie_id(unique_movies)))
 
     trace_path = "rmse_{0}_fold_{1}.csv".format(ALGORITHM, FOLD_INDEX)

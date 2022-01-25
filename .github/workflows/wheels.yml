@@ -1,0 +1,159 @@
+name: Build wheel
+on:
+  push:
+    branches:
+      - main
+  release:
+    types:
+      - created
+env:
+  cibuildwheel_version: "2.2.2"
+jobs:
+  build_sdist:
+    name: Build source distribution
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v2
+        name: Install Python
+        with:
+          python-version: '3.7'
+      - name: Build sdist
+        run: python setup.py sdist
+      - uses: actions/upload-artifact@v2
+        with:
+          path: dist/*.tar.gz
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "10.9"
+      CIBW_BUILD_VERBOSITY: "1"
+      CIBW_BUILD: "${{ matrix.cibw.build || '*' }}"
+      CIBW_SKIP: "${{ matrix.cibw.skip || '' }}"
+      CIBW_ENVIRONMENT: "${{ matrix.cibw.env || '' }}"
+      CIBW_TEST_COMMAND: "pytest {project}/tests"
+      CIBW_TEST_REQUIRES: pytest pytest-mock
+      CIBW_MANYLINUX_X86_64_IMAGE: "${{ matrix.cibw.manylinux_image }}"
+      CIBW_MANYLINUX_I686_IMAGE: "${{ matrix.cibw.manylinux_image }}"
+      CIBW_MANYLINUX_AARCH64_IMAGE: "${{ matrix.cibw.manylinux_image }}"
+      CIBW_ARCHS_LINUX: "${{ matrix.cibw.arch || 'auto' }}"
+      CIBW_ARCHS_MACOS: "${{ matrix.cibw.arch || 'auto' }}"
+    strategy:
+      matrix:
+        include:
+          - os: macos-10.15
+            name: mac
+            cibw:
+              arch: x86_64
+              build: "cp37* cp38*"
+
+          - os: macos-10.15
+            name: mac-arm
+            cibw:
+              arch: universal2
+              build: "cp39* cp310*"
+
+          - os: ubuntu-20.04
+            name: manylinux1
+            cibw:
+              build: "cp37*"
+              skip: "*musllinux*"
+              manylinux_image: manylinux2010
+              arch: auto64
+
+          - os: ubuntu-20.04
+            name: manylinux2014
+            cibw:
+              build: "cp38* cp39* cp310*"
+              skip: "*musllinux*"
+              manylinux_image: manylinux2014
+              arch: auto64
+
+          - os: ubuntu-20.04
+            name: manylinux_aarch64_cp37
+            cibw:
+              build: "cp37*"
+              skip: "*musllinux*"
+              manylinux_image: manylinux2014
+              arch: aarch64
+
+          - os: ubuntu-20.04
+            name: manylinux_aarch64_cp38
+            cibw:
+              build: "cp38*"
+              skip: "*musllinux*"
+              manylinux_image: manylinux2014
+              arch: aarch64
+
+          - os: ubuntu-20.04
+            name: manylinux_aarch64_cp39
+            cibw:
+              build: "cp39*"
+              skip: "*musllinux*"
+              manylinux_image: manylinux2014
+              arch: aarch64
+
+          - os: ubuntu-20.04
+            name: manylinux_aarch64_cp310
+            cibw:
+              build: "cp310*"
+              skip: "*musllinux*"
+              manylinux_image: manylinux2014
+              arch: aarch64
+
+          - os: windows-2019
+            name: win_amd64
+            architecture: x64
+            cibw:
+              skip: "cp36*"
+              build: "cp*win_amd64"
+
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v2
+        name: Install Python
+      - name: register qemu
+        if: contains(matrix.cibw.arch, 'aarch64')
+        run: |
+          docker run --rm --privileged hypriot/qemu-register:v4.2.0
+      - name: Install cibuildwheel
+        run: python -m pip install cibuildwheel=="${{env.cibuildwheel_version}}"
+      - name: Build wheels
+        run: python -m cibuildwheel --output-dir wheelhouse
+
+
+      - uses: actions/upload-artifact@v2
+        with:
+          path: ./wheelhouse/*.whl
+
+  upload_pypi:
+    needs: [build_wheels, build_sdist]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: artifact
+          path: dist
+      - name: Publish package to TestPyPI
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.TEST_PYPI_APITOKEN }}
+          packages_dir: dist/
+          repository_url: https://test.pypi.org/legacy/
+          verbose: true
+          skip_existing: true
+      - name: Publish package to PyPI
+        if: github.event_name == 'release'
+        uses: pypa/gh-action-pypi-publish@master
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_APITOKEN }}
+          packages_dir: dist/
+          verbose: true
+          skip_existing: true
