@@ -1,8 +1,8 @@
-name: Build
+name: Build wheel
 on:
   push:
-    #branches:
-    #  - main
+    branches:
+      - main
   release:
     types:
       - created
