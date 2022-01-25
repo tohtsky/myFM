@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from zipfile import ZipFile
@@ -9,8 +10,9 @@ from pytest_mock import MockerFixture
 from myfm.utils.benchmark_data import MovieLens1MDataManager
 from myfm.utils.dummy_data import gen_dummy_rating_df
 
-
 def test_ml1m(mocker: MockerFixture) -> None:
+    if sys.platform == "win32":
+        pytest.skip("Skip on Windows.")
     dummy_df = gen_dummy_rating_df(user_colname="user_id", item_colname="movie_id")
     dummy_df["timestamp"] = (dummy_df["timestamp"].view(np.int64) / 1e9).astype(
         np.int64
