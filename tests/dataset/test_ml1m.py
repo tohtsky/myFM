@@ -10,6 +10,7 @@ from pytest_mock import MockerFixture
 from myfm.utils.benchmark_data import MovieLens1MDataManager
 from myfm.utils.dummy_data import gen_dummy_rating_df
 
+
 def test_ml1m(mocker: MockerFixture) -> None:
     if sys.platform == "win32":
         pytest.skip("Skip on Windows.")
