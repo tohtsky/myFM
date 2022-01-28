@@ -17,7 +17,9 @@ If you have a standard Python environment on MacOS/Linux, you can install the li
    pip install myfm
 
 It has an interface similar to sklearn, and you can use them for wide variety of prediction tasks.
-For example, ::
+For example,
+
+.. testcode::
 
    from sklearn.datasets import load_breast_cancer
    from sklearn.model_selection import train_test_split
@@ -35,8 +37,15 @@ For example, ::
    )
    fm = MyFMClassifier(rank=2).fit(X_train, y_train)
 
-   metrics.roc_auc_score(y_test, fm.predict_proba(X_test))
+   print(metrics.roc_auc_score(y_test, fm.predict_proba(X_test)))
    # 0.9954
+
+.. testoutput::
+   :hide:
+   :options: +ELLIPSIS
+
+   0.99...
+
 
 Try out the following :ref:`examples <MovielensIndex>` to see how Bayesian approaches to explicit collaborative filtering
 are still very competitive (almost unbeaten)!
@@ -59,7 +68,6 @@ In version 0.3, we have also implemented Variational Inference, which converges 
    :caption: Details
    :maxdepth: 1
 
-   dependencies
    api_reference
 
 

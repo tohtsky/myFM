@@ -21,23 +21,17 @@ Tutorial and reference doc is provided at https://myfm.readthedocs.io/en/latest/
 
 # Requirements
 
-Python >= 3.6 and recent version of gcc/clang with C++ 11 support.
+Python >= 3.7 and recent version of gcc/clang with C++ 11 support.
 
 # Installation
 
-For Linux / Mac OSX, type
+Install it by
 
 ```
 pip install myfm
 ```
 
-In addition to installing python dependencies (`numpy`, `scipy`, `pybind11`, ...), the above command will automatically download eigen (ver 3.3.7) to its build directory and use it for the build.
-
-If you want to use another version of eigen, you can also do
-
-```
-EIGEN3_INCLUDE_DIR=/path/to/eigen pip install git+https://github.com/tohtsky/myFM
-```
+There are binaries for major operating systems. If you are working with less popular OS/architecture, pip will attempt to build myFM from the source (you need a decent C++ compiler!). In that case, in addition to installing python dependencies (`numpy`, `scipy`, `pandas`, ...), the above command will automatically download eigen (ver 3.4.0) to its build directory and use it during the build.
 
 # Examples
 
@@ -45,7 +39,7 @@ EIGEN3_INCLUDE_DIR=/path/to/eigen pip install git+https://github.com/tohtsky/myF
 
 This example is taken from [pyfm](https://github.com/coreylynch/pyFM) with some modification.
 
-```Python
+```python
 import myfm
 from sklearn.feature_extraction import DictVectorizer
 import numpy as np
@@ -75,7 +69,7 @@ This example will require `pandas` and `scikit-learn`. `movielens100k_loader` is
 
 You will be able to obtain a result comparable to SOTA algorithms like GC-MC. See `examples/ml-100k.ipynb` for the detailed version.
 
-```Python
+```python
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 from sklearn import metrics
@@ -133,7 +127,7 @@ Below is a toy movielens-like example which utilizes relational data format prop
 
 This example, however, is too simplistic to exhibit the computational advantage of this data format. For an example with drastically reduced computational complexity, see `examples/ml-100k-extended.ipynb`;
 
-```Python
+```python
 import pandas as pd
 import numpy as np
 from myfm import MyFMRegressor, RelationBlock

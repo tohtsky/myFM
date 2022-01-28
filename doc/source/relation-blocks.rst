@@ -28,7 +28,9 @@ in addition to the user/movie id, they have made use of the following features t
 2. Movie Implicit Features: All the users who have watched the movie
 3. Time Variable: The day of watch event (regarded as a categorical variable)
 
-Let us construct these features. ::
+Let us construct these features.
+
+.. testcode ::
 
     from collections import defaultdict
     import numpy as np
@@ -41,7 +43,9 @@ Let us construct these features. ::
     from myfm.utils.benchmark_data import MovieLens100kDataManager
 
     data_manager = MovieLens100kDataManager()
-    df_train, df_test = data_manager.load_rating(fold=1) # fold 1 is the toughest one
+
+    # fold 1 is the toughest one
+    df_train, df_test = data_manager.load_rating_predefined_split(fold=1)
 
     date_ohe = OneHotEncoder(handle_unknown='ignore').fit(
         df_train.timestamp.dt.date.values.reshape(-1, 1)
@@ -58,7 +62,9 @@ Let us construct these features. ::
 Above we constructed dictionaries which map user/movie id to the corresponding indices.
 We have preserved the index ''0'' for ''Unknown'' user/movies, respectively.
 
-To do the feature-engineering stated above, we have to memoize which users/movies had interactions with which movies/users. ::
+To do the feature-engineering stated above, we have to memoize which users/movies had interactions with which movies/users.
+
+.. testcode ::
 
     # The flags to control the included features.
     use_date = True # use date info or not
@@ -80,7 +86,9 @@ To do the feature-engineering stated above, we have to memoize which users/movie
         X_date_train, X_date_test = (None, None)
 
 
-We can then define functions which maps a list of user/movie ids to the features represented in sparse matrix format ::
+We can then define functions which maps a list of user/movie ids to the features represented in sparse matrix format:
+
+.. testcode ::
 
     # given user/movie ids, add additional infos and return it as sparse
     def augment_user_id(user_ids):
@@ -122,7 +130,9 @@ We can then define functions which maps a list of user/movie ids to the features
 A naive way
 ^^^^^^^^^^^^
 
-We now setup the problem in a non-relational way: ::
+We now setup the problem in a non-relational way:
+
+.. testcode ::
 
     train_uid_unique, train_uid_index = np.unique(df_train.user_id, return_inverse=True)
     train_mid_unique, train_mid_index = np.unique(df_train.movie_id, return_inverse=True)
@@ -146,7 +156,7 @@ We now setup the problem in a non-relational way: ::
         movie_data_test[test_mid_index]
     ])
 
-    fm_naive = myfm.MyFMRegressor(rank=10).fit(X_train_naive, df_train.rating, n_iter=5, n_kept_samples=5)
+    fm_naive = myfm.MyFMRegressor(rank=10).fit(X_train_naive, df_train.rating, n_iter=3, n_kept_samples=3)
 
 In my environment, it takes ~ 2s per iteration, which is much slower than pure MF example.
 
@@ -164,14 +174,19 @@ says that each row of the sparse matrix ``user_data_train`` appears many times,
 and we will compute the same combination of factors repeatedly.
 
 The role of :py:class:`myfm.RelationBlock` is to tell such a repeated pattern explicitly
-so that we can drastically reduce the complexity ::
+so that we can drastically reduce the complexity.
+
+
+.. testcode ::
 
     block_user_train = RelationBlock(train_uid_index, user_data_train)
     block_movie_train = RelationBlock(train_mid_index, movie_data_train)
     block_user_test = RelationBlock(test_uid_index, user_data_test)
     block_movie_test = RelationBlock(test_mid_index, movie_data_test)
 
-We can now feed these blocks into :py:meth:`myfm.MyFMRegressor.fit` by ::
+We can now feed these blocks into :py:meth:`myfm.MyFMRegressor.fit` by
+
+.. testcode ::
 
     fm_rb = myfm.MyFMRegressor(rank=10).fit(
         X_date_train, df_train.rating,
@@ -185,19 +200,34 @@ This time, the speed is 20 iters / s, almost 40x speed up compared to the naive 
 This is also much faster than e.g., `Surprise's implementation of SVD++ <https://github.com/NicolasHug/Surprise>`_.
 
 What the relation format does is to reorganize the computation,
-but the result should be the same up to floating point artifacts: ::
+but the result should be the same up to floating point artifacts:
 
-    for i in range(5):
+.. testcode ::
+
+    for i in range(3):
         sample_naive = fm_naive.predictor_.samples[i].w
         sample_rb = fm_rb.predictor_.samples[i].w
-        print(np.max(np.abs(sample_naive - sample_rb)))
+        assert(np.max(np.abs(sample_naive - sample_rb)) < 1e-5)
         # should print tiny numbers
 
-The resulting performance measures are RMSE=0.889, MAE=0.7000 : ::
 
+The resulting performance measures are RMSE=0.889, MAE=0.7000 :
+
+.. testcode ::
+
+    test_prediction = fm_rb.predict(
+        X_date_test,
+        X_rel=[block_user_test, block_user_test]
+    )
     rmse = ((df_test.rating.values - test_prediction) ** 2).mean() ** 0.5
     mae = np.abs(df_test.rating.values - test_prediction).mean()
     print(f'rmse={rmse}, mae={mae}')
+
+.. testoutput ::
+    :hide:
+    :options: +ELLIPSIS
+
+    rmse=..., mae=...
 
 Note that we still haven't exploited all the available ingredients such as
 user/item side-information and :ref:`grouping of the input variables <grouping>`.

@@ -30,10 +30,10 @@ This formulation is equivalent to Factorization Machines with
 So you can efficiently use encoder like sklearn's `OneHotEncoder <https://scikit-learn.org/stable/modules/generated/sklearn.preprocessing.OneHotEncoder.html>`_
 to prepare the input matrix.
 
-::
+.. testcode ::
 
     import numpy as np
-    from sklearn.preprocessing import OneHotEncoder
+    from sklearn.preprocessing import MultiLabelBinarizer, OneHotEncoder
     from sklearn import metrics
 
     import myfm
@@ -60,6 +60,12 @@ to prepare the input matrix.
     mae = np.abs(y_test - prediction).mean()
     print(f'rmse={rmse}, mae={mae}')
 
+.. testoutput::
+    :hide:
+    :options: +ELLIPSIS
+
+    rmse=..., mae=...
+
 The above script should give you RMSE=0.8944, MAE=0.7031 which is already
 impressive compared with other recent methods.
 
@@ -78,7 +84,9 @@ user vectors and item vectors are drawn from separate normal priors:
 
 However, we haven't provided any information about which columns are users' and items'.
 
-You can tell  :py:class:`myfm.MyFMRegressor` these information (i.e., which parameters share a common mean and variance) by ``group_shapes`` option: ::
+You can tell  :py:class:`myfm.MyFMRegressor` these information (i.e., which parameters share a common mean and variance) by ``group_shapes`` option:
+
+.. testcode ::
 
     fm_grouped = myfm.MyFMRegressor(
         rank=FM_RANK, random_seed=42,
@@ -93,6 +101,13 @@ You can tell  :py:class:`myfm.MyFMRegressor` these information (i.e., which para
     mae = np.abs(y_test - prediction_grouped).mean()
     print(f'rmse={rmse}, mae={mae}')
 
+.. testoutput::
+    :hide:
+    :options: +ELLIPSIS
+
+    rmse=..., mae=...
+
+
 This will slightly improve the performance to RMSE=0.8925, MAE=0.7001.
 
 
@@ -102,23 +117,32 @@ Adding Side information
 
 It is straightforward to include user/item side information.
 
-First we retrieve the side information from ``Movielens100kDataManager``: ::
+First we retrieve the side information from ``Movielens100kDataManager``:
+
+.. testcode ::
 
     user_info = data_manager.load_user_info().set_index('user_id')
-    user_info['age'] = user_info.age // 5 * 5
-    user_info['zipcode'] = user_info.zipcode.str[0]
+    user_info["age"] = user_info.age // 5 * 5
+    user_info["zipcode"] = user_info.zipcode.str[0]
     user_info_ohe = OneHotEncoder(handle_unknown='ignore').fit(user_info)
 
-    movie_info, movie_genres = data_manager.load_movie_info()
+    movie_info = data_manager.load_movie_info().set_index('movie_id')
     movie_info['release_year'] = [
         str(x) for x in movie_info['release_date'].dt.year.fillna('NaN')
-    ] # hack to avoid NaN
-    movie_info = movie_info[['movie_id', 'release_year'] + movie_genres].set_index('movie_id')
-    movie_info_ohe = OneHotEncoder(handle_unknown='ignore').fit(movie_info.drop(columns=movie_genres))
+    ]
+    movie_info = movie_info[['release_year', 'genres']]
+    movie_info_ohe = OneHotEncoder(handle_unknown='ignore').fit(movie_info[['release_year']])
+    movie_genre_mle = MultiLabelBinarizer(sparse_output=True).fit(
+        movie_info.genres.apply(lambda x: x.split('|'))
+    )
+
+
 
 Note that the way movie genre information is represented in ``movie_info`` DataFrame is a bit tricky (it is already binary encoded).
 
-We can then augment ``X_train`` / ``X_test`` with auxiliary information. The `hstack <https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.hstack.html>`_ function of ``scipy.sparse`` is very convenient for this purpose: ::
+We can then augment ``X_train`` / ``X_test`` with auxiliary information. The `hstack <https://docs.scipy.org/doc/scipy/reference/generated/scipy.sparse.hstack.html>`_ function of ``scipy.sparse`` is very convenient for this purpose:
+
+.. testcode ::
 
     import scipy.sparse as sps
     X_train_extended = sps.hstack([
@@ -127,9 +151,11 @@ We can then augment ``X_train`` / ``X_test`` with auxiliary information. The `hs
             user_info.reindex(df_train.user_id)
         ),
         movie_info_ohe.transform(
-            movie_info.reindex(df_train.movie_id).drop(columns=movie_genres)
+            movie_info.reindex(df_train.movie_id).drop(columns=['genres'])
         ),
-        movie_info[movie_genres].reindex(df_train.movie_id).values
+        movie_genre_mle.transform(
+            movie_info.genres.reindex(df_train.movie_id).apply(lambda x: x.split('|'))
+        )
     ])
 
     X_test_extended = sps.hstack([
@@ -138,17 +164,23 @@ We can then augment ``X_train`` / ``X_test`` with auxiliary information. The `hs
             user_info.reindex(df_test.user_id)
         ),
         movie_info_ohe.transform(
-            movie_info.reindex(df_test.movie_id).drop(columns=movie_genres)
+            movie_info.reindex(df_test.movie_id).drop(columns=['genres'])
         ),
-        movie_info[movie_genres].reindex(df_test.movie_id).values
+        movie_genre_mle.transform(
+            movie_info.genres.reindex(df_test.movie_id).apply(lambda x: x.split('|'))
+        )
     ])
 
-Then we can regress ``X_train_extended`` against ``y_train`` ::
+Then we can regress ``X_train_extended`` against ``y_train``
 
-    group_shapes_extended = [len(group) for group in ohe.categories_] + \
-        [len(group) for group in user_info_ohe.categories_] + \
-        [len(group) for group in movie_info_ohe.categories_] + \
-        [ len(movie_genres)]
+.. testcode ::
+
+    group_shapes_extended = (
+        [len(group) for group in ohe.categories_] +
+        [len(group) for group in user_info_ohe.categories_] +
+        [len(group) for group in movie_info_ohe.categories_] +
+        [ len(movie_genre_mle.classes_)]
+    )
 
     fm_side_info = myfm.MyFMRegressor(
         rank=FM_RANK, random_seed=42,
@@ -162,6 +194,12 @@ Then we can regress ``X_train_extended`` against ``y_train`` ::
     rmse = ((y_test - prediction_side_info) ** 2).mean() ** .5
     mae = np.abs(y_test - prediction_side_info).mean()
     print(f'rmse={rmse}, mae={mae}')
+
+.. testoutput::
+    :hide:
+    :options: +ELLIPSIS
+
+    rmse=..., mae=...
 
 The result should improve further with RMSE = 0.8855, MAE = 0.6944.
 
