@@ -18,7 +18,7 @@ jobs:
           pip install --upgrade pip
           pip install numpy scipy pandas scikit-learn
           python setup.py install
-          wget http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
+          curl http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
       - name: Run pytest
         run: |
           pip install pytest phmdoctest sphinx==4.4.0
