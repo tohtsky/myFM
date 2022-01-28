@@ -1,0 +1,33 @@
+name: Doctest
+on: [push]
+jobs:
+  run_pytest_upload_coverage:
+    runs-on: ubuntu-latest
+    env:
+      OS: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@master
+        with:
+          python-version: "3.8"
+      - name: Build myfm
+        run: |
+          pip install --upgrade pip
+          pip install numpy scipy pandas scikit-learn
+          python setup.py develop
+      - name: Run pytest
+        run: |
+          pip install pytest phmdoctest sphinx==4.4.0
+      - name: Test Readme.md
+        run: |
+          GEN_TEST_FILE=phmdoctest_out.py
+          phmdoctest Readme.md --outfile "$GEN_TEST_FILE"
+          pytest "$GEN_TEST_FILE"
+          rm "$GEN_TEST_FILE"
+      - name: Run sphinx doctest
+        run: |
+          cd doc
+          make doctest
