@@ -17,14 +17,15 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install numpy scipy pandas scikit-learn
-          python setup.py develop
+          python setup.py install
+          wget http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
       - name: Run pytest
         run: |
           pip install pytest phmdoctest sphinx==4.4.0
       - name: Test Readme.md
         run: |
           GEN_TEST_FILE=phmdoctest_out.py
-          phmdoctest Readme.md --outfile "$GEN_TEST_FILE"
+          phmdoctest README.md --outfile "$GEN_TEST_FILE"
           pytest "$GEN_TEST_FILE"
           rm "$GEN_TEST_FILE"
       - name: Run sphinx doctest
