@@ -7,12 +7,16 @@
 myFM - Bayesian Factorization Machines in Python/C++
 ====================================================
 
-**myFM** is an unofficial implementation of Bayesian Factorization Machines. Its goals are to
+**myFM** is an unofficial implementation of Bayesian Factorization Machines in Python/C++.
+Notable features include:
 
-* implement a `libFM <http://libfm.org/>`_ - like functionality that is easy to use from Python
-* provide a simpler and faster implementation with `Pybind11 <https://github.com/pybind/pybind11>`_ and `Eigen <http://eigen.tuxfamily.org/index.php?title=Main_Page>`_
+* Implementation most functionalities of `libFM <http://libfm.org/>`_ MCMC engine (including grouping & relation block)
+* A simpler and faster implementation with `Pybind11 <https://github.com/pybind/pybind11>`_ and `Eigen <http://eigen.tuxfamily.org/index.php?title=Main_Page>`_
+* Gibbs sampling for **ordinal regression** with probit link function. See :ref:`the tutorial <OrdinalRegression>` for its usage.
+* Variational inference which converges faster and requires lower memory (but usually less accurate than the Gibbs sampling).
 
-If you have a standard Python environment on MacOS/Linux, you can install the library from PyPI: ::
+
+In most cases, you can install the library from PyPI: ::
 
    pip install myfm
 
@@ -49,11 +53,6 @@ For example,
 
 Try out the following :ref:`examples <MovielensIndex>` to see how Bayesian approaches to explicit collaborative filtering
 are still very competitive (almost unbeaten)!
-
-One of the distinctive features of myFM is the support for ordinal regression with probit link function.
-See :ref:`the tutorial <OrdinalRegression>` for its usage.
-
-In version 0.3, we have also implemented Variational Inference, which converges faster and requires lower memory (as we don't have to keep numerous samples).
 
 .. toctree::
    :caption: Basic Usage

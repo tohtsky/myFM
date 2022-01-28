@@ -1,4 +1,11 @@
 # myFM
+[![Python](https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9%20%7C%203.10-blue)](https://www.python.org)
+[![pypi](https://img.shields.io/pypi/v/myfm.svg)](https://pypi.python.org/pypi/myfm)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/tohtsky/myFM)
+[![Build](https://github.com/tohtsky/myFM/workflows/Build%20wheel/badge.svg?branch=main)](https://github.com/tohtsky/myfm)
+[![Read the Docs](https://readthedocs.org/projects/myfm/badge/?version=stable)](https://myfm.readthedocs.io/en/stable/)
+[![codecov](https://codecov.io/gh/tohtsky/myfm/branch/main/graph/badge.svg?token=kLgOKTQqcV)](https://codecov.io/gh/tohtsky/myfm)
+
 
 myFM is an implementation of Bayesian [Factorization Machines](https://ieeexplore.ieee.org/abstract/document/5694074/) based on Gibbs sampling, which I believe is a wheel worth reinventing.
 
@@ -18,10 +25,6 @@ There are also functionalities not present in libFM:
 - Variational inference for regression and binary classification.
 
 Tutorial and reference doc is provided at https://myfm.readthedocs.io/en/latest/.
-
-# Requirements
-
-Python >= 3.7 and recent version of gcc/clang with C++ 11 support.
 
 # Installation
 
