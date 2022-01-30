@@ -1,11 +1,13 @@
 # myFM
+[![Python](https://img.shields.io/badge/python-3.7%20%7C%203.8%20%7C%203.9%20%7C%203.10-blue)](https://www.python.org)
+[![pypi](https://img.shields.io/pypi/v/myfm.svg)](https://pypi.python.org/pypi/myfm)
+[![GitHub license](https://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/tohtsky/myFM)
+[![Build](https://github.com/tohtsky/myFM/workflows/Build%20wheel/badge.svg?branch=main)](https://github.com/tohtsky/myfm)
+[![Read the Docs](https://readthedocs.org/projects/myfm/badge/?version=stable)](https://myfm.readthedocs.io/en/stable/)
+[![codecov](https://codecov.io/gh/tohtsky/myfm/branch/main/graph/badge.svg?token=kLgOKTQqcV)](https://codecov.io/gh/tohtsky/myfm)
+
 
 myFM is an implementation of Bayesian [Factorization Machines](https://ieeexplore.ieee.org/abstract/document/5694074/) based on Gibbs sampling, which I believe is a wheel worth reinventing.
-
-The goal of this project is to
-
-1. Implement Gibbs sampler easy to use from Python.
-2. Use modern technology like [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page) and [pybind11](https://github.com/pybind/pybind11) for simpler and faster implementation.
 
 Currently this supports most options for libFM MCMC engine, such as
 
@@ -19,25 +21,17 @@ There are also functionalities not present in libFM:
 
 Tutorial and reference doc is provided at https://myfm.readthedocs.io/en/latest/.
 
-# Requirements
-
-Python >= 3.6 and recent version of gcc/clang with C++ 11 support.
-
 # Installation
 
-For Linux / Mac OSX, type
+The package is pip-installable.
 
 ```
 pip install myfm
 ```
 
-In addition to installing python dependencies (`numpy`, `scipy`, `pybind11`, ...), the above command will automatically download eigen (ver 3.3.7) to its build directory and use it for the build.
+There are binaries for major operating systems.
 
-If you want to use another version of eigen, you can also do
-
-```
-EIGEN3_INCLUDE_DIR=/path/to/eigen pip install git+https://github.com/tohtsky/myFM
-```
+If you are working with less popular OS/architecture, pip will attempt to build myFM from the source (you need a decent C++ compiler!). In that case, in addition to installing python dependencies (`numpy`, `scipy`, `pandas`, ...), the above command will automatically download eigen (ver 3.4.0) to its build directory and use it during the build.
 
 # Examples
 
@@ -45,7 +39,7 @@ EIGEN3_INCLUDE_DIR=/path/to/eigen pip install git+https://github.com/tohtsky/myF
 
 This example is taken from [pyfm](https://github.com/coreylynch/pyFM) with some modification.
 
-```Python
+```python
 import myfm
 from sklearn.feature_extraction import DictVectorizer
 import numpy as np
@@ -75,7 +69,7 @@ This example will require `pandas` and `scikit-learn`. `movielens100k_loader` is
 
 You will be able to obtain a result comparable to SOTA algorithms like GC-MC. See `examples/ml-100k.ipynb` for the detailed version.
 
-```Python
+```python
 import numpy as np
 from sklearn.preprocessing import OneHotEncoder
 from sklearn import metrics
@@ -133,7 +127,7 @@ Below is a toy movielens-like example which utilizes relational data format prop
 
 This example, however, is too simplistic to exhibit the computational advantage of this data format. For an example with drastically reduced computational complexity, see `examples/ml-100k-extended.ipynb`;
 
-```Python
+```python
 import pandas as pd
 import numpy as np
 from myfm import MyFMRegressor, RelationBlock

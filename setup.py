@@ -12,7 +12,13 @@ import setuptools
 from setuptools import Extension, find_packages, setup
 from setuptools.command.build_ext import build_ext
 
-install_requires = ["numpy>=1.11", "scipy>=1.0", "tqdm>=4", "pandas>=1.0.0"]
+install_requires = [
+    "numpy>=1.11",
+    "scipy>=1.0",
+    "tqdm>=4",
+    "pandas>=1.0.0",
+    "typing-extensions>=4.0.0",
+]
 setup_requires = ["pybind11>=2.5", "requests", "setuptools_scm"]
 
 

@@ -24,7 +24,7 @@ A toy example
 
 Let us first look at how :py:class:`myfm.MyFMClassifier` works for `a toy example provided in pyFM <https://github.com/coreylynch/pyFM>`_.
 
-.. code-block:: python
+.. doctest ::
 
     import myfm
     from sklearn.feature_extraction import DictVectorizer
@@ -41,11 +41,6 @@ Let us first look at how :py:class:`myfm.MyFMClassifier` works for `a toy exampl
 
     # Note that X is a sparse matrix
     print(X.toarray())
-    # print
-    # [[ 19.   0.   0.   0.   1.   1.   0.   0.   0.]
-    #  [ 33.   0.   0.   1.   0.   0.   1.   0.   0.]
-    #  [ 55.   0.   1.   0.   0.   0.   0.   1.   0.]
-    #  [ 20.   1.   0.   0.   0.   0.   0.   0.   1.]]
 
     # The target variable to be classified.
     y = np.asarray([0, 1, 1, 0])
@@ -54,6 +49,16 @@ Let us first look at how :py:class:`myfm.MyFMClassifier` works for `a toy exampl
 
     # It also supports prediction for new unseen items.
     fm.predict_proba(v.transform([{"user": "1", "item": "10", "age": 24}]))
+
+.. testoutput ::
+    :hide:
+    :options: +ELLIPSIS
+
+     [[ 19.   0.   0.   0.   1.   1.   0.   0.   0.]
+      [ 33.   0.   0.   1.   0.   0.   1.   0.   0.]
+      [ 55.   0.   1.   0.   0.   0.   0.   1.   0.]
+      [ 20.   1.   0.   0.   0.   0.   0.   0.   1.]]
+
 
 As the example suggests, :py:class:`myfm.MyFMClassifier` takes
 sparse matrices of `scipy.sparse <https://docs.scipy.org/doc/scipy/reference/sparse.html>`_ as its input.

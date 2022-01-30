@@ -7,7 +7,7 @@ from scipy import sparse as sps
 from myfm import MyFMGibbsClassifier, VariationalFMClassifier
 from myfm.utils.callbacks import ClassificationCallback
 
-from ..util import FMWeights
+from ..test_utils import FMWeights
 
 
 @pytest.mark.parametrize("use_libfm_callback", [True, False])

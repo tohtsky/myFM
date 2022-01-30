@@ -4,7 +4,7 @@ import numpy as np
 import pytest
 import scipy.sparse as sps
 
-from .util import FMWeights, prediction
+from .test_utils import FMWeights, prediction
 
 N_FEATURES = 3
 N_LATENT = 4
