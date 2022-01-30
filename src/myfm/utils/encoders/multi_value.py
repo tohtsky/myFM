@@ -17,9 +17,8 @@ class MultipleValuesToSparseEncoder(CategoryValueToSparseEncoder[str]):
         normalize: bool = True,
         handle_unknown: Literal["create", "ignore", "raise"] = "create",
     ):
-        """Construct the encoder by providing the known item set.
-        It has a position for "unknown or too rare" items,
-        which are regarded as the 0-th class.
+        """Construct the encoder by providing a list of strings,
+        each of which is a list of strings concatenated by `sep`.
 
         Parameters
         ----------

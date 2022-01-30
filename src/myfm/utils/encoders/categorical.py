@@ -1,5 +1,5 @@
 from collections import Counter
-from typing import Generic, Iterable, List, Optional, TypeVar, Union
+from typing import Dict, Generic, Iterable, List, Optional, TypeVar, Union
 
 import numpy as np
 import scipy.sparse as sps
@@ -7,7 +7,7 @@ from typing_extensions import Literal
 
 from .base import SparseEncoderBase
 
-T = TypeVar("T")
+T = TypeVar("T", int, float, str)
 
 
 class CategoryValueToSparseEncoder(Generic[T], SparseEncoderBase):
@@ -19,9 +19,7 @@ class CategoryValueToSparseEncoder(Generic[T], SparseEncoderBase):
         min_freq: int = 1,
         handle_unknown: Literal["create", "ignore", "raise"] = "create",
     ):
-        """Construct the encoder by providing the known item set.
-        It has a position for "unknown or too rare" items,
-        which are regarded as the 0-th class.
+        r"""Construct the encoder by providing a list of items.
 
         Parameters
         ----------
@@ -38,10 +36,10 @@ class CategoryValueToSparseEncoder(Generic[T], SparseEncoderBase):
             Defaults to "create".
         """
         counter_ = Counter(items)
-        unique_items = [x for x, freq in counter_.items() if freq >= min_freq]
+        unique_items = sorted([x for x, freq in counter_.items() if freq >= min_freq])
         self._item_index_offset = 1 if handle_unknown == "create" else 0
         self.handle_unknown = handle_unknown
-        self._dict = {
+        self._dict: Dict[T, int] = {
             item: i + self._item_index_offset for i, item in enumerate(unique_items)
         }
         self.values: List[Union[str, T]] = []
