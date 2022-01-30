@@ -7,7 +7,7 @@ import scipy.sparse as sps
 
 
 class SparseEncoderBase(ABC):
-    """The base class for sparse encoder"""
+    r"""The base class for encoders into sparse matrices."""
 
     @abstractmethod
     def to_sparse(self, x: List[Any]) -> sps.csr_matrix:
@@ -27,7 +27,7 @@ class DataFrameEncoder:
     """Encode pandas.DataFrame into concatenated sparse matrices."""
 
     def __init__(self) -> None:
-        """Construct the encoders starting from empty one."""
+        r"""Construct the encoders starting from empty one."""
         self.col_encoders: Dict[str, SparseEncoderBase] = OrderedDict()
 
     def all_names(self) -> List[str]:
@@ -39,7 +39,7 @@ class DataFrameEncoder:
 
     @property
     def encoder_shapes(self) -> List[int]:
-        """Show how the columns for an encoded CSR matrix are organized.
+        r"""Show how the columns for an encoded CSR matrix are organized.
 
         Returns
         -------
@@ -51,7 +51,7 @@ class DataFrameEncoder:
     def add_column(
         self, colname: str, encoder: SparseEncoderBase
     ) -> "DataFrameEncoder":
-        """Add a column name to be encoded / encoder pair.
+        r"""Add a column name to be encoded / encoder pair.
 
         Parameters
         ----------
@@ -64,7 +64,7 @@ class DataFrameEncoder:
         return self
 
     def encode_df(self, df: pd.DataFrame) -> sps.csr_matrix:
-        """Encode the dataframe into a concatenated CSR matrix.
+        r"""Encode the dataframe into a concatenated CSR matrix.
 
         Parameters
         ----------

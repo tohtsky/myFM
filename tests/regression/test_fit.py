@@ -7,7 +7,7 @@ from scipy import sparse as sps
 from myfm import MyFMGibbsRegressor, VariationalFMRegressor
 from myfm.utils.callbacks import RegressionCallback
 
-from ..util import FMWeights
+from ..test_utils import FMWeights
 
 
 @pytest.mark.parametrize("alpha_inv", [0.3, 1.0, 3])

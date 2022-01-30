@@ -9,7 +9,7 @@ from myfm.utils.benchmark_data.movielens100k_data import MovieLens100kDataManage
 from myfm.utils.encoders import (
     CategoryValueToSparseEncoder,
     DataFrameEncoder,
-    MultipleValueToSparseEncoder,
+    MultipleValuesToSparseEncoder,
 )
 
 if __name__ == "__main__":
@@ -123,7 +123,7 @@ if __name__ == "__main__":
     if use_iu:
         user_encoder.add_column(
             "movie_id",
-            MultipleValueToSparseEncoder(user_implicit_profile.movie_id, sep="|"),
+            MultipleValuesToSparseEncoder(user_implicit_profile.movie_id, sep="|"),
         )
 
     movie_encoder = DataFrameEncoder().add_column(
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     if use_ii:
         movie_encoder.add_column(
             "user_id",
-            MultipleValueToSparseEncoder(item_implicit_profile.user_id, sep="|"),
+            MultipleValuesToSparseEncoder(item_implicit_profile.user_id, sep="|"),
         )
 
     # treat the days of events as categorical variable

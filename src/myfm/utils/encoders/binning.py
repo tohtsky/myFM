@@ -31,9 +31,12 @@ class BinningEncoder(SparseEncoderBase):
         """
         if n_percentiles <= 0:
             raise ValueError("n_percentiles must be greater than 0.")
-        self.percentages = np.linspace(0, 100, n_percentiles)
-        temp_percentiles: DenseArray = np.percentile(x, self.percentages)  # type: ignore
-        self.percentiles = np.unique(temp_percentiles)  # type: ignore
+        self.percentages = np.linspace(0, 100, n_percentiles + 2)[1:-1]
+        x_arr = np.asfarray(x)
+        temp_percentiles: DenseArray = np.percentile(
+            x_arr[~np.isnan(x_arr)], self.percentages
+        )
+        self.percentiles = np.unique(temp_percentiles)
 
     def names(self) -> List[str]:
         return (

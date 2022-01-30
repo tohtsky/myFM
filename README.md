@@ -9,11 +9,6 @@
 
 myFM is an implementation of Bayesian [Factorization Machines](https://ieeexplore.ieee.org/abstract/document/5694074/) based on Gibbs sampling, which I believe is a wheel worth reinventing.
 
-The goal of this project is to
-
-1. Implement Gibbs sampler easy to use from Python.
-2. Use modern technology like [Eigen](http://eigen.tuxfamily.org/index.php?title=Main_Page) and [pybind11](https://github.com/pybind/pybind11) for simpler and faster implementation.
-
 Currently this supports most options for libFM MCMC engine, such as
 
 - Grouping of input variables (`-meta` option of [libFM](https://github.com/srendle/libfm))
@@ -28,13 +23,15 @@ Tutorial and reference doc is provided at https://myfm.readthedocs.io/en/latest/
 
 # Installation
 
-Install it by
+The package is pip-installable.
 
 ```
 pip install myfm
 ```
 
-There are binaries for major operating systems. If you are working with less popular OS/architecture, pip will attempt to build myFM from the source (you need a decent C++ compiler!). In that case, in addition to installing python dependencies (`numpy`, `scipy`, `pandas`, ...), the above command will automatically download eigen (ver 3.4.0) to its build directory and use it during the build.
+There are binaries for major operating systems.
+
+If you are working with less popular OS/architecture, pip will attempt to build myFM from the source (you need a decent C++ compiler!). In that case, in addition to installing python dependencies (`numpy`, `scipy`, `pandas`, ...), the above command will automatically download eigen (ver 3.4.0) to its build directory and use it during the build.
 
 # Examples
 
