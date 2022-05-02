@@ -17,7 +17,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install numpy scipy pandas scikit-learn
-          python setup.py install
+          pip install .
           curl http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
       - name: Run pytest
         run: |

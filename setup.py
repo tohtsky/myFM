@@ -50,22 +50,6 @@ class get_eigen_include(object):
         return str(target_dir)
 
 
-class get_pybind_include:
-    """Helper class to determine the pybind11 include path
-    The purpose of this class is to postpone importing pybind11
-    until it is actually installed, so that the ``get_include()``
-    method can be invoked."""
-
-    def __init__(self, user: bool = False):
-        self.user = user
-
-    def __str__(self) -> str:
-        import pybind11
-
-        include_dir: str = pybind11.get_include(self.user)
-        return include_dir
-
-
 headers = [
     "include/myfm/definitions.hpp",
     "include/myfm/util.hpp",

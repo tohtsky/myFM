@@ -18,7 +18,7 @@ jobs:
           pip install --upgrade pip
           pip install numpy scipy pandas
           sudo apt-get install lcov
-          CXXFLAGS="-O0 -g -coverage" python setup.py develop
+          CXXFLAGS="-O0 -g -coverage" pip install -e .
       - name: Run pytest
         run: |
           pip install pytest pytest-cov pytest-mock
