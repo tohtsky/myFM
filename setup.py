@@ -3,7 +3,7 @@ from pathlib import Path
 from typing import Any
 
 from pybind11.setup_helpers import Pybind11Extension, build_ext
-from setuptools import setup
+from setuptools import find_packages, setup
 
 install_requires = [
     "numpy>=1.11",
@@ -95,5 +95,6 @@ setup(
     zip_safe=False,
     headers=headers,
     python_requires=">=3.6",
+    packages=find_packages("src"),
     package_data={"myfm": ["*.pyi"]},
 )
