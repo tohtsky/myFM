@@ -31,8 +31,8 @@ def test_middle_reg(
     vfm_weights = vfm.predictor_.weights()
     hp_trance = fm.get_hyper_trace()
     last_alphs = hp_trance["alpha"].iloc[-20:].values
-    assert np.all(last_alphs > ((1 / alpha_inv ** 2) / 2))
-    assert np.all(last_alphs < ((1 / alpha_inv ** 2) * 2))
+    assert np.all(last_alphs > ((1 / alpha_inv**2) / 2))
+    assert np.all(last_alphs < ((1 / alpha_inv**2) * 2))
 
     last_samples = fm.predictor_.samples[-20:]
     assert np.all([s.w0 < stub_weight.global_bias + 0.5 for s in last_samples])

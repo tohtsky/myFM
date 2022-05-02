@@ -2,9 +2,8 @@ import os
 from pathlib import Path
 from typing import Any
 
-from setuptools import setup
-
 from pybind11.setup_helpers import Pybind11Extension, build_ext
+from setuptools import setup
 
 install_requires = [
     "numpy>=1.11",

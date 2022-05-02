@@ -29,9 +29,9 @@ def test_block_vfm() -> None:
         [tm_column, user_block[user_indices], item_block[item_indices]]
     )
     X_flatten_squread = X_flatten.copy()
-    X_flatten_squread.data = X_flatten_squread.data ** 2
+    X_flatten_squread.data = X_flatten_squread.data**2
     factor = rns.randn(X_flatten.shape[1], 3)
-    f2 = (factor ** 2).sum(axis=1)
+    f2 = (factor**2).sum(axis=1)
     Xf = X_flatten.dot(factor)
 
     gb = 3.0
@@ -39,7 +39,7 @@ def test_block_vfm() -> None:
     y = (
         gb
         + X_flatten.dot(linear_weights)
-        + 0.5 * ((Xf ** 2).sum(axis=1) - X_flatten_squread.dot(f2))
+        + 0.5 * ((Xf**2).sum(axis=1) - X_flatten_squread.dot(f2))
         + rns.normal(1.0, size=X_flatten.shape[0])
     )
 
@@ -111,12 +111,12 @@ def test_block() -> None:
         [tm_column, user_block[user_indices], item_block[item_indices]]
     )
     X_flatten_squread = X_flatten.copy()
-    X_flatten_squread.data = X_flatten_squread.data ** 2
+    X_flatten_squread.data = X_flatten_squread.data**2
 
     weights = rns.randn(3, X_flatten.shape[1])
     Xw = X_flatten.dot(weights.T)
-    X2w2 = X_flatten_squread.dot((weights ** 2).sum(axis=0))
-    y = 0.5 * ((Xw ** 2).sum(axis=1) - X2w2) + rns.randn(N_train)
+    X2w2 = X_flatten_squread.dot((weights**2).sum(axis=0))
+    y = 0.5 * ((Xw**2).sum(axis=1) - X2w2) + rns.randn(N_train)
 
     blocks = [
         RelationBlock(user_indices, user_block),
