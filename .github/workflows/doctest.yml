@@ -1,7 +1,7 @@
 name: Doctest
 on: [push]
 jobs:
-  run_pytest_upload_coverage:
+  test_readme_and_sphinx_docs:
     runs-on: ubuntu-latest
     env:
       OS: ubuntu-latest
