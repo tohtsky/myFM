@@ -1,16 +1,10 @@
-# Taken from
-# https://github.com/wichert/pybind11-example/blob/master/setup.py
-# and modified.
-
 import os
-import sys
-from distutils.ccompiler import CCompiler
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any
 
-import setuptools
-from setuptools import Extension, find_packages, setup
-from setuptools.command.build_ext import build_ext
+from setuptools import setup
+
+from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 install_requires = [
     "numpy>=1.11",
@@ -19,10 +13,7 @@ install_requires = [
     "pandas>=1.0.0",
     "typing-extensions>=4.0.0",
 ]
-setup_requires = ["pybind11>=2.5", "requests", "setuptools_scm"]
 
-
-eigen_include_dir = os.environ.get("EIGEN3_INCLUDE_DIR", None)
 
 TEST_BUILD = os.environ.get("TEST_BUILD", None) is not None
 
@@ -32,7 +23,7 @@ class get_eigen_include(object):
     EIGEN3_DIRNAME = "eigen-3.4.0"
 
     def __str__(self) -> str:
-
+        eigen_include_dir = os.environ.get("EIGEN3_INCLUDE_DIR", None)
         if eigen_include_dir is not None:
             return eigen_include_dir
 
@@ -90,91 +81,16 @@ headers = [
 
 
 ext_modules = [
-    Extension(
+    Pybind11Extension(
         "myfm._myfm",
         ["cpp_source/bind.cpp", "cpp_source/Faddeeva.cc"],
         include_dirs=[
             # Path to pybind11 headers
-            get_pybind_include(),
-            get_pybind_include(user=True),
             get_eigen_include(),
             "include",
         ],
-        language="c++",
     ),
 ]
-
-
-def has_flag(compiler: CCompiler, flagname: str) -> bool:
-    """Return a boolean indicating whether a flag name is supported on
-    the specified compiler.
-    """
-    import tempfile
-
-    with tempfile.NamedTemporaryFile("w", suffix=".cpp") as f:
-        f.write("int main (int argc, char **argv) { return 0; }")
-        try:
-            compiler.compile([f.name], extra_postargs=[flagname])
-        except setuptools.distutils.errors.CompileError:
-            return False
-    return True
-
-
-def cpp_flag(compiler: CCompiler) -> str:
-    """Return the -std=c++[11/14/17] compiler flag.
-    The newer version is prefered over c++11 (when it is available).
-    """
-    flags = ["-std=c++11"]
-
-    for flag in flags:
-        if has_flag(compiler, flag):
-            return flag
-
-    raise RuntimeError("Unsupported compiler -- at least C++11 support is needed!")
-
-
-class BuildExt(build_ext):
-    """A custom build extension for adding compiler-specific options."""
-
-    if TEST_BUILD:
-        c_opts: Dict[str, List[str]] = {
-            "msvc": ["/EHsc"],
-            "unix": ["-O0", "-coverage", "-g"],
-        }
-        l_opts: Dict[str, List[str]] = {
-            "msvc": [],
-            "unix": ["-coverage"],
-        }
-    else:
-        c_opts = {
-            "msvc": ["/EHsc"],
-            "unix": [],
-        }
-        l_opts = {
-            "msvc": [],
-            "unix": [],
-        }
-
-    if sys.platform == "darwin":
-        darwin_opts = ["-stdlib=libc++", "-mmacosx-version-min=10.7"]
-        c_opts["unix"] += darwin_opts
-        l_opts["unix"] += darwin_opts
-
-    def build_extensions(self) -> None:
-        ct = self.compiler.compiler_type
-        opts = self.c_opts.get(ct, [])
-        link_opts = self.l_opts.get(ct, [])
-        if ct == "unix":
-            opts.append('-DVERSION_INFO="%s"' % self.distribution.get_version())
-            opts.append(cpp_flag(self.compiler))
-            if has_flag(self.compiler, "-fvisibility=hidden"):
-                opts.append("-fvisibility=hidden")
-        elif ct == "msvc":
-            opts.append('/DVERSION_INFO=\\"%s\\"' % self.distribution.get_version())
-        for ext in self.extensions:
-            ext.extra_compile_args = opts
-            ext.extra_link_args = link_opts
-        build_ext.build_extensions(self)
 
 
 def local_scheme(version: Any) -> str:
@@ -186,17 +102,15 @@ setup(
     use_scm_version={"local_scheme": local_scheme},
     author="Tomoki Ohtsuki",
     url="https://github.com/tohtsky/myfm",
-    author_email="tomoki.ohtsuki129@gmail.com",
-    description="Yet another factorization machine",
+    author_email="tomoki.ohtsuki.19937@outlook.jp",
+    description="Yet another Bayesian factorization machines.",
     long_description="",
     ext_modules=ext_modules,
     install_requires=install_requires,
-    setup_requires=setup_requires,
-    cmdclass={"build_ext": BuildExt},
-    packages=find_packages("src"),
+    cmdclass={"build_ext": build_ext},
     package_dir={"": "src"},
     zip_safe=False,
     headers=headers,
-    python_requires=">=3.6.0",
+    python_requires=">=3.6",
     package_data={"myfm": ["*.pyi"]},
 )
