@@ -20,7 +20,7 @@ def gen_dummy_rating_df(
     user_indices_all = np.arange(max(int(size / 3), 10))
     item_indices_all = np.arange(max(int(size / 2), 10))
     user_factor = rns.normal(
-        0, 1 / factor_rank ** 0.5, size=(user_indices_all.shape[0], factor_rank)
+        0, 1 / factor_rank**0.5, size=(user_indices_all.shape[0], factor_rank)
     )
     item_factor = rns.normal(0, 1, size=(item_indices_all.shape[0], factor_rank))
 
