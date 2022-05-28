@@ -13,8 +13,8 @@ install_requires = [
     "typing-extensions>=4.0.0",
 ]
 
-
-TEST_BUILD = os.environ.get("TEST_BUILD", None) is not None
+CURRENT_DIR = Path(__file__).resolve().parent
+README_FILE = CURRENT_DIR / "README.md"
 
 
 class get_eigen_include(object):
@@ -87,7 +87,8 @@ setup(
     url="https://github.com/tohtsky/myfm",
     author_email="tomoki.ohtsuki.19937@outlook.jp",
     description="Yet another Bayesian factorization machines.",
-    long_description="",
+    long_description=README_FILE.read_text(),
+    long_description_content_type="text/markdown",
     ext_modules=ext_modules,
     install_requires=install_requires,
     cmdclass={"build_ext": build_ext},
