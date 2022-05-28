@@ -32,9 +32,25 @@ def test_middle_clf(
     if use_libfm_callback:
         np.testing.assert_allclose(fm.predict_proba(X), callback.predictions / 200)
 
-    vfm = VariationalFMClassifier(3).fit(
+    vfm_before_fit = VariationalFMClassifier(3)
+    assert vfm_before_fit.w0_mean is None
+    assert vfm_before_fit.w0_var is None
+    assert vfm_before_fit.w_mean is None
+    assert vfm_before_fit.w_var is None
+    assert vfm_before_fit.V_mean is None
+    assert vfm_before_fit.V_var is None
+
+    vfm = vfm_before_fit.fit(
         X, y, X_test=X, y_test=y, n_iter=200  # , n_kept_samples=50
     )
+
+    assert vfm.w0_mean is not None
+    assert vfm.w0_var is not None
+    assert vfm.w_mean is not None
+    assert vfm.w_var is not None
+    assert vfm.V_mean is not None
+    assert vfm.V_var is not None
+
     assert fm.predictor_ is not None
 
     last_samples = fm.predictor_.samples[-20:]
@@ -42,12 +58,11 @@ def test_middle_clf(
     for i in range(3):
         for j in range(i + 1, 3):
             cross_term = stub_weight.factors[:, i].dot(stub_weight.factors[:, j])
-            m = vfm.predictor_.weights()
             if abs(cross_term) < 0.5:
                 continue
             sign = cross_term / abs(cross_term)
-            assert m.V[i].dot(m.V[j]) > sign * cross_term * 0.8
-            assert m.V[i].dot(m.V[j]) < sign * cross_term * 1.2
+            assert vfm.V_mean[i].dot(vfm.V_mean[j]) > sign * cross_term * 0.8
+            assert vfm.V_mean[i].dot(vfm.V_mean[j]) < sign * cross_term * 1.2
 
             for s in last_samples:
                 sample_cross_term = s.V[i].dot(s.V[j])

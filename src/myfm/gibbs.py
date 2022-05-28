@@ -37,6 +37,41 @@ class MyFMGibbsBase(
         LearningHistory,
     ]
 ):
+    @property
+    def w0_samples(self) -> Optional[DenseArray]:
+        r"""Obtain samples for global bias `w0`. If the model is not fit yet, return `None`.
+
+        Returns:
+            Samples for lienar coefficients.
+        """
+        if self.predictor_ is None:
+            return None
+        return np.asfarray([fm.w0 for fm in self.predictor_.samples])
+
+    @property
+    def w_samples(self) -> Optional[DenseArray]:
+        r"""Obtain the Gibbs samples for linear coefficients `w`. Returns `None` if the model is not fit yet.
+
+        Returns:
+            Samples for lienar coefficients.
+            The first dimension is for the sample index, and the second for the feature index.
+        """
+        if self.predictor_ is None:
+            return None
+        return np.asfarray([fm.w for fm in self.predictor_.samples])
+
+    @property
+    def V_samples(self) -> Optional[DenseArray]:
+        r"""Obtain the Gibbs samples for factorized quadratic coefficient `V`. Returns `None` if the model is not fit yet.
+
+        Returns:
+            Samples for lienar coefficients.
+            The first dimension is for the sample index, the second for the feature index, and the third for the factorized dimension.
+        """
+        if self.predictor_ is None:
+            return None
+        return np.asfarray([fm.V for fm in self.predictor_.samples])
+
     def _predict_core(
         self,
         X: Optional[ArrayLike],
