@@ -62,11 +62,11 @@ class MyFMGibbsBase(
 
     @property
     def V_samples(self) -> Optional[DenseArray]:
-        r"""Obtain the Gibbs samples for factorized cross-term vectors `V`. Returns `None` if the model is not fit yet.
+        r"""Obtain the Gibbs samples for factorized quadratic coefficient `V`. Returns `None` if the model is not fit yet.
 
         Returns:
             Samples for lienar coefficients.
-            The first dimension is for the sample index, the second for the feature index, and the third for the vector.
+            The first dimension is for the sample index, the second for the feature index, and the third for the factorized dimension.
         """
         if self.predictor_ is None:
             return None

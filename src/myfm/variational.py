@@ -1,4 +1,4 @@
-from typing import Callable, List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple, TypeVar
 
 import numpy as np
 import scipy.sparse as sps
@@ -17,10 +17,25 @@ from .base import (
     REAL,
     ArrayLike,
     ClassifierMixin,
+    DenseArray,
     MyFMBase,
     RegressorMixin,
     check_data_consistency,
 )
+
+ArrayOrDenseArray = TypeVar("ArrayOrDenseArray", DenseArray, float)
+
+
+def runtime_error_to_optional(
+    fm: "MyFMVariationalBase",
+    retrieve_method: Callable[[VariationalFM], ArrayOrDenseArray],
+) -> Optional[ArrayOrDenseArray]:
+    try:
+        predictor = fm._fetch_predictor()
+    except:
+        return None
+    weights = predictor.weights()
+    return retrieve_method(weights)
 
 
 class MyFMVariationalBase(
@@ -31,6 +46,84 @@ class MyFMVariationalBase(
         VariationalLearningHistory,
     ]
 ):
+    @property
+    def w0_mean(self) -> Optional[float]:
+        """Mean of variational posterior distribution of global bias `w0`.
+
+        Returns:
+            Mean of variational posterior distribution of global bias `w0`.
+        """
+
+        def _retrieve(fm: VariationalFM) -> float:
+            return fm.w0
+
+        return runtime_error_to_optional(self, _retrieve)
+
+    @property
+    def w0_var(self) -> Optional[float]:
+        """Variance of variational posterior distribution of global bias `w0`.
+
+        Returns:
+            Variance of variational posterior distribution of global bias `w0`.
+        """
+
+        def _retrieve(fm: VariationalFM) -> float:
+            return fm.w0_var
+
+        return runtime_error_to_optional(self, _retrieve)
+
+    @property
+    def w_mean(self) -> Optional[DenseArray]:
+        """Mean of variational posterior distribution of linear coefficnent `w`.
+
+        Returns:
+            Mean of variational posterior distribution of linear coefficnent `w.
+        """
+
+        def _retrieve(fm: VariationalFM) -> DenseArray:
+            return fm.w
+
+        return runtime_error_to_optional(self, _retrieve)
+
+    @property
+    def w_var(self) -> Optional[DenseArray]:
+        """Variance of variational posterior distribution of linear coefficnent `w`.
+
+        Returns:
+            Variance of variational posterior distribution of linear coefficnent `w.
+        """
+
+        def _retrieve(fm: VariationalFM) -> DenseArray:
+            return fm.w_var
+
+        return runtime_error_to_optional(self, _retrieve)
+
+    @property
+    def V_mean(self) -> Optional[DenseArray]:
+        """Mean of variational posterior distribution of factorized quadratic coefficnent `V`.
+
+        Returns:
+            Mean of variational posterior distribution of factorized quadratic coefficient `w.
+        """
+
+        def _retrieve(fm: VariationalFM) -> DenseArray:
+            return fm.V
+
+        return runtime_error_to_optional(self, _retrieve)
+
+    @property
+    def V_var(self) -> Optional[DenseArray]:
+        """Variance of variational posterior distribution of factorized quadratic coefficnent `V`.
+
+        Returns:
+            Variance of variational posterior distribution of factorized quadratic coefficient `w.
+        """
+
+        def _retrieve(fm: VariationalFM) -> DenseArray:
+            return fm.V_var
+
+        return runtime_error_to_optional(self, _retrieve)
+
     @classmethod
     def _train_core(
         cls,
