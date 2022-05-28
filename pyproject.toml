@@ -3,7 +3,7 @@ requires = [
   "setuptools>=42",
   "wheel",
   "pybind11>=2.8.0",
-  "requests",
+  "httpx",
   "setuptools_scm[toml]>=6.2",
 ]
 
