@@ -116,10 +116,10 @@ you can train our ordered probit regressor by
     y_train = df_train.rating.values
     y_test = df_test.rating.values
 
-    fm_grouped_ordered = myfm.MyFMOrderedProbit(
+    fm = myfm.MyFMOrderedProbit(
         rank=FM_RANK, random_seed=42,
     )
-    fm_grouped_ordered.fit(
+    fm.fit(
         X_train, y_train - 1, n_iter=300, n_kept_samples=300,
         group_shapes=[len(group) for group in ohe.categories_]
     )
@@ -132,7 +132,7 @@ We can predict the class probability given ``X_test`` as
 
 .. testcode ::
 
-    p_ordinal = fm_grouped_ordered.predict_proba(X_test)
+    p_ordinal = fm.predict_proba(X_test)
 
 and the expected rating as
 
@@ -154,6 +154,8 @@ which gives us RMSE=0.8906 and MAE=0.6985, a slight improvement over the regress
 
 To see why it had an advantage over regression, let us check
 the posterior samples for the cutpoint parameters.
+
+.. testcode ::
 
     cutpoints = fm.cutpoint_samples - fm.w0_samples[:, None]
 
