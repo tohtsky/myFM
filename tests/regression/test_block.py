@@ -57,27 +57,21 @@ def test_block_vfm() -> None:
         y,
         n_iter=100,
     )
-    fm_blocked = VariationalFMRegressor(3).fit(
+    fm_blocked_serialized = VariationalFMRegressor(3).fit(
         tm_column,
         y,
         blocks,
         n_iter=100,
     )
 
-    assert fm_flatten.predictor_ is not None
-    assert fm_blocked.predictor_ is not None
     with tempfile.TemporaryFile() as temp_fs:
-        pickle.dump(fm_blocked, temp_fs)
-        del fm_blocked
+        pickle.dump(fm_blocked_serialized, temp_fs)
+        del fm_blocked_serialized
         temp_fs.seek(0)
-        fm_blocked = pickle.load(temp_fs)
+        fm_blocked: VariationalFMRegressor = pickle.load(temp_fs)
 
-    np.testing.assert_allclose(
-        fm_flatten.predictor_.weights().w, fm_blocked.predictor_.weights().w
-    )
-    np.testing.assert_allclose(
-        fm_flatten.predictor_.weights().V, fm_blocked.predictor_.weights().V
-    )
+    np.testing.assert_allclose(fm_flatten.w_mean, fm_blocked.w_mean)
+    np.testing.assert_allclose(fm_flatten.V_mean, fm_blocked.V_mean)
     predicton_flatten = fm_flatten.predict(tm_column, blocks)
     predicton_blocked = fm_blocked.predict(X_flatten)
     np.testing.assert_allclose(predicton_flatten, predicton_blocked)

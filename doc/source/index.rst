@@ -10,10 +10,10 @@ myFM - Bayesian Factorization Machines in Python/C++
 **myFM** is an unofficial implementation of Bayesian Factorization Machines in Python/C++.
 Notable features include:
 
-* Implementation most functionalities of `libFM <http://libfm.org/>`_ MCMC engine (including grouping & relation block)
-* A simpler and faster implementation with `Pybind11 <https://github.com/pybind/pybind11>`_ and `Eigen <http://eigen.tuxfamily.org/index.php?title=Main_Page>`_
+* Implementation of all corresponding functionalities in `libFM <http://libfm.org/>`_ MCMC engine (including grouping & relation block)
+* A simpler and faster implementation using `Pybind11 <https://github.com/pybind/pybind11>`_ and `Eigen <http://eigen.tuxfamily.org/index.php?title=Main_Page>`_
 * Gibbs sampling for **ordinal regression** with probit link function. See :ref:`the tutorial <OrdinalRegression>` for its usage.
-* Variational inference which converges faster and requires lower memory (but usually less accurate than the Gibbs sampling).
+* Support variational inference, which converges faster and requires lower memory (but usually less accurate than the Gibbs sampling).
 
 
 In most cases, you can install the library from PyPI: ::

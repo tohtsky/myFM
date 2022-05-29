@@ -17,13 +17,12 @@ from .base import (
     REAL,
     ArrayLike,
     ClassifierMixin,
-    DenseArray,
     MyFMBase,
     RegressorMixin,
     check_data_consistency,
 )
 
-ArrayOrDenseArray = TypeVar("ArrayOrDenseArray", DenseArray, float)
+ArrayOrDenseArray = TypeVar("ArrayOrDenseArray", np.ndarray, float)
 
 
 def runtime_error_to_optional(
@@ -48,7 +47,8 @@ class MyFMVariationalBase(
 ):
     @property
     def w0_mean(self) -> Optional[float]:
-        """Mean of variational posterior distribution of global bias `w0`.
+        r"""Mean of variational posterior distribution of global bias `w0`.
+        If the model is not fit yet, returns `None`.
 
         Returns:
             Mean of variational posterior distribution of global bias `w0`.
@@ -61,7 +61,8 @@ class MyFMVariationalBase(
 
     @property
     def w0_var(self) -> Optional[float]:
-        """Variance of variational posterior distribution of global bias `w0`.
+        r"""Variance of variational posterior distribution of global bias `w0`.
+        If the model is not fit yet, returns `None`.
 
         Returns:
             Variance of variational posterior distribution of global bias `w0`.
@@ -73,53 +74,57 @@ class MyFMVariationalBase(
         return runtime_error_to_optional(self, _retrieve)
 
     @property
-    def w_mean(self) -> Optional[DenseArray]:
-        """Mean of variational posterior distribution of linear coefficnent `w`.
+    def w_mean(self) -> Optional[np.ndarray]:
+        r"""Mean of variational posterior distribution of linear coefficnent `w`.
+        If the model is not fit yet, returns `None`.
 
         Returns:
-            Mean of variational posterior distribution of linear coefficnent `w.
+            Mean of variational posterior distribution of linear coefficnent `w`.
         """
 
-        def _retrieve(fm: VariationalFM) -> DenseArray:
+        def _retrieve(fm: VariationalFM) -> np.ndarray:
             return fm.w
 
         return runtime_error_to_optional(self, _retrieve)
 
     @property
-    def w_var(self) -> Optional[DenseArray]:
-        """Variance of variational posterior distribution of linear coefficnent `w`.
+    def w_var(self) -> Optional[np.ndarray]:
+        r"""Variance of variational posterior distribution of linear coefficnent `w`.
+        If the model is not fit yet, returns `None`.
 
         Returns:
-            Variance of variational posterior distribution of linear coefficnent `w.
+            Variance of variational posterior distribution of linear coefficnent `w`.
         """
 
-        def _retrieve(fm: VariationalFM) -> DenseArray:
+        def _retrieve(fm: VariationalFM) -> np.ndarray:
             return fm.w_var
 
         return runtime_error_to_optional(self, _retrieve)
 
     @property
-    def V_mean(self) -> Optional[DenseArray]:
-        """Mean of variational posterior distribution of factorized quadratic coefficnent `V`.
+    def V_mean(self) -> Optional[np.ndarray]:
+        r"""Mean of variational posterior distribution of factorized quadratic coefficnent `V`.
+        If the model is not fit yet, returns `None`.
 
         Returns:
-            Mean of variational posterior distribution of factorized quadratic coefficient `w.
+            Mean of variational posterior distribution of factorized quadratic coefficient `V`.
         """
 
-        def _retrieve(fm: VariationalFM) -> DenseArray:
+        def _retrieve(fm: VariationalFM) -> np.ndarray:
             return fm.V
 
         return runtime_error_to_optional(self, _retrieve)
 
     @property
-    def V_var(self) -> Optional[DenseArray]:
-        """Variance of variational posterior distribution of factorized quadratic coefficnent `V`.
+    def V_var(self) -> Optional[np.ndarray]:
+        r"""Variance of variational posterior distribution of factorized quadratic coefficnent `V`.
+        If the model is not fit yet, returns `None`.
 
         Returns:
-            Variance of variational posterior distribution of factorized quadratic coefficient `w.
+            Variance of variational posterior distribution of factorized quadratic coefficient `V`.
         """
 
-        def _retrieve(fm: VariationalFM) -> DenseArray:
+        def _retrieve(fm: VariationalFM) -> np.ndarray:
             return fm.V_var
 
         return runtime_error_to_optional(self, _retrieve)
