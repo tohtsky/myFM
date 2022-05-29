@@ -31,8 +31,8 @@ def test_oprobit(use_libfm_callback: bool) -> None:
     )
 
     assert fm.predictor_ is not None
-    for sample in fm.predictor_.samples[-10:]:
-        cp_1, cp_2, cp_3 = sample.cutpoints[0]
+    for cutpoint_sample in fm.cutpoint_samples[-10:]:
+        cp_1, cp_2, cp_3 = cutpoint_sample
         assert abs(cp_1) < 0.25
         assert abs(cp_2 - cp_1 - 0.5) < 0.25
         assert abs(cp_3 - cp_1 - 1.5) < 0.25
