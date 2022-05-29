@@ -154,11 +154,8 @@ which gives us RMSE=0.8906 and MAE=0.6985, a slight improvement over the regress
 
 To see why it had an advantage over regression, let us check
 the posterior samples for the cutpoint parameters.
-You can access them via ``fm_grouped_ordered.predictor_.samples``: ::
 
-    cutpoints = np.vstack(
-        [ fm.cutpoints[0] - fm.w0 for fm in fm_grouped_ordered.predictor_.samples]
-    )
+    cutpoints = fm.cutpoint_samples - fm.w0_samples[:, None]
 
 You can see how rating boundaries vs cutpoints looks like. ::
 
