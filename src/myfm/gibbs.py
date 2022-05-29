@@ -530,3 +530,14 @@ class MyFMOrderedProbit(MyFMGibbsBase):
 
         result: ClassIndexArray = self.predict_proba(X, X_rel=X_rel).argmax(axis=1)
         return result
+
+    @property
+    def cutpoint_samples(self) -> Optional[DenseArray]:
+        r"""Obtain samples for the cutpoints. If the model is not fit yet, return `None`.
+
+        Returns:
+            Samples for cutpoints.
+        """
+        if self.predictor_ is None:
+            return None
+        return np.asfarray([fm.cutpoints[0] for fm in self.predictor_.samples])

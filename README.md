@@ -123,7 +123,7 @@ fm = test_myfm(df_train, df_test, rank=8, grouping=True)
 
 ## Examples for Relational Data format
 
-Below is a toy movielens-like example which utilizes relational data format proposed in [3].
+Below is a toy movielens-like example that utilizes relational data format proposed in [3].
 
 This example, however, is too simplistic to exhibit the computational advantage of this data format. For an example with drastically reduced computational complexity, see `examples/ml-100k-extended.ipynb`;
 
