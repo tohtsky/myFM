@@ -28,5 +28,4 @@ fm = MyFMOrderedProbit(0, random_seed=42).fit(
     n_kept_samples=10000,
 )
 
-c0 = np.asfarray([s.cutpoints[0] for s in fm.predictor_.samples])
-print(c0.mean(axis=0))
+print(fm.cutpoint_samples.mean(axis=0))

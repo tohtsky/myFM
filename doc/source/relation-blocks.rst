@@ -205,8 +205,8 @@ but the result should be the same up to floating point artifacts:
 .. testcode ::
 
     for i in range(3):
-        sample_naive = fm_naive.predictor_.samples[i].w
-        sample_rb = fm_rb.predictor_.samples[i].w
+        sample_naive = fm_naive.w_samples[i]
+        sample_rb = fm_rb.w_samples[i]
         assert(np.max(np.abs(sample_naive - sample_rb)) < 1e-5)
         # should print tiny numbers
 
