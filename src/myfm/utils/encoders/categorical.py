@@ -57,6 +57,12 @@ class CategoryValueToSparseEncoder(Generic[T], SparseEncoderBase):
                 return None
             raise
 
+    def __getitem__(self, x: T) -> int:
+        result = self._get_index(x)
+        if result is None:
+            raise KeyError(f"{x} not found.")
+        return result
+
     def names(self) -> List[str]:
         return [str(y) for y in self.values]
 
