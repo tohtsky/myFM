@@ -105,14 +105,14 @@ public:
       for (auto &config : this->learning_config.cutpoint_groups()) {
         fm.cutpoints.emplace_back(config.first - 1);
         cutpoint_sampler.emplace_back(
-            this->e_train, this->y, config.first, config.second, this->gen_,
+            this->e_train, this->y, config.first, config.second, this->gen_(),
             this->learning_config.reg_0, this->learning_config.nu_oprobit,
             this->learning_config.oprobit_minimization_config_);
-        cutpoint_sampler[i].start_sample();
+        cutpoint_sampler[i].start_sample(this->e_train, this->y);
         cutpoint_sampler[i].alpha_to_gamma(fm.cutpoints[i],
                                            cutpoint_sampler[i].alpha_now);
 
-        cutpoint_sampler[i].sample_z_given_cutpoint();
+        cutpoint_sampler[i].sample_z_given_cutpoint(this->e_train, this->y);
         i++;
       }
 
@@ -516,9 +516,9 @@ public:
     } else if (this->learning_config.task_type == TASKTYPE::ORDERED) {
       int i = 0;
       for (auto &sampler_ : cutpoint_sampler) {
-        sampler_.step();
+        sampler_.step(this->e_train, this->y);
         sampler_.alpha_to_gamma(fm.cutpoints[i], sampler_.alpha_now);
-        sampler_.sample_z_given_cutpoint();
+        sampler_.sample_z_given_cutpoint(this->e_train, this->y);
         i++;
       }
     }

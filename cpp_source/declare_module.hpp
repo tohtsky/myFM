@@ -402,4 +402,13 @@ template <typename Real> void declare_functional(py::module &m) {
         &myFM::mean_var_truncated_normal_left<Real>);
   m.def("mean_var_truncated_normal_right",
         &myFM::mean_var_truncated_normal_right<Real>);
+
+  py::class_<myFM::OprobitMinimizationConfig<Real>>(m,
+                                                    "OprobitMinimizationConfig")
+      .def(py::init<int, Real, Real, Real, int>());
+
+  py::class_<myFM::OprobitSampler<Real>>(m, "OprobitSampler")
+      .def(py::init<Vector &, const Vector &, int, const std::vector<size_t> &,
+                    unsigned, Real, Real,
+                    const myFM::OprobitMinimizationConfig<Real> &>());
 }

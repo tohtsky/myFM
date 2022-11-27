@@ -23,19 +23,19 @@ template <typename Real> struct OprobitSampler {
   static constexpr Real SQRT2PI = SQRT2 * SQRTPI;
   static constexpr Real PI = 3.141592653589793;
 
-  OprobitSampler(DenseVector &x, const DenseVector &y, int K,
-                 const std::vector<size_t> &indices, std::mt19937 &rng,
+  OprobitSampler(const DenseVector &x, const DenseVector &y, int K,
+                 const std::vector<size_t> &indices, uint32_t random_seed,
                  Real reg, Real nu,
                  const OprobitMinimizationConfig<Real> &minimization_config)
-      : x_(x), y_(y), K(K), indices_(indices), reg(reg), nu(nu), rng(rng),
-        zmins(K), zmaxs(K), histogram(K),
+      : K(K), indices_(indices), reg(reg), nu(nu),
+        rng(std::mt19937(random_seed)), zmins(K), zmaxs(K), histogram(K),
         minimization_config(minimization_config), accept_count(0) {
     this->alpha_now = DenseVector::Zero(K - 1);
     this->gamma_now = DenseVector::Zero(K - 1);
     this->alpha_to_gamma(gamma_now, alpha_now);
     this->H = DenseMatrix::Zero(K - 1, K - 1);
     for (auto i : indices_) {
-      int y_label = static_cast<int>(y_(i));
+      int y_label = static_cast<int>(y(i));
       if (std::abs(y_label - y(i)) > 1e-3) {
         throw std::invalid_argument("y has a floating-point element.");
       }
@@ -238,7 +238,7 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline void sample_z_given_cutpoint() {
+  inline void sample_z_given_cutpoint(DenseVector &x_, const DenseVector &y_) {
     zmins.array() = std::numeric_limits<Real>::max();
     zmaxs.array() = std::numeric_limits<Real>::lowest();
     Real deviation = 1;
@@ -274,9 +274,9 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline void start_sample() {
+  inline void start_sample(const DenseVector &x, const DenseVector &y) {
     DenseVector alpha_hat = DenseVector::Zero(K - 1);
-    find_minimum(alpha_hat);
+    find_minimum(x, y, alpha_hat);
     alpha_now = alpha_hat;
     alpha_to_gamma(gamma_now, alpha_now);
   }
@@ -289,7 +289,8 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline void find_minimum(DenseVector &alpha_hat) {
+  inline void find_minimum(const DenseVector x, const DenseVector y,
+                           DenseVector &alpha_hat) {
     DenseVector history(minimization_config.history_window);
     DenseVector alpha_new(alpha_hat);
     DenseVector dalpha(alpha_hat);
@@ -299,7 +300,7 @@ template <typename Real> struct OprobitSampler {
     int i = 0;
     while (true) {
       if (first) {
-        ll_current = (*this)(alpha_hat, dalpha, &H);
+        ll_current = (*this)(x, y, alpha_hat, dalpha, &H);
       }
       {
 
@@ -320,7 +321,7 @@ template <typename Real> struct OprobitSampler {
         alpha_new = alpha_hat + step_size * direction;
         Real ll_new;
         try {
-          ll_new = (*this)(alpha_new, dalpha, &H);
+          ll_new = (*this)(x, y, alpha_new, dalpha, &H);
         } catch (std::runtime_error) {
           step_size /= 2;
           continue;
@@ -355,16 +356,16 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline bool step() {
+  inline bool step(const DenseVector &x, const DenseVector &y) {
     DenseVector alpha_hat = alpha_now;
     DenseVector gamma(alpha_hat);
-    find_minimum(alpha_hat);
+    find_minimum(x, y, alpha_hat);
     DenseVector alpha_candidate = sample_mvt(H, nu) + alpha_hat;
 
     Real ll_candidate, ll_old;
     try {
-      ll_candidate = -(*this)(alpha_candidate, gamma);
-      ll_old = -(*this)(alpha_now, gamma);
+      ll_candidate = -(*this)(x, y, alpha_candidate, gamma);
+      ll_old = -(*this)(x, y, alpha_now, gamma);
     } catch (std::runtime_error e) {
       // should be NaN encounter
       return false;
@@ -385,7 +386,8 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline Real operator()(const DenseVector &alpha, DenseVector &dalpha,
+  inline Real operator()(const DenseVector &x_, const DenseVector &y_,
+                         const DenseVector &alpha, DenseVector &dalpha,
                          DenseMatrix *HessianTarget = nullptr) {
     DenseVector gamma = DenseVector::Zero(alpha.rows());
     dalpha.array() = 0;
@@ -416,10 +418,6 @@ template <typename Real> struct OprobitSampler {
       DenseVector expAlpha(alpha.array().exp().matrix());
       H = dGammadAlpha * H * dGammadAlpha.transpose();
       {
-        // m = 0
-        // gamma 0 = alpha_0 does not contribute
-        // since \partial^2 gamma_0 / \partial alpha_i \partial alpha_j = 0 for
-        // all gamma_m = alpha_0 + \sum _{s=1}^{m}(exp\alpha_s)
         for (int m = 1; m < (K - 1); m++) {
           { // i =0, j > 0
             for (int j = 1; j <= m; j++) {
@@ -461,15 +459,12 @@ template <typename Real> struct OprobitSampler {
     return -ll;
   }
 
-  DenseVector &x_;
-  const DenseVector &y_;
-
   int K;
   const std::vector<size_t> indices_;
   Real tune = 1;
   Real reg;
   Real nu;
-  std::mt19937 &rng;
+  std::mt19937 rng;
   DenseVector alpha_now;
   DenseVector gamma_now;
   DenseMatrix H;
