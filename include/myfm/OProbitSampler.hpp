@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Faddeeva/Faddeeva.hh"
+#include "OProbitConfig.hpp"
 #include "util.hpp"
 #include <Eigen/Cholesky>
 #include <Eigen/Core>
@@ -24,9 +25,11 @@ template <typename Real> struct OprobitSampler {
 
   OprobitSampler(DenseVector &x, const DenseVector &y, int K,
                  const std::vector<size_t> &indices, std::mt19937 &rng,
-                 Real reg, Real nu)
+                 Real reg, Real nu,
+                 const OprobitMinimizationConfig<Real> &minimization_config)
       : x_(x), y_(y), K(K), indices_(indices), reg(reg), nu(nu), rng(rng),
-        zmins(K), zmaxs(K), histogram(K), accept_count(0) {
+        zmins(K), zmaxs(K), histogram(K),
+        minimization_config(minimization_config), accept_count(0) {
     this->alpha_now = DenseVector::Zero(K - 1);
     this->gamma_now = DenseVector::Zero(K - 1);
     this->alpha_to_gamma(gamma_now, alpha_now);
@@ -287,12 +290,7 @@ template <typename Real> struct OprobitSampler {
   }
 
   inline void find_minimum(DenseVector &alpha_hat) {
-    int max_iter = 10000;
-    Real epsilon = 1e-5;
-    Real epsilon_rel = 1e-5;
-    Real delta = 1e-5;
-    int past = 3;
-    DenseVector history(past);
+    DenseVector history(minimization_config.history_window);
     DenseVector alpha_new(alpha_hat);
     DenseVector dalpha(alpha_hat);
     DenseVector direction(alpha_hat);
@@ -308,7 +306,8 @@ template <typename Real> struct OprobitSampler {
         Real alpha2 = alpha_hat.norm();
         Real dalpha2 = dalpha.norm();
 
-        if (dalpha2 < epsilon || dalpha2 < epsilon_rel * alpha2) {
+        if (dalpha2 < minimization_config.epsilon ||
+            dalpha2 < minimization_config.epsilon_rel * alpha2) {
           break;
         }
       }
@@ -327,7 +326,7 @@ template <typename Real> struct OprobitSampler {
           continue;
         }
 
-        if (ll_new >= (ll_current * (1 + delta))) {
+        if (ll_new >= (ll_current * (1 + minimization_config.delta))) {
           step_size /= 2;
         } else {
           alpha_hat = alpha_new;
@@ -338,20 +337,20 @@ template <typename Real> struct OprobitSampler {
           break;
       }
       first = false;
-      if (i >= past) {
-        Real past_loss = history(i % past);
+      if (i >= minimization_config.history_window) {
+        Real past_loss = history(i % minimization_config.history_window);
         if (std::abs(past_loss - ll_current) <=
-            delta *
+            minimization_config.delta *
                 std::max(std::max(abs(ll_current), abs(past_loss)), Real(1))) {
           break;
         }
       }
-      history(i % past) = ll_current;
+      history(i % minimization_config.history_window) = ll_current;
       i++;
-      if (i >= max_iter)
+      if (i >= minimization_config.max_iter)
         break;
     }
-    if (i == max_iter) {
+    if (i >= minimization_config.max_iter) {
       throw std::runtime_error("Failed to converge. See fail-log.txt");
     }
   }
@@ -478,6 +477,7 @@ template <typename Real> struct OprobitSampler {
   DenseVector zmins, zmaxs;
   std::vector<size_t> histogram;
   size_t accept_count;
+  OprobitMinimizationConfig<Real> minimization_config;
 };
 
 } // namespace myFM

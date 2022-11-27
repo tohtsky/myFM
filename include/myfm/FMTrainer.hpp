@@ -7,6 +7,7 @@
 #include "FMLearningConfig.hpp"
 #include "HyperParams.hpp"
 #include "LearningHistory.hpp"
+#include "OProbitConfig.hpp"
 #include "OProbitSampler.hpp"
 #include "definitions.hpp"
 #include "predictor.hpp"
@@ -45,6 +46,7 @@ struct GibbsFMTrainer
   using Config = FMLearningConfig<Real>;
   using TASKTYPE = typename Config::TASKTYPE;
 
+  typedef OprobitMinimizationConfig<Real> OprobitMinimizationConfigType;
   typedef OprobitSampler<Real> OprobitSamplerType;
 
 public:
@@ -104,7 +106,8 @@ public:
         fm.cutpoints.emplace_back(config.first - 1);
         cutpoint_sampler.emplace_back(
             this->e_train, this->y, config.first, config.second, this->gen_,
-            this->learning_config.reg_0, this->learning_config.nu_oprobit);
+            this->learning_config.reg_0, this->learning_config.nu_oprobit,
+            this->learning_config.oprobit_minimization_config_);
         cutpoint_sampler[i].start_sample();
         cutpoint_sampler[i].alpha_to_gamma(fm.cutpoints[i],
                                            cutpoint_sampler[i].alpha_now);

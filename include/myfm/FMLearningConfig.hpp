@@ -2,6 +2,7 @@
 
 #include "OProbitSampler.hpp"
 #include "definitions.hpp"
+#include "myfm/OProbitConfig.hpp"
 #include "util.hpp"
 #include <cstddef>
 #include <set>
@@ -14,17 +15,18 @@ public:
   enum class TASKTYPE { REGRESSION, CLASSIFICATION, ORDERED };
   using CutpointGroupType = vector<pair<size_t, vector<size_t>>>;
 
-  inline FMLearningConfig(Real alpha_0, Real beta_0, Real gamma_0, Real mu_0,
-                          Real reg_0, TASKTYPE task_type, Real nu_oprobit,
-                          bool fit_w0, bool fit_linear,
-                          const vector<size_t> &group_index, int n_iter,
-                          int n_kept_samples, Real cutpoint_scale,
-                          const CutpointGroupType &cutpoint_groups)
+  inline FMLearningConfig(
+      Real alpha_0, Real beta_0, Real gamma_0, Real mu_0, Real reg_0,
+      TASKTYPE task_type, Real nu_oprobit, bool fit_w0, bool fit_linear,
+      const vector<size_t> &group_index, int n_iter, int n_kept_samples,
+      Real cutpoint_scale, const CutpointGroupType &cutpoint_groups,
+      const OprobitMinimizationConfig<Real> &oprobit_minimization_config)
       : alpha_0(alpha_0), beta_0(beta_0), gamma_0(gamma_0), mu_0(mu_0),
         reg_0(reg_0), task_type(task_type), nu_oprobit(nu_oprobit),
         fit_w0(fit_w0), fit_linear(fit_linear), n_iter(n_iter),
         n_kept_samples(n_kept_samples), cutpoint_scale(cutpoint_scale),
-        group_index_(group_index), cutpoint_groups_(cutpoint_groups) {
+        group_index_(group_index), cutpoint_groups_(cutpoint_groups),
+        oprobit_minimization_config_(oprobit_minimization_config) {
 
     /* check group_index consistency */
     set<size_t> all_index(group_index.begin(), group_index.end());
@@ -33,8 +35,8 @@ public:
     for (size_t i = 0; i < n_groups_; i++) {
       if (all_index.find(i) == all_index.cend()) {
         throw invalid_argument(
-            (StringBuilder{})("No matching index for group index ")(i)(
-                " found.")
+            (StringBuilder{})("No matching index for group index ")(
+                i)(" found.")
                 .build());
       }
     }
@@ -69,6 +71,7 @@ public:
   const int n_iter, n_kept_samples;
 
   const Real cutpoint_scale;
+  const OprobitMinimizationConfig<Real> oprobit_minimization_config_;
 
 private:
   const vector<size_t> group_index_;
@@ -187,10 +190,11 @@ public:
     }
 
     FMLearningConfig build() {
+      const OprobitMinimizationConfig<Real> config(10000, 1e-5, 1e-5, 1e-5, 3);
       return FMLearningConfig(alpha_0, beta_0, gamma_0, mu_0, reg_0, task_type,
                               nu_oprobit, fit_w0, fit_linear, group_index,
                               n_iter, n_kept_samples, cutpoint_scale,
-                              this->cutpoint_groups);
+                              this->cutpoint_groups, config);
     }
 
     static FMLearningConfig get_default_config(size_t n_features) {

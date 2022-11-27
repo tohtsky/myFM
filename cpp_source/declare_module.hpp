@@ -16,6 +16,7 @@
 #include "myfm/FMLearningConfig.hpp"
 #include "myfm/FMTrainer.hpp"
 #include "myfm/LearningHistory.hpp"
+#include "myfm/OProbitConfig.hpp"
 #include "myfm/OProbitSampler.hpp"
 #include "myfm/definitions.hpp"
 #include "myfm/util.hpp"

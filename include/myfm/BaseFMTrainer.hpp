@@ -7,6 +7,7 @@
 
 #include "FMLearningConfig.hpp"
 #include "HyperParams.hpp"
+#include "OProbitConfig.hpp"
 #include "OProbitSampler.hpp"
 #include "definitions.hpp"
 #include "predictor.hpp"
@@ -31,6 +32,7 @@ struct BaseFMTrainer {
 
   typedef pair<Predictor<Real>, HistoryType> learn_result_type;
 
+  typedef OprobitMinimizationConfig<Real> OprobitMinimizationConfigType;
   typedef OprobitSampler<Real> OprobitSamplerType;
 
   SparseMatrix X;
@@ -114,10 +116,11 @@ struct BaseFMTrainer {
     return HyperType{rank, learning_config.get_n_groups()};
   }
 
-
   inline learn_result_type
   learn_with_callback(FMType &fm, HyperType &hyper,
-                      std::function<bool(int, FMType *, HyperType *, Predictor<Real> *, HistoryType *)> cb);
+                      std::function<bool(int, FMType *, HyperType *,
+                                         Predictor<Real> *, HistoryType *)>
+                          cb);
 
   inline void initialize_hyper(FMType &fm, HyperType &hyper) {
     static_cast<Derived &>(*this).initialize_alpha();
@@ -191,7 +194,6 @@ struct BaseFMTrainer {
 
 protected:
   mt19937 gen_;
-  // std::vector<OprobitSamplerType> cutpoint_sampler;
 
 }; // BaseFMTrainer
 } // namespace myFM

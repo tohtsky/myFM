@@ -57,6 +57,7 @@ headers = [
     "include/myfm/predictor.hpp",
     "include/myfm/FMTrainer.hpp",
     "include/myfm/FMLearningConfig.hpp",
+    "include/myfm/OProbitConfig.hpp",
     "include/myfm/OProbitSampler.hpp",
     "include/Faddeeva/Faddeeva.hh",
     "cpp_source/declare_module.hpp",
