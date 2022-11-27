@@ -289,7 +289,7 @@ template <typename Real> struct OprobitSampler {
     }
   }
 
-  inline void find_minimum(const DenseVector x, const DenseVector y,
+  inline void find_minimum(const DenseVector &x, const DenseVector &y,
                            DenseVector &alpha_hat) {
     DenseVector history(minimization_config.history_window);
     DenseVector alpha_new(alpha_hat);

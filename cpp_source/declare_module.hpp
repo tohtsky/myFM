@@ -83,6 +83,7 @@ template <typename Real> void declare_functional(py::module &m) {
   using Predictor = typename myFM::Predictor<Real>;
   using VPredictor = typename myFM::variational::VariationalPredictor<Real>;
   using TASKTYPE = typename myFM::FMLearningConfig<Real>::TASKTYPE;
+  using OprobitSampler = myFM::OprobitSampler<Real>;
 
   m.doc() = "Backend C++ implementation for myfm.";
 
@@ -406,9 +407,11 @@ template <typename Real> void declare_functional(py::module &m) {
   py::class_<myFM::OprobitMinimizationConfig<Real>>(m,
                                                     "OprobitMinimizationConfig")
       .def(py::init<int, Real, Real, Real, int>());
-
-  py::class_<myFM::OprobitSampler<Real>>(m, "OprobitSampler")
+  py::class_<OprobitSampler>(m, "OprobitSampler")
       .def(py::init<Vector &, const Vector &, int, const std::vector<size_t> &,
                     unsigned, Real, Real,
-                    const myFM::OprobitMinimizationConfig<Real> &>());
+                    const myFM::OprobitMinimizationConfig<Real> &>())
+      .def("find_minimum", &OprobitSampler::find_minimum)
+      .def("sample_cutpoint_given_z", &OprobitSampler::sample_cutpoint_given_z)
+      .def("sample_cutpoint_given_z", &OprobitSampler::sample_z_given_cutpoint);
 }
