@@ -488,11 +488,6 @@ public:
     // relations
   }
 
-  inline void sample_cutpoint_z_marginalized(FMType &fm) {
-    cutpoint_sampler->step();
-    cutpoint_sampler->alpha_to_gamma(fm.cutpoint, cutpoint_sampler->alpha_now);
-  }
-
   inline void update_e(FMType &fm, HyperType &hyper) {
     fm.predict_score_write_target(this->e_train, this->X, this->relations);
 

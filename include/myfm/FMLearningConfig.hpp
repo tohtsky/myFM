@@ -71,14 +71,14 @@ public:
   const int n_iter, n_kept_samples;
 
   const Real cutpoint_scale;
+
+  const vector<size_t> group_index_;
+  const CutpointGroupType cutpoint_groups_;
   const OprobitMinimizationConfig<Real> oprobit_minimization_config_;
 
 private:
-  const vector<size_t> group_index_;
   size_t n_groups_;
   vector<vector<size_t>> group_vs_feature_index_;
-
-  const CutpointGroupType cutpoint_groups_;
 
 public:
   inline size_t get_n_groups() const { return n_groups_; }

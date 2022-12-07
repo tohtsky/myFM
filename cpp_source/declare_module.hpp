@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <functional>
 #include <iostream>
+#include <pybind11/cast.h>
 #include <random>
 #include <tuple>
 #include <vector>
@@ -406,12 +407,20 @@ template <typename Real> void declare_functional(py::module &m) {
 
   py::class_<myFM::OprobitMinimizationConfig<Real>>(m,
                                                     "OprobitMinimizationConfig")
-      .def(py::init<int, Real, Real, Real, int>());
+      .def(py::init<int, Real, Real, Real, int>(), py::arg("max_iter") = 10000,
+           py::arg("epsilon") = 1e-5, py::arg("epsilon_rel") = 1e-5,
+           py::arg("delta") = 1e-5, py::arg("history_window") = 3);
+
   py::class_<OprobitSampler>(m, "OprobitSampler")
       .def(py::init<Vector &, const Vector &, int, const std::vector<size_t> &,
                     unsigned, Real, Real,
-                    const myFM::OprobitMinimizationConfig<Real> &>())
+                    const myFM::OprobitMinimizationConfig<Real> &>(),
+           py::arg("X"), py::arg("y"), py::arg("K"), py::arg("indices"),
+           py::arg("random_seed"), py::arg("reg"), py::arg("nu"),
+           py::arg("minimization_config"))
       .def("find_minimum", &OprobitSampler::find_minimum)
-      .def("sample_cutpoint_given_z", &OprobitSampler::sample_cutpoint_given_z)
-      .def("sample_cutpoint_given_z", &OprobitSampler::sample_z_given_cutpoint);
+      .def("start_sample", &OprobitSampler::start_sample)
+      .def("step", &OprobitSampler::step)
+      .def("gamma", &OprobitSampler::gamma)
+      .def("alpha", &OprobitSampler::alpha);
 }
