@@ -1,12 +1,13 @@
 """Backend C++ implementation for myfm."""
-import myfm._myfm
-from typing import *
 from typing import Iterable as iterable
 from typing import Iterator as iterator
+from typing import *
+
+import scipy.sparse
 from numpy import float64
 from numpy import typing as npt
 
-import scipy.sparse
+import myfm._myfm
 
 __all__ = [
     "ConfigBuilder",
