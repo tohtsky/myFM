@@ -303,6 +303,10 @@ template <typename Real> void declare_functional(nanobind::module_ &m) {
            });
   nanobind::class_<VPredictor>(m, "VariationalPredictor")
       .def("predict", &VPredictor::predict)
+      .def("weights", [](const VPredictor &predictor) {
+        VFM returned = predictor.samples.at(0);
+        return returned;
+      })
       .def("__getstate__",
            [](const VPredictor &predictor) {
              return std::make_tuple(predictor.rank, predictor.feature_size,
