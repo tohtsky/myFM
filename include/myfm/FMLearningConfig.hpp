@@ -107,83 +107,69 @@ public:
 
     Builder() {}
 
-    inline Builder &set_alpha_0(Real arg) {
+    inline void set_alpha_0(Real arg) {
       this->alpha_0 = arg;
-      return *this;
     }
 
-    inline Builder &set_beta_0(Real arg) {
+    inline void set_beta_0(Real arg) {
       this->beta_0 = arg;
-      return *this;
     }
 
-    inline Builder &set_gamma_0(Real arg) {
+    inline void set_gamma_0(Real arg) {
       this->gamma_0 = arg;
-      return *this;
     }
 
-    inline Builder &set_mu_0(Real arg) {
+    inline void set_mu_0(Real arg) {
       this->mu_0 = arg;
-      return *this;
     }
-    inline Builder &set_reg_0(Real arg) {
+    inline void set_reg_0(Real arg) {
       this->reg_0 = arg;
-      return *this;
     }
 
-    inline Builder &set_n_iter(int arg) {
+    inline void set_n_iter(int arg) {
       this->n_iter = arg;
-      return *this;
     }
 
-    inline Builder &set_n_kept_samples(int arg) {
+    inline void set_n_kept_samples(int arg) {
       this->n_kept_samples = arg;
-      return *this;
     }
 
-    inline Builder &set_task_type(TASKTYPE arg) {
+    inline void set_task_type(TASKTYPE arg) {
       this->task_type = arg;
-      return *this;
     }
 
-    inline Builder &set_group_index(const vector<size_t> arg) {
+    inline void set_group_index(const vector<size_t> arg) {
       this->group_index = arg;
-      return *this;
     }
 
-    inline Builder &set_identical_groups(size_t n_features) {
+    inline void set_identical_groups(size_t n_features) {
       vector<size_t> default_group_index(n_features);
       for (auto c = default_group_index.begin(); c != default_group_index.end();
            c++) {
         *c = 0;
       }
-      return set_group_index(default_group_index);
+      set_group_index(default_group_index);
     }
 
-    inline Builder &set_nu_oprobit(size_t nu_oprobit) {
+    inline void set_nu_oprobit(size_t nu_oprobit) {
       this->nu_oprobit = nu_oprobit;
-      return *this;
     }
 
-    inline Builder &set_fit_w0(bool fit_w0) {
+    inline void set_fit_w0(bool fit_w0) {
       this->fit_w0 = fit_w0;
-      return *this;
     }
 
-    inline Builder &set_fit_linear(bool fit_linear) {
+    inline void set_fit_linear(bool fit_linear) {
       this->fit_linear = fit_linear;
-      return *this;
     }
 
-    inline Builder &set_cutpoint_scale(Real cutpoint_scale) {
+    inline void set_cutpoint_scale(Real cutpoint_scale) {
       this->cutpoint_scale = cutpoint_scale;
-      return *this;
     }
 
-    inline Builder &
+    inline void 
     set_cutpoint_groups(const CutpointGroupType &cutpoint_groups) {
       this->cutpoint_groups = cutpoint_groups;
-      return *this;
     }
 
     FMLearningConfig build() {

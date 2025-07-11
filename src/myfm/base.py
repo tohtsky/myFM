@@ -280,7 +280,8 @@ class MyFMBase(Generic[FM, Hyper, Predictor, History], ABC):
         else:
             do_test = False
 
-        config_builder.set_n_iter(n_iter).set_n_kept_samples(n_kept_samples)
+        config_builder.set_n_iter(n_iter)
+        config_builder.set_n_kept_samples(n_kept_samples)
 
         if X.dtype != np.float64:
             X = X.astype(np.float64)
