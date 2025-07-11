@@ -18,7 +18,7 @@ jobs:
           curl http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
       - name: install pytest
         run: |
-          pip install pytest phmdoctest sphinx==4.4.0 sphinx_rtd_theme scikit-learn
+          pip install pytest phmdoctest sphinx==8.3.2 sphinx_rtd_theme scikit-learn
       - name: Test Readme.md
         run: |
           GEN_TEST_FILE=phmdoctest_out.py
