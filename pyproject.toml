@@ -60,3 +60,7 @@ archs = ["auto64"]
 [tool.cibuildwheel.linux]
 # Export a variable
 environment-pass = ["CFLAGS", "CXXFLAGS"]
+
+# Needed for full C++17 support
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "10.14"
