@@ -27,5 +27,5 @@ fm = MyFMOrderedProbit(0, random_seed=42).fit(
     n_iter=11000,
     n_kept_samples=10000,
 )
-
+assert fm.cutpoint_samples is not None
 print(fm.cutpoint_samples.mean(axis=0))

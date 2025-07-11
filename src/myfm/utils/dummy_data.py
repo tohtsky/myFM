@@ -39,7 +39,7 @@ def gen_dummy_rating_df(
         user_factor[result_df[user_colname].values - 1, :]
         * item_factor[result_df[item_colname].values - 1, :]
     ).sum(axis=1)
-    cutpoints: List[float] = list(np.percentile(score, [20, 40, 60, 80]))  # type: ignore
+    cutpoints: List[float] = list(np.percentile(score, [20, 40, 60, 80]))
     rating = np.ones((size,), dtype=np.int64)
     for cp in cutpoints:
         rating += score >= cp
