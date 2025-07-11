@@ -1,7 +1,6 @@
-from typing import Tuple
-
 import pickle
 from io import BytesIO
+from typing import Tuple
 
 import numpy as np
 import pytest
@@ -35,7 +34,7 @@ def test_middle_clf(
     if use_libfm_callback:
         np.testing.assert_allclose(fm.predict_proba(X), callback.predictions / 200)
 
-    stream =  BytesIO()
+    stream = BytesIO()
     pickle.dump(fm, stream)
     stream.seek(0)
     read_fm = pickle.load(stream)
@@ -62,7 +61,7 @@ def test_middle_clf(
 
     assert fm.predictor_ is not None
 
-    vfm_stream =  BytesIO()
+    vfm_stream = BytesIO()
     pickle.dump(vfm, vfm_stream)
     vfm_stream.seek(0)
     read_vfm = pickle.load(vfm_stream)

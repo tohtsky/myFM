@@ -1,4 +1,5 @@
 """Backend C++ implementation for myfm."""
+
 from typing import Iterable as iterable
 from typing import Iterator as iterator
 from typing import *
@@ -68,30 +69,37 @@ class FM:
         """
         :type: npt.NDArray[float64]
         """
+
     @V.setter
     def V(self, arg0: npt.NDArray[float64]) -> None:
         pass
+
     @property
     def cutpoints(self) -> List[npt.NDArray[float64]]:
         """
         :type: List[npt.NDArray[float64]]
         """
+
     @cutpoints.setter
     def cutpoints(self, arg0: List[npt.NDArray[float64]]) -> None:
         pass
+
     @property
     def w(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @w.setter
     def w(self, arg0: npt.NDArray[float64]) -> None:
         pass
+
     @property
     def w0(self) -> float:
         """
         :type: float
         """
+
     @w0.setter
     def w0(self, arg0: float) -> None:
         pass
@@ -105,21 +113,25 @@ class FMHyperParameters:
         """
         :type: float
         """
+
     @property
     def lambda_V(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def lambda_w(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def mu_V(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def mu_w(self) -> npt.NDArray[float64]:
         """
@@ -151,11 +163,13 @@ class LearningHistory:
         """
         :type: List[FMHyperParameters]
         """
+
     @property
     def n_mh_accept(self) -> List[int]:
         """
         :type: List[int]
         """
+
     @property
     def train_log_losses(self) -> List[float]:
         """
@@ -215,6 +229,7 @@ class RelationBlock:
         -----
         The entries of `original_to_block` must be in the [0, data.shape[0]-1].
         """
+
     def __repr__(self) -> str: ...
     def __setstate__(self, arg0: tuple) -> None: ...
     @property
@@ -222,21 +237,25 @@ class RelationBlock:
         """
         :type: int
         """
+
     @property
     def data(self) -> scipy.sparse.csr_matrix[float64]:
         """
         :type: scipy.sparse.csr_matrix[float64]
         """
+
     @property
     def feature_size(self) -> int:
         """
         :type: int
         """
+
     @property
     def mapper_size(self) -> int:
         """
         :type: int
         """
+
     @property
     def original_to_block(self) -> List[int]:
         """
@@ -283,54 +302,67 @@ class VariationalFM:
         """
         :type: npt.NDArray[float64]
         """
+
     @V.setter
     def V(self, arg0: npt.NDArray[float64]) -> None:
         pass
+
     @property
     def V_var(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @V_var.setter
     def V_var(self, arg0: npt.NDArray[float64]) -> None:
         pass
+
     @property
     def cutpoints(self) -> List[npt.NDArray[float64]]:
         """
         :type: List[npt.NDArray[float64]]
         """
+
     @cutpoints.setter
     def cutpoints(self, arg0: List[npt.NDArray[float64]]) -> None:
         pass
+
     @property
     def w(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @w.setter
     def w(self, arg0: npt.NDArray[float64]) -> None:
         pass
+
     @property
     def w0(self) -> float:
         """
         :type: float
         """
+
     @w0.setter
     def w0(self, arg0: float) -> None:
         pass
+
     @property
     def w0_var(self) -> float:
         """
         :type: float
         """
+
     @w0_var.setter
     def w0_var(self, arg0: float) -> None:
         pass
+
     @property
     def w_var(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @w_var.setter
     def w_var(self, arg0: npt.NDArray[float64]) -> None:
         pass
@@ -344,46 +376,55 @@ class VariationalFMHyperParameters:
         """
         :type: float
         """
+
     @property
     def alpha_rate(self) -> float:
         """
         :type: float
         """
+
     @property
     def lambda_V(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def lambda_V_rate(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def lambda_w(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def lambda_w_rate(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def mu_V(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def mu_V_var(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def mu_w(self) -> npt.NDArray[float64]:
         """
         :type: npt.NDArray[float64]
         """
+
     @property
     def mu_w_var(self) -> npt.NDArray[float64]:
         """
@@ -412,6 +453,7 @@ class VariationalLearningHistory:
         """
         :type: List[float]
         """
+
     @property
     def hypers(self) -> FMHyperParameters:
         """

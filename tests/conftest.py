@@ -15,9 +15,7 @@ def stub_weight() -> FMWeights:
     weights = FMWeights(
         -3.0,
         np.asarray([1.0, 2.0, -1.0]),
-        np.asarray(
-            [[1.0, -1.0, 0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 0, -1.0]]
-        ),
+        np.asarray([[1.0, -1.0, 0], [0.0, 1.0, 1.0], [1.0, 1.0, 1.0], [-1.0, 0, -1.0]]),
     )
     return weights
 

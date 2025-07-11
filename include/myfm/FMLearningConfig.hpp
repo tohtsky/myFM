@@ -167,7 +167,7 @@ public:
       this->cutpoint_scale = cutpoint_scale;
     }
 
-    inline void 
+    inline void
     set_cutpoint_groups(const CutpointGroupType &cutpoint_groups) {
       this->cutpoint_groups = cutpoint_groups;
     }
