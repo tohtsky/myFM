@@ -1,204 +1,25 @@
-"""Backend C++ implementation for myfm."""
-from typing import Iterable as iterable
-from typing import Iterator as iterator
-from typing import *
+import enum
+from collections.abc import Callable, Sequence
+from typing import Annotated
 
 import scipy.sparse
-from numpy import float64
-from numpy import typing as npt
+from numpy.typing import ArrayLike
 
-import myfm._myfm
+class TaskType(enum.Enum):
+    REGRESSION = 0
 
-__all__ = [
-    "ConfigBuilder",
-    "FM",
-    "FMHyperParameters",
-    "FMLearningConfig",
-    "FMTrainer",
-    "LearningHistory",
-    "Predictor",
-    "RelationBlock",
-    "TaskType",
-    "VariationalFM",
-    "VariationalFMHyperParameters",
-    "VariationalFMTrainer",
-    "VariationalLearningHistory",
-    "VariationalPredictor",
-    "create_train_fm",
-    "create_train_vfm",
-    "mean_var_truncated_normal_left",
-    "mean_var_truncated_normal_right",
-]
+    CLASSIFICATION = 1
 
-class ConfigBuilder:
-    def __init__(self) -> None: ...
-    def build(self) -> FMLearningConfig: ...
-    def set_alpha_0(self, arg0: float) -> ConfigBuilder: ...
-    def set_beta_0(self, arg0: float) -> ConfigBuilder: ...
-    def set_cutpoint_groups(
-        self, arg0: List[Tuple[int, List[int]]]
-    ) -> ConfigBuilder: ...
-    def set_cutpoint_scale(self, arg0: float) -> ConfigBuilder: ...
-    def set_gamma_0(self, arg0: float) -> ConfigBuilder: ...
-    def set_group_index(self, arg0: List[int]) -> ConfigBuilder: ...
-    def set_identical_groups(self, arg0: int) -> ConfigBuilder: ...
-    def set_mu_0(self, arg0: float) -> ConfigBuilder: ...
-    def set_n_iter(self, arg0: int) -> ConfigBuilder: ...
-    def set_n_kept_samples(self, arg0: int) -> ConfigBuilder: ...
-    def set_nu_oprobit(self, arg0: int) -> ConfigBuilder: ...
-    def set_reg_0(self, arg0: float) -> ConfigBuilder: ...
-    def set_task_type(self, arg0: TaskType) -> ConfigBuilder: ...
-    pass
-
-class FM:
-    def __getstate__(self) -> tuple: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
-    def predict_score(
-        self, arg0: scipy.sparse.csr_matrix[float64], arg1: List[RelationBlock]
-    ) -> npt.NDArray[float64]: ...
-    def oprobit_predict_proba(
-        self,
-        arg0: scipy.sparse.csr_matrix[float64],
-        arg1: List[RelationBlock],
-        arg2: int,
-    ) -> npt.NDArray[float64]: ...
-    @property
-    def V(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @V.setter
-    def V(self, arg0: npt.NDArray[float64]) -> None:
-        pass
-    @property
-    def cutpoints(self) -> List[npt.NDArray[float64]]:
-        """
-        :type: List[npt.NDArray[float64]]
-        """
-    @cutpoints.setter
-    def cutpoints(self, arg0: List[npt.NDArray[float64]]) -> None:
-        pass
-    @property
-    def w(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @w.setter
-    def w(self, arg0: npt.NDArray[float64]) -> None:
-        pass
-    @property
-    def w0(self) -> float:
-        """
-        :type: float
-        """
-    @w0.setter
-    def w0(self, arg0: float) -> None:
-        pass
-    pass
-
-class FMHyperParameters:
-    def __getstate__(self) -> tuple: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
-    @property
-    def alpha(self) -> float:
-        """
-        :type: float
-        """
-    @property
-    def lambda_V(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def lambda_w(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def mu_V(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def mu_w(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    pass
+    ORDERED = 2
 
 class FMLearningConfig:
     pass
 
-class FMTrainer:
-    def __init__(
-        self,
-        arg0: scipy.sparse.csr_matrix[float64],
-        arg1: List[RelationBlock],
-        arg2: npt.NDArray[float64],
-        arg3: int,
-        arg4: FMLearningConfig,
-    ) -> None: ...
-    def create_FM(self, arg0: int, arg1: float) -> FM: ...
-    def create_Hyper(self, arg0: int) -> FMHyperParameters: ...
-    pass
-
-class LearningHistory:
-    def __getstate__(self) -> tuple: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
-    @property
-    def hypers(self) -> List[FMHyperParameters]:
-        """
-        :type: List[FMHyperParameters]
-        """
-    @property
-    def n_mh_accept(self) -> List[int]:
-        """
-        :type: List[int]
-        """
-    @property
-    def train_log_losses(self) -> List[float]:
-        """
-        :type: List[float]
-        """
-    pass
-
-class Predictor:
-    def __getstate__(self) -> tuple: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
-    def predict(
-        self, arg0: scipy.sparse.csr_matrix[float64], arg1: List[RelationBlock]
-    ) -> npt.NDArray[float64]: ...
-    def predict_parallel(
-        self,
-        arg0: scipy.sparse.csr_matrix[float64],
-        arg1: List[RelationBlock],
-        arg2: int,
-    ) -> npt.NDArray[float64]: ...
-    def predict_parallel_oprobit(
-        self,
-        arg0: scipy.sparse.csr_matrix[float64],
-        arg1: List[RelationBlock],
-        arg2: int,
-        arg3: int,
-    ) -> npt.NDArray[float64]: ...
-    @property
-    def samples(self) -> List[FM]:
-        """
-        :type: List[FM]
-        """
-    pass
-
 class RelationBlock:
-    """
-    The RelationBlock Class.
-    """
+    """The RelationBlock Class."""
 
-    def __getstate__(self) -> tuple: ...
     def __init__(
-        self,
-        original_to_block: List[int],
-        data: scipy.sparse.csr_matrix[float64],
+        self, original_to_block: Sequence[int], data: scipy.sparse.csr_matrix[float]
     ) -> None:
         """
         Initializes relation block.
@@ -215,257 +36,411 @@ class RelationBlock:
         -----
         The entries of `original_to_block` must be in the [0, data.shape[0]-1].
         """
+
+    @property
+    def original_to_block(self) -> list[int]: ...
+    @property
+    def data(self) -> scipy.sparse.csr_matrix[float]: ...
+    @property
+    def mapper_size(self) -> int: ...
+    @property
+    def block_size(self) -> int: ...
+    @property
+    def feature_size(self) -> int: ...
     def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
-    @property
-    def block_size(self) -> int:
-        """
-        :type: int
-        """
-    @property
-    def data(self) -> scipy.sparse.csr_matrix[float64]:
-        """
-        :type: scipy.sparse.csr_matrix[float64]
-        """
-    @property
-    def feature_size(self) -> int:
-        """
-        :type: int
-        """
-    @property
-    def mapper_size(self) -> int:
-        """
-        :type: int
-        """
-    @property
-    def original_to_block(self) -> List[int]:
-        """
-        :type: List[int]
-        """
-    pass
+    def __getstate__(self) -> tuple[list[int], scipy.sparse.csr_matrix[float]]: ...
+    def __setstate__(
+        self, arg: tuple[Sequence[int], scipy.sparse.csr_matrix[float]], /
+    ) -> None: ...
 
-class TaskType:
-    """
-    Members:
+class ConfigBuilder:
+    def __init__(self) -> None: ...
+    def set_alpha_0(self, arg: float, /) -> None: ...
+    def set_beta_0(self, arg: float, /) -> None: ...
+    def set_gamma_0(self, arg: float, /) -> None: ...
+    def set_mu_0(self, arg: float, /) -> None: ...
+    def set_reg_0(self, arg: float, /) -> None: ...
+    def set_n_iter(self, arg: int, /) -> None: ...
+    def set_n_kept_samples(self, arg: int, /) -> None: ...
+    def set_task_type(self, arg: TaskType, /) -> None: ...
+    def set_nu_oprobit(self, arg: int, /) -> None: ...
+    def set_fit_w0(self, arg: bool, /) -> None: ...
+    def set_fit_linear(self, arg: bool, /) -> None: ...
+    def set_group_index(self, arg: Sequence[int], /) -> None: ...
+    def set_identical_groups(self, arg: int, /) -> None: ...
+    def set_cutpoint_scale(self, arg: float, /) -> None: ...
+    def set_cutpoint_groups(
+        self, arg: Sequence[tuple[int, Sequence[int]]], /
+    ) -> None: ...
+    def build(self) -> FMLearningConfig: ...
 
-      REGRESSION
-
-      CLASSIFICATION
-
-      ORDERED
-    """
-
-    def __init__(self, arg0: int) -> None: ...
-    def __int__(self) -> int: ...
+class FM:
     @property
-    def name(self) -> str:
-        """
-        (self: handle) -> str
-
-        :type: str
-        """
-    CLASSIFICATION: myfm._myfm.TaskType  # value = TaskType.CLASSIFICATION
-    ORDERED: myfm._myfm.TaskType  # value = TaskType.ORDERED
-    REGRESSION: myfm._myfm.TaskType  # value = TaskType.REGRESSION
-    __entries: dict  # value = {'REGRESSION': (TaskType.REGRESSION, None), 'CLASSIFICATION': (TaskType.CLASSIFICATION, None), 'ORDERED': (TaskType.ORDERED, None)}
-    __members__: dict  # value = {'REGRESSION': TaskType.REGRESSION, 'CLASSIFICATION': TaskType.CLASSIFICATION, 'ORDERED': TaskType.ORDERED}
-    pass
+    def w0(self) -> float: ...
+    @w0.setter
+    def w0(self, arg: float, /) -> None: ...
+    @property
+    def w(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    @w.setter
+    def w(
+        self,
+        arg: Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        /,
+    ) -> None: ...
+    @property
+    def V(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    @V.setter
+    def V(
+        self,
+        arg: Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        /,
+    ) -> None: ...
+    @property
+    def cutpoints(
+        self,
+    ) -> list[Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]]: ...
+    @cutpoints.setter
+    def cutpoints(
+        self,
+        arg: Sequence[
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]
+        ],
+        /,
+    ) -> None: ...
+    def predict_score(
+        self, arg0: scipy.sparse.csr_matrix[float], arg1: Sequence[RelationBlock], /
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    def oprobit_predict_proba(
+        self,
+        arg0: scipy.sparse.csr_matrix[float],
+        arg1: Sequence[RelationBlock],
+        arg2: int,
+        /,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    def __repr__(self) -> str: ...
+    def __getstate__(
+        self,
+    ) -> tuple[
+        float,
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        list[Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]],
+    ]: ...
+    def __setstate__(
+        self,
+        arg: tuple[
+            float,
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+            Sequence[
+                Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]
+            ],
+        ],
+        /,
+    ) -> None: ...
 
 class VariationalFM:
-    def __getstate__(self) -> tuple: ...
-    def __repr__(self) -> str: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
-    def predict_score(
-        self, arg0: scipy.sparse.csr_matrix[float64], arg1: List[RelationBlock]
-    ) -> npt.NDArray[float64]: ...
     @property
-    def V(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @V.setter
-    def V(self, arg0: npt.NDArray[float64]) -> None:
-        pass
-    @property
-    def V_var(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @V_var.setter
-    def V_var(self, arg0: npt.NDArray[float64]) -> None:
-        pass
-    @property
-    def cutpoints(self) -> List[npt.NDArray[float64]]:
-        """
-        :type: List[npt.NDArray[float64]]
-        """
-    @cutpoints.setter
-    def cutpoints(self, arg0: List[npt.NDArray[float64]]) -> None:
-        pass
-    @property
-    def w(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @w.setter
-    def w(self, arg0: npt.NDArray[float64]) -> None:
-        pass
-    @property
-    def w0(self) -> float:
-        """
-        :type: float
-        """
+    def w0(self) -> float: ...
     @w0.setter
-    def w0(self, arg0: float) -> None:
-        pass
+    def w0(self, arg: float, /) -> None: ...
     @property
-    def w0_var(self) -> float:
-        """
-        :type: float
-        """
+    def w0_var(self) -> float: ...
     @w0_var.setter
-    def w0_var(self, arg0: float) -> None:
-        pass
+    def w0_var(self, arg: float, /) -> None: ...
     @property
-    def w_var(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
+    def w(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    @w.setter
+    def w(
+        self,
+        arg: Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        /,
+    ) -> None: ...
+    @property
+    def w_var(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
     @w_var.setter
-    def w_var(self, arg0: npt.NDArray[float64]) -> None:
-        pass
-    pass
+    def w_var(
+        self,
+        arg: Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        /,
+    ) -> None: ...
+    @property
+    def V(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    @V.setter
+    def V(
+        self,
+        arg: Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        /,
+    ) -> None: ...
+    @property
+    def V_var(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    @V_var.setter
+    def V_var(
+        self,
+        arg: Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        /,
+    ) -> None: ...
+    @property
+    def cutpoints(
+        self,
+    ) -> list[Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]]: ...
+    @cutpoints.setter
+    def cutpoints(
+        self,
+        arg: Sequence[
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]
+        ],
+        /,
+    ) -> None: ...
+    def predict_score(
+        self, arg0: scipy.sparse.csr_matrix[float], arg1: Sequence[RelationBlock], /
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    def __repr__(self) -> str: ...
+    def __getstate__(
+        self,
+    ) -> tuple[
+        float,
+        float,
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        list[Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]],
+    ]: ...
+    def __setstate__(
+        self,
+        arg: tuple[
+            float,
+            float,
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+            Sequence[
+                Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]
+            ],
+        ],
+        /,
+    ) -> None: ...
+
+class FMHyperParameters:
+    @property
+    def alpha(self) -> float: ...
+    @property
+    def mu_w(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    @property
+    def lambda_w(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    @property
+    def mu_V(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    @property
+    def lambda_V(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    def __getstate__(
+        self,
+    ) -> tuple[
+        float,
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+    ]: ...
+    def __setstate__(
+        self,
+        arg: tuple[
+            float,
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        ],
+        /,
+    ) -> None: ...
 
 class VariationalFMHyperParameters:
+    @property
+    def alpha(self) -> float: ...
+    @property
+    def alpha_rate(self) -> float: ...
+    @property
+    def mu_w(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    @property
+    def mu_w_var(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    @property
+    def lambda_w(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    @property
+    def lambda_w_rate(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    @property
+    def mu_V(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    @property
+    def mu_V_var(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    @property
+    def lambda_V(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    @property
+    def lambda_V_rate(
+        self,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
     def __getstate__(self) -> tuple: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
+    def __setstate__(
+        self,
+        arg: tuple[
+            float,
+            float,
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+            Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")],
+        ],
+        /,
+    ) -> None: ...
+
+class Predictor:
     @property
-    def alpha(self) -> float:
-        """
-        :type: float
-        """
-    @property
-    def alpha_rate(self) -> float:
-        """
-        :type: float
-        """
-    @property
-    def lambda_V(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def lambda_V_rate(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def lambda_w(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def lambda_w_rate(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def mu_V(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def mu_V_var(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def mu_w(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    @property
-    def mu_w_var(self) -> npt.NDArray[float64]:
-        """
-        :type: npt.NDArray[float64]
-        """
-    pass
+    def samples(self) -> list[FM]: ...
+    def predict(
+        self, arg0: scipy.sparse.csr_matrix[float], arg1: Sequence[RelationBlock], /
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    def predict_parallel(
+        self,
+        arg0: scipy.sparse.csr_matrix[float],
+        arg1: Sequence[RelationBlock],
+        arg2: int,
+        /,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    def predict_parallel_oprobit(
+        self,
+        arg0: scipy.sparse.csr_matrix[float],
+        arg1: Sequence[RelationBlock],
+        arg2: int,
+        arg3: int,
+        /,
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None, None), order="F")]: ...
+    def __getstate__(self) -> tuple[int, int, int, list[FM]]: ...
+    def __setstate__(self, arg: tuple[int, int, TaskType, Sequence[FM]], /) -> None: ...
+
+class VariationalPredictor:
+    def predict(
+        self, arg0: scipy.sparse.csr_matrix[float], arg1: Sequence[RelationBlock], /
+    ) -> Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")]: ...
+    def weights(self) -> VariationalFM: ...
+    def __getstate__(self) -> tuple[int, int, int, list[VariationalFM]]: ...
+    def __setstate__(
+        self, arg: tuple[int, int, TaskType, Sequence[VariationalFM]], /
+    ) -> None: ...
+
+class FMTrainer:
+    def __init__(
+        self,
+        arg0: scipy.sparse.csr_matrix[float],
+        arg1: Sequence[RelationBlock],
+        arg2: Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
+        arg3: int,
+        arg4: FMLearningConfig,
+        /,
+    ) -> None: ...
+    def create_FM(self, arg0: int, arg1: float, /) -> FM: ...
+    def create_Hyper(self, arg: int, /) -> FMHyperParameters: ...
 
 class VariationalFMTrainer:
     def __init__(
         self,
-        arg0: scipy.sparse.csr_matrix[float64],
-        arg1: List[RelationBlock],
-        arg2: npt.NDArray[float64],
+        arg0: scipy.sparse.csr_matrix[float],
+        arg1: Sequence[RelationBlock],
+        arg2: Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
         arg3: int,
         arg4: FMLearningConfig,
+        /,
     ) -> None: ...
-    def create_FM(self, arg0: int, arg1: float) -> VariationalFM: ...
-    def create_Hyper(self, arg0: int) -> VariationalFMHyperParameters: ...
-    pass
+    def create_FM(self, arg0: int, arg1: float, /) -> VariationalFM: ...
+    def create_Hyper(self, arg: int, /) -> VariationalFMHyperParameters: ...
+
+class LearningHistory:
+    @property
+    def hypers(self) -> list[FMHyperParameters]: ...
+    @property
+    def train_log_losses(self) -> list[float]: ...
+    @property
+    def n_mh_accept(self) -> list[int]: ...
+    def __getstate__(
+        self,
+    ) -> tuple[list[FMHyperParameters], list[float], list[int]]: ...
+    def __setstate__(
+        self, arg: tuple[Sequence[FMHyperParameters], Sequence[float], Sequence[int]], /
+    ) -> None: ...
 
 class VariationalLearningHistory:
-    def __getstate__(self) -> tuple: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
     @property
-    def elbos(self) -> List[float]:
-        """
-        :type: List[float]
-        """
+    def hypers(self) -> FMHyperParameters: ...
     @property
-    def hypers(self) -> FMHyperParameters:
-        """
-        :type: FMHyperParameters
-        """
-    pass
-
-class VariationalPredictor:
-    def __getstate__(self) -> tuple: ...
-    def __setstate__(self, arg0: tuple) -> None: ...
-    def predict(
-        self, arg0: scipy.sparse.csr_matrix[float64], arg1: List[RelationBlock]
-    ) -> npt.NDArray[float64]: ...
-    def weights(self) -> VariationalFM: ...
-    pass
+    def elbos(self) -> list[float]: ...
+    def __getstate__(self) -> tuple[FMHyperParameters, list[float]]: ...
+    def __setstate__(
+        self, arg: tuple[FMHyperParameters, Sequence[float]], /
+    ) -> None: ...
 
 def create_train_fm(
     arg0: int,
     arg1: float,
-    arg2: scipy.sparse.csr_matrix[float64],
-    arg3: List[RelationBlock],
-    arg4: npt.NDArray[float64],
+    arg2: scipy.sparse.csr_matrix[float],
+    arg3: Sequence[RelationBlock],
+    arg4: Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
     arg5: int,
     arg6: FMLearningConfig,
     arg7: Callable[[int, FM, FMHyperParameters, LearningHistory], bool],
-) -> Tuple[Predictor, LearningHistory]:
-    """
-    create and train fm.
-    """
+    /,
+) -> tuple[Predictor, LearningHistory]:
+    """create and train fm."""
 
 def create_train_vfm(
     rank: int,
     init_std: float,
-    X: scipy.sparse.csr_matrix[float64],
-    relations: List[RelationBlock],
-    y: npt.NDArray[float64],
+    X: scipy.sparse.csr_matrix[float],
+    relations: Sequence[RelationBlock],
+    y: Annotated[ArrayLike, dict(dtype="float64", shape=(None), order="C")],
     random_seed: int,
     learning_config: FMLearningConfig,
     callback: Callable[
-        [
-            int,
-            VariationalFM,
-            VariationalFMHyperParameters,
-            VariationalLearningHistory,
-        ],
+        [int, VariationalFM, VariationalFMHyperParameters, VariationalLearningHistory],
         bool,
     ],
-) -> Tuple[VariationalPredictor, VariationalLearningHistory]:
-    """
-    create and train fm.
-    """
+) -> tuple[VariationalPredictor, VariationalLearningHistory]:
+    """create and train fm."""
 
-def mean_var_truncated_normal_left(arg0: float) -> Tuple[float, float, float]:
-    pass
-
-def mean_var_truncated_normal_right(arg0: float) -> Tuple[float, float, float]:
-    pass
+def mean_var_truncated_normal_left(arg: float, /) -> tuple[float, float, float]: ...
+def mean_var_truncated_normal_right(arg: float, /) -> tuple[float, float, float]: ...

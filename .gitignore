@@ -23,3 +23,8 @@ stubs/*
 
 doc/source/api_reference/*.rst
 .cache
+src/myfm/_version.py
+
+mise.toml
+
+.venv

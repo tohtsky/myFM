@@ -1,21 +1,43 @@
-[build-system]
-requires = [
-  "setuptools>=42",
-  "wheel",
-  "pybind11>=2.8.0",
-  "httpx",
-  "setuptools_scm[toml]>=6.2",
+[project]
+name = "myfm"
+license = "MIT"
+dynamic = ["version"]
+description = "Yet another Bayesian factorization machines."
+readme = "README.md"
+authors = [
+    { name = "Tomoki Ohtsuki", email = "tomoki.ohtsuki.19937@outlook.jp" },
+]
+dependencies = [
+    "numpy>=2.0",
+    "scipy>=1.0",
+    "tqdm>=4",
+    "pandas>=2.2.0",
+    "typing-extensions>=4.0.0",
 ]
 
-build-backend = "setuptools.build_meta"
+[project.urls]
+Homepage = "https://github.com/tohtsky/myFM"
+
+
+
+[build-system]
+requires = ["scikit-build-core >=0.4.3", "nanobind >=1.3.2", "requests", "setuptools_scm", "setuptools>=64", "wheel"]
+build-backend = "scikit_build_core.build"
+
+[tool.scikit-build]
+minimum-version = "0.4"
+build-dir = "build/{wheel_tag}"
+wheel.py-api = "cp312"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+sdist.include = ["src/myfm/_version.py"]
+
+
+[tool.setuptools_scm]
+write_to = "src/myfm/_version.py"
+local_scheme = "no-local-version"
+
 
 [tool.black]
-ensure_newline_before_comments = true
-force_grid_wrap = 0
-include_trailing_comma = true
-line_length = 88
-multi_line_output = 3
-use_parentheses = true
 
 [tool.isort]
 ensure_newline_before_comments = true
@@ -28,3 +50,17 @@ use_parentheses = true
 
 [tool.pycln]
 all = true
+
+
+[tool.cibuildwheel]
+build-verbosity = 1
+skip = ["cp38-*", "pp38-*"]
+archs = ["auto64"]
+
+[tool.cibuildwheel.linux]
+# Export a variable
+environment-pass = ["CFLAGS", "CXXFLAGS"]
+
+# Needed for full C++17 support
+[tool.cibuildwheel.macos.environment]
+MACOSX_DEPLOYMENT_TARGET = "10.14"

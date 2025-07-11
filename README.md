@@ -169,7 +169,7 @@ X_movie = movie_ohe.transform(
 block_user = RelationBlock(user_indices, X_user)
 block_movie = RelationBlock(movie_indices, X_movie)
 
-fm = MyFMRegressor(rank=2).fit(None, ratings.rating, X_rel=[block_user, block_movie])
+fm = MyFMRegressor(rank=2).fit(None, ratings.rating.values, X_rel=[block_user, block_movie])
 
 prediction_df = pd.DataFrame([
     dict(user_id=user_id,movie_id=movie_id,

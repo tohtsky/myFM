@@ -1,3 +1,5 @@
+import pickle
+from io import BytesIO
 from typing import Tuple
 
 import numpy as np
@@ -32,6 +34,12 @@ def test_middle_clf(
     if use_libfm_callback:
         np.testing.assert_allclose(fm.predict_proba(X), callback.predictions / 200)
 
+    stream = BytesIO()
+    pickle.dump(fm, stream)
+    stream.seek(0)
+    read_fm = pickle.load(stream)
+    np.testing.assert_allclose(fm.predict_proba(X), read_fm.predict_proba(X))
+
     vfm_before_fit = VariationalFMClassifier(3)
     assert vfm_before_fit.w0_mean is None
     assert vfm_before_fit.w0_var is None
@@ -52,6 +60,14 @@ def test_middle_clf(
     assert vfm.V_var is not None
 
     assert fm.predictor_ is not None
+
+    vfm_stream = BytesIO()
+    pickle.dump(vfm, vfm_stream)
+    vfm_stream.seek(0)
+    read_vfm = pickle.load(vfm_stream)
+    np.testing.assert_allclose(vfm.predict_proba(X), read_vfm.predict_proba(X))
+
+    vfm.predict_proba(X)
 
     last_samples = fm.predictor_.samples[-20:]
 

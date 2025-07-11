@@ -156,7 +156,7 @@ We now setup the problem in a non-relational way:
         movie_data_test[test_mid_index]
     ])
 
-    fm_naive = myfm.MyFMRegressor(rank=10).fit(X_train_naive, df_train.rating, n_iter=3, n_kept_samples=3)
+    fm_naive = myfm.MyFMRegressor(rank=10).fit(X_train_naive, df_train.rating.values, n_iter=3, n_kept_samples=3)
 
 In my environment, it takes ~ 2s per iteration, which is much slower than pure MF example.
 
