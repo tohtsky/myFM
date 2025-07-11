@@ -6,7 +6,7 @@ jobs:
     env:
       OS: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -16,9 +16,9 @@ jobs:
           pip install --upgrade pip scikit-build setuptools-scm nanobind
           pip install .
           curl http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
-      - name: Run pytest
+      - name: install pytest
         run: |
-          pip install pytest phmdoctest sphinx==4.4.0 sphinx_rtd_theme
+          pip install pytest phmdoctest sphinx==4.4.0 sphinx_rtd_theme sklearn
       - name: Test Readme.md
         run: |
           GEN_TEST_FILE=phmdoctest_out.py
