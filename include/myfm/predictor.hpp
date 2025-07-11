@@ -148,11 +148,6 @@ template <typename Real, class FMType = FM<Real>> struct Predictor {
     return result;
   }
 
-  inline void set_samples(const vector<FMType> &samples_from) {
-    samples.clear();
-    std::copy(samples_from.begin(),samples_from.end(), samples.begin());
-  }
-
   inline void add_sample(const FMType &fm) {
     if (fm.w0.rows() != feature_size) {
       throw std::invalid_argument("feature size mismatch!");

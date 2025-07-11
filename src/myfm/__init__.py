@@ -1,10 +1,9 @@
 from pkg_resources import DistributionNotFound, get_distribution  # type: ignore
 
 try:
-    __version__ = get_distribution("myfm").version
-except DistributionNotFound:  # pragma: no cover
-    # package is not installed
-    pass  # pragma: no cover
+    from ._version import __version__
+except:  # pragma: no cover
+    __version__ = "0.0.0"
 
 from ._myfm import RelationBlock
 from .gibbs import MyFMGibbsClassifier, MyFMGibbsRegressor, MyFMOrderedProbit
