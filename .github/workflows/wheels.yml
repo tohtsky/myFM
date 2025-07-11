@@ -1,166 +1,77 @@
 name: Build wheel
 on:
   push:
-    branches:
-      - main
+#    branches:
+#      - main
   release:
     types:
       - created
 env:
-  cibuildwheel_version: "2.12.2"
+  cibuildwheel_version: '3.0.1'
 jobs:
   build_sdist:
     name: Build source distribution
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
       - uses: actions/setup-python@v3
         name: Install Python
         with:
-          python-version: "3.11"
+          python-version: '3.13'
       - name: Build sdist
-        run: pip install pybind11 && python setup.py sdist
-      - uses: actions/upload-artifact@v2
+        run: pip install build && python -m build --sdist
+      - uses: actions/upload-artifact@v4
         with:
           path: dist/*.tar.gz
   build_wheels:
     name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    env:
-      MACOSX_DEPLOYMENT_TARGET: "10.9"
-      CIBW_BUILD_VERBOSITY: "1"
-      CIBW_BUILD: "${{ matrix.cibw.build || '*' }}"
-      CIBW_SKIP: "${{ matrix.cibw.skip || '' }}"
-      CIBW_ENVIRONMENT: "${{ matrix.cibw.env || '' }}"
-      CIBW_TEST_COMMAND: "pytest {project}/tests"
-      CIBW_TEST_REQUIRES: pytest pytest-mock
-      CIBW_MANYLINUX_X86_64_IMAGE: "${{ matrix.cibw.manylinux_image }}"
-      CIBW_MANYLINUX_I686_IMAGE: "${{ matrix.cibw.manylinux_image }}"
-      CIBW_MANYLINUX_AARCH64_IMAGE: "${{ matrix.cibw.manylinux_image }}"
-      CIBW_ARCHS_LINUX: "${{ matrix.cibw.arch || 'auto' }}"
-      CIBW_ARCHS_MACOS: "${{ matrix.cibw.arch || 'auto' }}"
+    runs-on: ${{ matrix.runs-on }}
     strategy:
       matrix:
         include:
-          - os: macos-10.15
-            name: mac
-            cibw:
-              arch: x86_64
-              build: "cp37* cp38*"
-
-          - os: macos-10.15
-            name: mac-arm
-            cibw:
-              arch: universal2
-              build: "cp39* cp310* cp311*"
-
-          - os: ubuntu-20.04
-            name: manylinux1
-            cibw:
-              build: "cp37*"
-              skip: "*musllinux*"
-              manylinux_image: manylinux2010
-              arch: auto64
-
-          - os: ubuntu-20.04
-            name: manylinux2014
-            cibw:
-              build: "cp38* cp39* cp310* cp311*"
-              skip: "*musllinux*"
-              manylinux_image: manylinux2014
-              arch: auto64
-
-          - os: ubuntu-20.04
-            name: manylinux_aarch64_cp37
-            cibw:
-              build: "cp37*"
-              skip: "*musllinux*"
-              manylinux_image: manylinux2014
-              arch: aarch64
-
-          - os: ubuntu-20.04
-            name: manylinux_aarch64_cp38
-            cibw:
-              build: "cp38*"
-              skip: "*musllinux*"
-              manylinux_image: manylinux2014
-              arch: aarch64
-
-          - os: ubuntu-20.04
-            name: manylinux_aarch64_cp39
-            cibw:
-              build: "cp39*"
-              skip: "*musllinux*"
-              manylinux_image: manylinux2014
-              arch: aarch64
-
-          - os: ubuntu-20.04
-            name: manylinux_aarch64_cp310
-            cibw:
-              build: "cp310*"
-              skip: "*musllinux*"
-              manylinux_image: manylinux2014
-              arch: aarch64
-
-          - os: ubuntu-20.04
-            name: manylinux_aarch64_cp311
-            cibw:
-              build: "cp311*"
-              skip: "*musllinux*"
-              manylinux_image: manylinux2014
-              arch: aarch64
-
-          - os: windows-2019
-            name: win_amd64
-            architecture: x64
-            cibw:
-              skip: "cp36*"
-              build: "cp*win_amd64"
-
+          - os: linux-intel
+            runs-on: ubuntu-latest
+          - os: linux-arm
+            runs-on: ubuntu-24.04-arm
+          - os: windows-intel
+            runs-on: windows-latest
+          - os: macos-intel
+            runs-on: macos-13
+          - os: macos-arm
+            runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v2
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-python@v2
-        name: Install Python
-      - name: register qemu
-        if: contains(matrix.cibw.arch, 'aarch64')
-        run: |
-          docker run --rm --privileged hypriot/qemu-register:v4.2.0
-      - name: Install cibuildwheel
-        run: python -m pip install cibuildwheel=="${{env.cibuildwheel_version}}"
+      - uses: actions/checkout@v4
       - name: Build wheels
-        run: python -m cibuildwheel --output-dir wheelhouse
-
-      - uses: actions/upload-artifact@v2
+        uses: pypa/cibuildwheel@v3.0.1
+        env:
+          CIBW_PLATFORM: ${{ matrix.platform || 'auto' }}
+      - uses: actions/upload-artifact@v4
         with:
+          name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
           path: ./wheelhouse/*.whl
-
   upload_pypi:
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
+    permissions:
+      id-token: write
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
-          name: artifact
+          pattern: cibw-*
           path: dist
+          merge-multiple: true
       - name: Publish package to TestPyPI
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.TEST_PYPI_APITOKEN }}
-          packages_dir: dist/
-          repository_url: https://test.pypi.org/legacy/
+          packages-dir: dist/
+          repository-url: https://test.pypi.org/legacy/
           verbose: true
-          skip_existing: true
+          skip-existing: true
+          attestations: false
       - name: Publish package to PyPI
         if: github.event_name == 'release'
-        uses: pypa/gh-action-pypi-publish@master
+        uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          user: __token__
-          password: ${{ secrets.PYPI_APITOKEN }}
-          packages_dir: dist/
+          packages-dir: dist/
           verbose: true
-          skip_existing: true
+          skip-existing: true
