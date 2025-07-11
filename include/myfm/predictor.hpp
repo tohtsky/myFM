@@ -6,7 +6,6 @@
 
 #include "FM.hpp"
 #include "FMLearningConfig.hpp"
-#include "definitions.hpp"
 #include "util.hpp"
 
 namespace myFM {
@@ -20,6 +19,9 @@ template <typename Real, class FMType = FM<Real>> struct Predictor {
 
   inline Predictor(size_t rank, size_t feature_size, TASKTYPE type)
       : rank(rank), feature_size(feature_size), type(type), samples() {}
+
+  inline Predictor(size_t rank, size_t feature_size, TASKTYPE type, const vector<FMType> & samples)
+      : rank(rank), feature_size(feature_size), type(type), samples(samples) {}
 
   inline void check_input(const SparseMatrix &X,
                           const vector<RelationBlock> &relations) const {
@@ -146,8 +148,9 @@ template <typename Real, class FMType = FM<Real>> struct Predictor {
     return result;
   }
 
-  inline void set_samples(vector<FMType> &&samples_from) {
-    samples = std::forward<vector<FMType>>(samples_from);
+  inline void set_samples(const vector<FMType> &samples_from) {
+    samples.clear();
+    std::copy(samples_from.begin(),samples_from.end(), samples.begin());
   }
 
   inline void add_sample(const FMType &fm) {

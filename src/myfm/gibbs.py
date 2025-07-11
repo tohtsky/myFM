@@ -46,7 +46,7 @@ class MyFMGibbsBase(
         """
         if self.predictor_ is None:
             return None
-        return np.asfarray([fm.w0 for fm in self.predictor_.samples])
+        return np.asarray([fm.w0 for fm in self.predictor_.samples])
 
     @property
     def w_samples(self) -> Optional[DenseArray]:
@@ -58,7 +58,7 @@ class MyFMGibbsBase(
         """
         if self.predictor_ is None:
             return None
-        return np.asfarray([fm.w for fm in self.predictor_.samples])
+        return np.asarray([fm.w for fm in self.predictor_.samples])
 
     @property
     def V_samples(self) -> Optional[DenseArray]:
@@ -70,7 +70,7 @@ class MyFMGibbsBase(
         """
         if self.predictor_ is None:
             return None
-        return np.asfarray([fm.V for fm in self.predictor_.samples])
+        return np.asarray([fm.V for fm in self.predictor_.samples])
 
     def _predict_core(
         self,
@@ -540,4 +540,4 @@ class MyFMOrderedProbit(MyFMGibbsBase):
         """
         if self.predictor_ is None:
             return None
-        return np.asfarray([fm.cutpoints[0] for fm in self.predictor_.samples])
+        return np.asarray([fm.cutpoints[0] for fm in self.predictor_.samples])

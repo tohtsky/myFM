@@ -32,7 +32,7 @@ class BinningEncoder(SparseEncoderBase):
         if n_percentiles <= 0:
             raise ValueError("n_percentiles must be greater than 0.")
         self.percentages = np.linspace(0, 100, n_percentiles + 2)[1:-1]
-        x_arr = np.asfarray(x)
+        x_arr = np.asarray(x)
         temp_percentiles: DenseArray = np.percentile(
             x_arr[~np.isnan(x_arr)], self.percentages
         )
