@@ -19,7 +19,7 @@ jobs:
           pip install --upgrade pip
           pip install scikit-build setuptools-scm pytest pytest-cov pytest-mock nanobind
           FLAGS="-O0 -fprofile-arcs -ftest-coverage -fprofile-update=atomic"
-          CFLAGS="$FLAGS" CXX_FLAGS="$FLAGS" pip install --editable .
+          CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" pip install --editable .
           pytest --cov=./src/myfm tests/
           coverage xml
           lcov -d `pwd` -c -o coverage.info
