@@ -22,7 +22,7 @@ jobs:
           CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" pip install --editable .
           pytest --cov=./src/myfm tests/
           coverage xml
-          lcov -d `pwd` -c -o coverage.info
+          lcov -d `pwd` -c -o coverage.info -ignore-errors
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
