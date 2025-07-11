@@ -26,3 +26,5 @@ doc/source/api_reference/*.rst
 src/myfm/_version.py
 
 mise.toml
+
+.venv

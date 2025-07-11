@@ -13,19 +13,14 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - name: Build myfm
+      - name: Build myfm & test
         run: |
-          pip install --upgrade pip
-          pip install scikit-build setuptools-scm
           sudo apt-get install lcov
+          pip install --upgrade pip
+          pip install scikit-build setuptools-scm pytest pytest-cov pytest-mock nanobind
           FLAGS="-fprofile-arcs -ftest-coverage"
           CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" pip install --editable .
-      - name: Run pytest
-        run: |
-          pip install pytest pytest-cov pytest-mock
           pytest --cov=./src/myfm tests/
-      - name: Generate coverage (ubuntu)
-        run: |
           coverage xml
           lcov -d `pwd` -c -o coverage.info
       - name: Upload coverage to Codecov
