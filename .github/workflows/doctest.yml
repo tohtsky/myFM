@@ -7,16 +7,13 @@ jobs:
       OS: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-        with:
-          fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.13"
       - name: Build myfm
         run: |
-          pip install --upgrade pip
-          pip install numpy scipy pandas scikit-learn
+          pip install --upgrade pip scikit-build setuptools-scm nanobind
           pip install .
           curl http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
       - name: Run pytest
