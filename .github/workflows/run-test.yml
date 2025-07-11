@@ -6,20 +6,20 @@ jobs:
     env:
       OS: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Setup Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: '3.13'
       - name: Build myfm
         run: |
           pip install --upgrade pip
-          pip install numpy scipy pandas
+          pip install scikit-build setuptools-scm
           sudo apt-get install lcov
           FLAGS="-fprofile-arcs -ftest-coverage"
-          CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" pip install -e .
+          CFLAGS="$FLAGS" CXXFLAGS="$FLAGS" pip install --editable .
       - name: Run pytest
         run: |
           pip install pytest pytest-cov pytest-mock
