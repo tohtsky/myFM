@@ -15,9 +15,9 @@ def test_ml1m(mocker: MockerFixture) -> None:
     if sys.platform == "win32":
         pytest.skip("Skip on Windows.")
     dummy_df = gen_dummy_rating_df(user_colname="user_id", item_colname="movie_id")
-    dummy_df["timestamp"] = (dummy_df["timestamp"].view(np.int64) / 1e9).astype(
-        np.int64
-    )
+    dummy_df["timestamp"] = (
+        dummy_df["timestamp"].astype("datetime64[ns]").astype(np.int64) / 1e9
+    ).astype(np.int64)
     with TemporaryDirectory() as temp_dir:
         target = Path(temp_dir) / "ml1m.zip"
         mocker.patch("builtins.input", return_value="NOO")
