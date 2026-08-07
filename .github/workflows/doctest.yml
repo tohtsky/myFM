@@ -15,7 +15,7 @@ jobs:
         run: |
           pip install --upgrade pip scikit-build setuptools-scm nanobind
           pip install .
-          curl http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
+          curl -L http://files.grouplens.org/datasets/movielens/ml-100k.zip -o ~/.ml-100k.zip
       - name: install pytest
         run: |
           pip install pytest phmdoctest sphinx==8.2.3 sphinx_rtd_theme scikit-learn
