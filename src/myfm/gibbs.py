@@ -492,7 +492,7 @@ class MyFMOrderedProbit(MyFMGibbsBase):
 
         Returns
         -------
-        np.float
+        np.ndarray
             The class probability
         """
 
