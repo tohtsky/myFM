@@ -189,7 +189,7 @@ We can now feed these blocks into :py:meth:`myfm.MyFMRegressor.fit` by
 .. testcode ::
 
     fm_rb = myfm.MyFMRegressor(rank=10).fit(
-        X_date_train, df_train.rating,
+        X_date_train, df_train.rating.values,
         X_rel=[block_user_train, block_movie_train],
         n_iter=300, n_kept_samples=300
     )
