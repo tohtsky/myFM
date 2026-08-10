@@ -1,5 +1,3 @@
-from pkg_resources import DistributionNotFound, get_distribution  # type: ignore
-
 try:
     from ._version import __version__
 except:  # pragma: no cover
