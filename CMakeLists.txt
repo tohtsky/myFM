@@ -32,11 +32,22 @@ include(CPack)
 
 # Detect the installed nanobind package and import it into CMake
 find_package(Python 3.8 COMPONENTS Interpreter ${DEV_MODULE} REQUIRED)
+# scikit-build-core requests the stable ABI (e.g. `wheel.py-api = "cp312"`)
+# by setting SKBUILD_SABI_COMPONENT; also ask FindPython for that component
+# so that the Python::SABIModule target is created for nanobind.
+if (SKBUILD_SABI_COMPONENT)
+  find_package(Python COMPONENTS ${SKBUILD_SABI_COMPONENT} REQUIRED)
+endif()
 execute_process(
   COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
   OUTPUT_STRIP_TRAILING_WHITESPACE OUTPUT_VARIABLE nanobind_ROOT)
 find_package(nanobind CONFIG REQUIRED)
 
-nanobind_add_module(_myfm cpp_source/bind.cpp cpp_source/Faddeeva.cc)
+set(NB_STABLE_ABI "")
+if (SKBUILD_SABI_COMPONENT)
+  set(NB_STABLE_ABI STABLE_ABI)
+endif()
+
+nanobind_add_module(_myfm ${NB_STABLE_ABI} cpp_source/bind.cpp cpp_source/Faddeeva.cc)
 
 install(TARGETS _myfm LIBRARY DESTINATION myfm/)
