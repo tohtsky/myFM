@@ -68,6 +68,11 @@ archs = ["auto64"]
 # Export a variable
 environment-pass = ["CFLAGS", "CXXFLAGS"]
 
+# Build both Intel (x86_64) and Apple Silicon (arm64) wheels on an arm64 runner.
+# On Apple Silicon, the x86_64 wheel can be tested under Rosetta 2.
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
+
 # Needed for full C++17 support
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "10.14"

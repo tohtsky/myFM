@@ -35,9 +35,7 @@ jobs:
             runs-on: ubuntu-24.04-arm
           - os: windows-intel
             runs-on: windows-latest
-          - os: macos-intel
-            runs-on: macos-13
-          - os: macos-arm
+          - os: macos
             runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
